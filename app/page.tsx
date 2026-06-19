@@ -1,0 +1,116 @@
+﻿"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Bell, Heart, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PetCard } from "@/components/pet-card";
+import type { Pet, Sighting } from "@/lib/demo-data";
+import { getPets, getSightings } from "@/lib/pet-store";
+import { listMyReports, listReports, reportToLegacyPet, type Report } from "@/lib/sprint14-store";
+import { distanceKm, formatDistance, timeAgo } from "@/lib/utils";
+
+export default function HomePage() {
+  const [pets, setPets] = useState<Pet[]>([]);
+  const [query, setQuery] = useState("");
+  const [coords, setCoords] = useState<{ latitude: number | null; longitude: number | null }>({ latitude: null, longitude: null });
+  const [sightingCount, setSightingCount] = useState(0);
+  const [recentSightings, setRecentSightings] = useState<Sighting[]>([]);
+  const [myActiveReports, setMyActiveReports] = useState<Report[]>([]);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    const onboardingDone = window.localStorage.getItem("huella:onboarding-complete");
+    if (!onboardingDone) setShowOnboarding(true);
+    if (navigator.geolocation) navigator.geolocation.getCurrentPosition((position) => setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
+    getSightings().then((items) => {
+      setSightingCount(items.length);
+      setRecentSightings(items.slice(0, 4));
+    });
+    listMyReports().then((reports) => setMyActiveReports(reports.filter((report) => report.estado === "activo")));
+  }, []);
+
+  useEffect(() => {
+    Promise.all([listReports(false), getPets()]).then(([reports, publicPets]) => {
+      const mappedReports = reports.map(reportToLegacyPet);
+      const combined = [...mappedReports, ...publicPets].filter((pet, index, items) => items.findIndex((item) => item.id === pet.id) === index);
+      const visiblePets = combined.filter((pet) => pet.estado === "perdido");
+      setPets(visiblePets.sort((a, b) => {
+        const da = distanceKm(coords.latitude, coords.longitude, a.latitud, a.longitud) ?? Number.MAX_SAFE_INTEGER;
+        const db = distanceKm(coords.latitude, coords.longitude, b.latitud, b.longitud) ?? Number.MAX_SAFE_INTEGER;
+        if (da !== db) return da - db;
+        return new Date(b.fecha_reporte).getTime() - new Date(a.fecha_reporte).getTime();
+      }));
+    });
+  }, [coords.latitude, coords.longitude]);
+
+  const filtered = useMemo(() => pets.filter((pet) => {
+    const needle = `${pet.nombre} ${pet.raza} ${pet.distrito} ${pet.tipo}`.toLowerCase();
+    return needle.includes(query.toLowerCase());
+  }), [pets, query]);
+
+  const lostPets = filtered.filter((pet) => pet.estado === "perdido");
+  const firstActiveReport = myActiveReports[0];
+  function finishOnboarding() {
+    window.localStorage.setItem("huella:onboarding-complete", "1");
+    setShowOnboarding(false);
+  }
+
+  return (
+    <main>
+      {showOnboarding && <div className="fixed inset-0 z-50 grid place-items-end bg-black/35 p-3 min-[430px]:place-items-center">
+        <section className="w-full max-w-md rounded-2xl bg-white p-5 shadow-soft">
+          <h1 className="font-serif text-4xl">Bienvenido a HUELLA</h1>
+          <p className="mt-2 text-[#6B6860]">¿Qué deseas hacer?</p>
+          <div className="mt-5 grid gap-2">
+            <Button asChild onClick={finishOnboarding}><Link href="/mis-mascotas">Registrar mis mascotas</Link></Button>
+            <Button asChild variant="outline" onClick={finishOnboarding}><Link href="/reportar-avistamiento">Vi una mascota en la calle</Link></Button>
+            <Button asChild variant="outline" onClick={finishOnboarding}><Link href="/">Ver mascotas desaparecidas cerca de mí</Link></Button>
+            <Button type="button" variant="outline" onClick={finishOnboarding}>Omitir por ahora</Button>
+          </div>
+        </section>
+      </div>}
+      <section className="hero-band py-6 md:py-10">
+        <div className="container grid gap-6 md:grid-cols-[1.1fr_.9fr] md:items-center">
+          <div className="space-y-5">
+            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-sm font-medium text-[#0F6E56] shadow-sm"><Heart size={15} fill="currentColor" /> Ayudamos a que la alegría vuelva a casa.</div>
+            <div>
+              <h1 className="hero-title text-4xl leading-tight md:text-6xl">Huella</h1>
+              <p className="mt-3 max-w-xl text-base leading-7 text-[#6B6860] md:text-lg">Conectamos mascotas perdidas con personas que las han visto.</p>
+            </div>
+            <div className="search-box max-w-xl"><Search size={18} className="text-[#A8A49C]" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por zona, nombre, raza..." /></div>
+          </div>
+          <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-soft">
+            <div className="grid gap-2">
+              <Button className="w-full" asChild><Link href="/perdi-mi-mascota">🔴 Perdí mi mascota</Link></Button>
+              <Button className="w-full" variant="outline" asChild><Link href="/reportar-avistamiento">🟡 Vi una mascota</Link></Button>
+            </div>
+            {firstActiveReport ? <>
+              <div className="mb-3 mt-4 flex items-center gap-2 text-sm font-bold text-[#712B13]"><Bell size={17} /> Hay novedades sobre {firstActiveReport.pet?.nombre ?? "tu mascota"}</div>
+              <ul className="space-y-2 text-sm leading-6 text-[#6B6860]">
+                <li>Nuevo avistamiento recibido</li>
+                <li>Posible coincidencia cerca de {firstActiveReport.distrito}</li>
+                <li>Mascota rescatada similar en revisión</li>
+              </ul>
+              <div className="mt-4 grid gap-2"><Button className="w-full" asChild><Link href={`/pet/${firstActiveReport.id}`}>Ver caso activo</Link></Button><Button className="w-full" variant="outline" asChild><Link href="/mis-reportes">Mis Reportes</Link></Button></div>
+            </> : <>
+              <div className="mb-3 mt-4 flex items-center gap-2 text-sm font-bold text-[#712B13]"><Bell size={17} /> Búsquedas cerca de ti</div>
+              <div className="space-y-2 text-sm leading-6 text-[#6B6860]"><p>Mascotas desaparecidas cerca de ti</p><p>Últimos avistamientos</p><p>Cómo funciona Huella</p></div>
+            </>}
+          </div>
+        </div>
+      </section>
+
+      <section className="container py-7">
+        <div className="mb-7"><div className="mb-4 flex items-center justify-between"><h2 className="text-xl font-bold">Avistamientos recientes</h2><Link href="/reportar-avistamiento" className="text-sm font-semibold text-[#1D9E75]">reportar</Link></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{recentSightings.map((sighting) => <Link key={sighting.id} href={`/avistamiento/${sighting.id}`} className="pet-card block p-4"><div className="text-sm font-bold">{sighting.especie ?? "Mascota"} {sighting.color ? `· ${sighting.color}` : ""}</div><p className="mt-2 text-sm text-[#7A7871]">{sighting.distrito ?? sighting.ubicacion}</p><p className="mt-2 line-clamp-3 text-sm">{sighting.comentario}</p></Link>)}</div></div>
+        <div id="mascotas-buscadas" className="mb-4 flex scroll-mt-24 items-center justify-between"><h2 className="text-xl font-bold">Mascotas desaparecidas cerca de ti</h2></div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{lostPets.map((pet) => <PetCard key={pet.id} pet={pet} distance={formatDistance(distanceKm(coords.latitude, coords.longitude, pet.latitud, pet.longitud))} updatedAgo={timeAgo(pet.creado_en)} />)}</div>
+        {lostPets.length === 0 && <div className="form-card mt-3 text-sm text-[#6B6860]">No hay mascotas desaparecidas cerca por ahora. Si viste una mascota, tu reporte puede ayudar a que alguien la encuentre.</div>}
+      </section>
+
+      <section className="container pb-8">
+        <div className="form-card"><h2 className="mb-3 font-bold">Cómo funciona Huella</h2><div className="grid gap-3 text-sm text-[#6B6860] md:grid-cols-3"><p>1. Publicas una pérdida o un avistamiento.</p><p>2. Huella busca posibles coincidencias por atributos y zona.</p><p>3. El dueño revisa pistas y puede contactar sin exponer datos públicamente.</p></div></div>
+      </section>
+    </main>
+  );
+}

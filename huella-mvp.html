@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Huella — Mascotas Perdidas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{--g:#1D9E75;--gl:#E1F5EE;--gm:#9FE1CB;--gd:#0F6E56;--gdd:#085041;--o:#D85A30;--ol:#FAECE7;--om:#F0997B;--am:#EF9F27;--al:#FAEEDA;--bl:#E6F1FB;--b:#378ADD;--g50:#F8F7F4;--g100:#F1EFE8;--g200:#E0DDD4;--g400:#A8A49C;--g600:#6B6860;--wh:#FFFFFF;--tx:#1C1C1A;--mu:#7A7871;--br:rgba(0,0,0,.08);--br2:rgba(0,0,0,.14);--r:12px;--rl:16px;--rxl:20px}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:#ECEAE2;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px 56px}
+.phone{width:390px;min-height:820px;background:var(--wh);border-radius:48px;box-shadow:0 36px 90px rgba(0,0,0,.24),0 0 0 1px rgba(0,0,0,.06);overflow:hidden;position:relative;flex-shrink:0}
+.notch{width:126px;height:36px;background:#181816;border-radius:0 0 22px 22px;margin:0 auto;position:relative;z-index:100}
+.screen{display:none;flex-direction:column;height:calc(100% - 36px);animation:fu .22s ease}
+.screen.active{display:flex}
+@keyframes fu{from{opacity:.5;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.scroll{flex:1;overflow-y:auto;padding-bottom:84px;overscroll-behavior:contain}
+.scroll::-webkit-scrollbar{display:none}
+/* topbar */
+.tb{display:flex;align-items:center;gap:10px;padding:14px 20px 12px;border-bottom:1px solid var(--br);background:rgba(255,255,255,.97);backdrop-filter:blur(12px);position:sticky;top:0;z-index:60;flex-shrink:0}
+.lm{width:34px;height:34px;border-radius:10px;background:var(--g);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.lm svg{width:18px;height:18px;fill:white}
+.lt{font-family:'DM Serif Display',serif;font-size:20px;color:var(--tx);letter-spacing:-.3px}
+.lt em{font-style:italic;color:var(--g)}
+.sp{flex:1}
+.ib{width:36px;height:36px;border-radius:50%;background:var(--g50);border:1px solid var(--br);display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative;transition:background .15s}
+.ib:hover{background:var(--g100)}
+.ib svg{width:16px;height:16px;color:var(--g600)}
+.nd{width:8px;height:8px;border-radius:50%;background:var(--o);position:absolute;top:6px;right:6px;border:1.5px solid white}
+.bb{width:34px;height:34px;border-radius:50%;background:var(--g50);border:1px solid var(--br);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;transition:background .15s}
+.bb:hover{background:var(--g100)}
+.bb svg{width:16px;height:16px;color:var(--g600)}
+.tbt{font-size:16px;font-weight:500;color:var(--tx);flex:1}
+/* bottom nav */
+.bn{display:flex;justify-content:space-around;align-items:center;padding:10px 0 8px;border-top:1px solid var(--br);background:rgba(255,255,255,.97);backdrop-filter:blur(12px);position:sticky;bottom:0;z-index:60;flex-shrink:0}
+.nb{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 14px;border-radius:10px;transition:background .12s}
+.nb:hover{background:var(--g50)}
+.nb svg{width:22px;height:22px}
+.nb span{font-size:10px;font-weight:500}
+.nb.on svg,.nb.on span{color:var(--g)}
+.nb:not(.on) svg,.nb:not(.on) span{color:var(--g400)}
+/* search */
+.sw{padding:14px 20px 0}
+.sb{display:flex;align-items:center;gap:10px;background:var(--g50);border:1px solid var(--br);border-radius:14px;padding:10px 14px;transition:border-color .15s}
+.sb:focus-within{border-color:var(--g);background:white}
+.sb svg{width:16px;height:16px;color:var(--g400);flex-shrink:0}
+.sb input{border:none;background:transparent;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--tx);flex:1;outline:none}
+.sb input::placeholder{color:var(--g400)}
+/* tabs */
+.tw{padding:12px 20px 0;display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.tw::-webkit-scrollbar{display:none}
+.tab{padding:7px 14px;border-radius:20px;font-size:13px;font-weight:500;border:1px solid var(--br);background:white;color:var(--mu);cursor:pointer;white-space:nowrap;transition:all .15s;font-family:'DM Sans',sans-serif}
+.tab:hover{border-color:var(--gm);color:var(--g)}
+.tab.on{background:var(--g);color:white;border-color:var(--g)}
+/* alert */
+.ab{margin:14px 20px 0;padding:12px 14px;background:var(--ol);border:1px solid var(--om);border-radius:var(--r);display:flex;align-items:flex-start;gap:10px}
+.abi{width:30px;height:30px;border-radius:50%;background:var(--o);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.abi svg{width:14px;height:14px;fill:white}
+.abt{font-size:12.5px;color:#712B13;line-height:1.5}
+.abt strong{font-weight:500}
+/* section header */
+.sh{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 10px}
+.sh h3{font-size:15px;font-weight:500;color:var(--tx)}
+.sh a{font-size:13px;color:var(--g);cursor:pointer}
+/* pet cards */
+.cr{display:flex;gap:12px;padding:4px 20px;overflow-x:auto;scrollbar-width:none}
+.cr::-webkit-scrollbar{display:none}
+.pc{min-width:178px;border-radius:var(--rl);border:1px solid var(--br);background:white;overflow:hidden;cursor:pointer;flex-shrink:0;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:box-shadow .2s,transform .2s}
+.pc:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);transform:translateY(-2px)}
+.ci{height:116px;display:flex;align-items:center;justify-content:center;position:relative;font-size:54px}
+.sp2{position:absolute;top:8px;left:8px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
+.sl{background:var(--ol);color:#712B13}
+.sf{background:var(--gl);color:var(--gdd)}
+.sr{background:var(--bl);color:#0C447C}
+.dp{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.5);color:white;padding:3px 8px;border-radius:20px;font-size:10px}
+.cb2{padding:10px 12px 12px}
+.cn{font-size:14px;font-weight:500;color:var(--tx)}
+.cbr{font-size:12px;color:var(--mu);margin:1px 0 7px}
+.cl{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--mu)}
+.cl svg{width:11px;height:11px;flex-shrink:0}
+/* map */
+.mb{margin:0 20px;height:162px;border-radius:var(--rl);border:1px solid var(--br);overflow:hidden;position:relative;background:#C8EEE0;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.mrh{position:absolute;height:5px;background:rgba(255,255,255,.55);left:0;right:0}
+.mrv{position:absolute;width:5px;background:rgba(255,255,255,.55);top:0;bottom:0}
+.mbl{position:absolute;border-radius:3px;background:#9FE1CB;opacity:.65}
+.ml{position:absolute;top:10px;left:12px;font-size:11px;font-weight:500;color:var(--gdd);background:white;padding:4px 9px;border-radius:6px;border:1px solid var(--gm);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.mp{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translateX(-50%);cursor:pointer}
+.pd{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2.5px solid white;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+.pd.pl{background:var(--o)} .pd.pf{background:var(--g)}
+.pt{width:2px;height:6px}
+/* stats */
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:14px 20px 0}
+.sx{background:var(--g50);border-radius:var(--r);padding:12px;text-align:center;border:1px solid var(--br)}
+.sn{font-size:22px;font-weight:500;color:var(--tx);font-family:'DM Serif Display',serif}
+.sn.g{color:var(--g)} .sn.o{color:var(--o)}
+.sl2{font-size:11px;color:var(--mu);margin-top:2px}
+/* activity */
+.ai{display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--br);cursor:pointer;transition:background .12s}
+.ai:hover{background:var(--g50)}
+.av{width:42px;height:42px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;background:var(--g100);border:1px solid var(--br)}
+.aii{flex:1}
+.at2{font-size:13.5px;font-weight:500;color:var(--tx);line-height:1.3}
+.as{font-size:12px;color:var(--mu);margin-top:2px}
+.atm{font-size:11px;color:var(--mu)}
+/* cta */
+.cta{margin:16px 20px 0;padding:14px;background:var(--g);color:white;border-radius:var(--r);font-size:15px;font-weight:500;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border:none;width:calc(100% - 40px);transition:background .15s,transform .1s;font-family:'DM Sans',sans-serif;box-shadow:0 4px 14px rgba(29,158,117,.3)}
+.cta:hover{background:var(--gd);transform:translateY(-1px)}
+.cta svg{width:18px;height:18px;fill:white}
+/* report steps */
+.stw{display:flex;align-items:center;padding:16px 20px 0}
+.sti{display:flex;align-items:center;flex:1}
+.sc2{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0;transition:all .2s}
+.sc2.dn{background:var(--g);color:white} .sc2.ac{background:var(--g);color:white;box-shadow:0 0 0 4px var(--gl)} .sc2.pe{background:var(--g100);color:var(--mu);border:1px solid var(--br)}
+.sl3{flex:1;height:2px;background:var(--br);margin:0 4px;transition:background .2s} .sl3.dn{background:var(--g)}
+.stl{display:flex;padding:6px 20px 0}
+.stlb{flex:1;text-align:center;font-size:10px;color:var(--mu)} .stlb.on{color:var(--g);font-weight:500}
+.rfp{display:none;padding:16px 20px 0} .rfp.active{display:block}
+/* form elements */
+.uz{border:2px dashed var(--br2);border-radius:var(--rl);padding:28px 16px;text-align:center;cursor:pointer;background:var(--g50);transition:all .15s;margin-bottom:16px}
+.uz:hover{border-color:var(--g);background:var(--gl)}
+.uiw{width:48px;height:48px;border-radius:50%;background:var(--gl);display:flex;align-items:center;justify-content:center;margin:0 auto 10px}
+.uiw svg{width:22px;height:22px;color:var(--g)}
+.ut{font-size:14px;font-weight:500;color:var(--tx);margin-bottom:4px} .us{font-size:12px;color:var(--mu)}
+.pg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+.pth{aspect-ratio:1;border-radius:10px;border:1px solid var(--br);background:var(--g50);display:flex;align-items:center;justify-content:center;font-size:36px;cursor:pointer;position:relative;transition:all .15s}
+.pth:hover{border-color:var(--gm)} .pth.add{border-style:dashed;color:var(--g400);font-size:20px}
+.pdl{position:absolute;top:4px;right:4px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+.pdl svg{width:10px;height:10px;color:white}
+.fi{margin-bottom:14px}
+.fi label{display:block;font-size:12px;font-weight:500;color:var(--mu);margin-bottom:5px;letter-spacing:.2px}
+.rq{color:var(--o)}
+.fi input,.fi select,.fi textarea{width:100%;padding:10px 13px;border:1px solid var(--br2);border-radius:10px;font-size:14px;font-family:'DM Sans',sans-serif;color:var(--tx);background:white;outline:none;transition:border-color .15s,box-shadow .15s}
+.fi input:focus,.fi select:focus,.fi textarea:focus{border-color:var(--g);box-shadow:0 0 0 3px var(--gl)}
+.fi textarea{resize:none;line-height:1.5}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chr{display:flex;flex-wrap:wrap;gap:6px}
+.ch{padding:6px 13px;border-radius:20px;font-size:13px;border:1px solid var(--br2);background:white;color:var(--mu);cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+.ch:hover{border-color:var(--gm);color:var(--g)} .ch.sel{background:var(--gl);color:var(--gdd);border-color:var(--gm);font-weight:500}
+.tip{display:flex;align-items:flex-start;gap:8px;padding:10px 12px;background:var(--gl);border-radius:10px;margin-bottom:14px}
+.tip svg{width:15px;height:15px;color:var(--gd);flex-shrink:0;margin-top:1px}
+.tip p{font-size:12px;color:var(--gdd);line-height:1.5}
+.mmi{height:138px;border-radius:var(--r);overflow:hidden;border:1px solid var(--br);background:#C8EEE0;position:relative;margin-top:10px}
+.co2{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:var(--r);border:1px solid var(--br2);cursor:pointer;margin-bottom:8px;transition:all .15s;background:white}
+.co2:hover{border-color:var(--gm)} .co2.sel{border-color:var(--g);background:var(--gl)}
+.coi{width:38px;height:38px;border-radius:10px;background:var(--g100);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.co2.sel .coi{background:var(--gm)}
+.cof{flex:1} .cot{font-size:13px;font-weight:500;color:var(--tx)} .cos{font-size:12px;color:var(--mu);margin-top:1px}
+.rr{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--br2);flex-shrink:0;display:flex;align-items:center;justify-content:center;transition:border-color .15s}
+.co2.sel .rr{border-color:var(--g)}
+.rd{width:10px;height:10px;border-radius:50%;background:var(--g);display:none} .co2.sel .rd{display:block}
+.rwr{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-radius:var(--r);border:1px solid var(--br);margin-bottom:12px}
+.tg{width:42px;height:24px;border-radius:12px;background:var(--br2);position:relative;cursor:pointer;transition:background .2s}
+.tg.on{background:var(--g)}
+.tk{width:20px;height:20px;border-radius:50%;background:white;position:absolute;top:2px;left:2px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.tg.on .tk{left:20px}
+.suc{background:var(--g50);border-radius:var(--rl);border:1px solid var(--br);padding:14px;margin-bottom:14px}
+.sph{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.sphp{width:54px;height:54px;border-radius:12px;background:white;border:1px solid var(--br);display:flex;align-items:center;justify-content:center;font-size:30px}
+.snm{font-family:'DM Serif Display',serif;font-size:17px;color:var(--tx)}
+.sbr{font-size:12.5px;color:var(--mu);margin-top:2px}
+.srws{display:flex;flex-direction:column;gap:6px}
+.srw{display:flex;gap:8px}
+.srl{font-size:12px;color:var(--mu);min-width:80px} .srv{font-size:12px;color:var(--tx);font-weight:500}
+.brow{display:flex;gap:8px;padding:16px 20px 20px}
+.btnb{flex:1;padding:12px;border-radius:var(--r);font-size:14px;font-weight:500;border:1px solid var(--br2);background:white;color:var(--mu);cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif}
+.btnb:hover{background:var(--g50)}
+.btnn{flex:2;padding:12px;border-radius:var(--r);font-size:14px;font-weight:500;border:none;background:var(--g);color:white;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;box-shadow:0 4px 12px rgba(29,158,117,.25)}
+.btnn:hover{background:var(--gd)}
+/* success */
+.sucw{padding:36px 24px;text-align:center;flex:1}
+.suci{width:76px;height:76px;border-radius:50%;background:var(--gl);display:flex;align-items:center;justify-content:center;margin:0 auto 18px}
+.suci svg{width:36px;height:36px;color:var(--g)}
+.suct{font-family:'DM Serif Display',serif;font-size:26px;color:var(--tx);margin-bottom:8px}
+.sucs{font-size:14px;color:var(--mu);line-height:1.6;margin-bottom:24px}
+.rb{background:var(--gl);border-radius:var(--rl);padding:16px;margin-bottom:22px;border:1px solid var(--gm)}
+.rbn{font-family:'DM Serif Display',serif;font-size:32px;color:var(--g)}
+.rbs{font-size:13px;color:var(--gd);margin-top:3px}
+.shr{display:flex;justify-content:center;gap:16px;margin-bottom:24px}
+.shi{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
+.shc{width:50px;height:50px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.shi span{font-size:11px;color:var(--mu)}
+/* active report */
+.hs{display:flex;gap:14px;padding:16px 20px;border-bottom:1px solid var(--br)}
+.pm{width:90px;height:90px;border-radius:14px;background:#FFF5E6;border:1px solid var(--br);display:flex;align-items:center;justify-content:center;font-size:50px;flex-shrink:0;position:relative;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.phc{position:absolute;bottom:-6px;right:-6px;background:var(--g);color:white;font-size:10px;font-weight:500;padding:2px 7px;border-radius:20px;border:2px solid white}
+.hd{flex:1}
+.hn{font-family:'DM Serif Display',serif;font-size:22px;color:var(--tx)}
+.hbr{font-size:13px;color:var(--mu);margin:2px 0 8px}
+.htg{display:flex;flex-wrap:wrap;gap:5px}
+.htg2{font-size:11px;padding:3px 9px;border-radius:20px;background:var(--g100);color:var(--mu);border:1px solid var(--br)}
+.htg2.g{color:var(--g);border-color:var(--gm);background:var(--gl)}
+.stb{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--br)}
+.sbi{padding:12px 6px;text-align:center;border-right:1px solid var(--br)}
+.sbi:last-child{border-right:none}
+.sbin{font-size:19px;font-weight:500;color:var(--tx);font-family:'DM Serif Display',serif}
+.sbin.g{color:var(--g)} .sbin.o{color:var(--o)}
+.sbil{font-size:10px;color:var(--mu);margin-top:2px;line-height:1.3}
+.sic{border:1px solid var(--br);border-radius:var(--rl);padding:14px;margin-bottom:10px;background:white;cursor:pointer;transition:box-shadow .15s,border-color .15s}
+.sic:hover{box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.sic.ns{border-color:var(--gm);background:#FAFDFB}
+.sct{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px}
+.sca{width:36px;height:36px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:500;background:var(--g100);color:var(--mu)}
+.sca.v{background:var(--gl);color:var(--gdd)}
+.sci{flex:1}
+.scn{font-size:13px;font-weight:500;color:var(--tx);display:flex;align-items:center;gap:5px}
+.scvb{font-size:10px;background:var(--gl);color:var(--gdd);padding:1px 6px;border-radius:4px}
+.sctm{font-size:11px;color:var(--mu);margin-top:1px}
+.scnw{font-size:10px;background:var(--ol);color:#712B13;padding:2px 8px;border-radius:4px;font-weight:500}
+.scm{font-size:13px;color:var(--tx);line-height:1.55;margin-bottom:9px}
+.scl{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mu);background:var(--g50);border-radius:8px;padding:6px 9px;margin-bottom:9px}
+.scl svg{width:12px;height:12px;flex-shrink:0}
+.scph{height:78px;border-radius:9px;background:#FFF5E6;display:flex;align-items:center;justify-content:center;font-size:40px;margin-bottom:9px;border:1px solid var(--br)}
+.scb{display:flex;gap:6px}
+.scbt{flex:1;padding:8px 4px;border-radius:8px;font-size:12px;font-weight:500;border:1px solid var(--br2);background:white;color:var(--mu);cursor:pointer;text-align:center;transition:all .15s;font-family:'DM Sans',sans-serif}
+.scbt:hover{background:var(--g50)}
+.scbt.p{background:var(--g);color:white;border-color:var(--g)} .scbt.p:hover{background:var(--gd)}
+.scbt.cf{background:var(--gl);color:var(--gdd);border-color:var(--gm)}
+.mr{display:flex;gap:8px;padding:14px 20px 0}
+.mg{flex:1;padding:11px 6px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;text-align:center;transition:all .15s;font-family:'DM Sans',sans-serif}
+.mg.ne{border:1px solid var(--br2);color:var(--mu);background:white} .mg.ne:hover{background:var(--g50)}
+.mg.su{background:var(--g);color:white;border:none;box-shadow:0 3px 10px rgba(29,158,117,.25)} .mg.su:hover{background:var(--gd)}
+.mg.da{border:1px solid var(--om);color:#712B13;background:white} .mg.da:hover{background:var(--ol)}
+.fi2{display:flex;align-items:center;gap:10px;padding:10px 20px;border-bottom:1px solid var(--br)}
+.fic{width:32px;height:32px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:14px}
+.fit{flex:1;font-size:12.5px;color:var(--tx);line-height:1.4}
+.fit span{color:var(--mu)}
+.ftm{font-size:11px;color:var(--mu)}
+/* scan */
+.cv{margin:16px 20px 0;height:248px;border-radius:var(--rxl);background:#18181A;overflow:hidden;position:relative;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 24px rgba(0,0,0,.1)}
+.cv.shot{background:#FFF5E6}
+.cor{position:absolute;width:26px;height:26px}
+.ctl{top:14px;left:14px;border-top:2.5px solid rgba(255,255,255,.55);border-left:2.5px solid rgba(255,255,255,.55);border-radius:5px 0 0 0}
+.ctr{top:14px;right:14px;border-top:2.5px solid rgba(255,255,255,.55);border-right:2.5px solid rgba(255,255,255,.55);border-radius:0 5px 0 0}
+.cbl{bottom:14px;left:14px;border-bottom:2.5px solid rgba(255,255,255,.55);border-left:2.5px solid rgba(255,255,255,.55);border-radius:0 0 0 5px}
+.cbr{bottom:14px;right:14px;border-bottom:2.5px solid rgba(255,255,255,.55);border-right:2.5px solid rgba(255,255,255,.55);border-radius:0 0 5px 0}
+.cph2{display:flex;flex-direction:column;align-items:center;gap:10px}
+.ciw{width:58px;height:58px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center}
+.ciw svg{width:26px;height:26px;color:rgba(255,255,255,.8)}
+.ctm{font-size:14px;color:rgba(255,255,255,.8);font-weight:500}
+.cts{font-size:12px;color:rgba(255,255,255,.45)}
+.pet-big{font-size:108px;line-height:1;animation:pi .3s ease}
+@keyframes pi{from{opacity:0;transform:scale(.85)}to{opacity:1;transform:scale(1)}}
+.sa{position:absolute;left:0;right:0;height:2px;background:rgba(29,158,117,.75);animation:sm 1.8s linear infinite}
+@keyframes sm{0%{top:10%}100%{top:90%}}
+.cbs{display:flex;gap:10px;padding:12px 20px 0}
+.cbt{flex:1;padding:11px;border-radius:var(--r);font-size:13.5px;font-weight:500;border:1px solid var(--br2);background:white;color:var(--mu);cursor:pointer;text-align:center;transition:all .15s;font-family:'DM Sans',sans-serif;display:flex;align-items:center;justify-content:center;gap:6px}
+.cbt svg{width:16px;height:16px} .cbt:hover{background:var(--g50)}
+.cbt.p{background:var(--g);color:white;border-color:var(--g);display:none;box-shadow:0 3px 10px rgba(29,158,117,.25)} .cbt.p:hover{background:var(--gd)}
+.ab2{margin:14px 20px 0;padding:14px 16px;border:1px solid var(--br);border-radius:var(--rl);background:var(--g50);display:none}
+.ab2.show{display:block}
+.at{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sp3{width:20px;height:20px;border-radius:50%;border:2px solid var(--gl);border-top-color:var(--g);animation:spn .8s linear infinite;flex-shrink:0}
+@keyframes spn{to{transform:rotate(360deg)}}
+.alb{font-size:13px;font-weight:500;color:var(--tx)} .asb{font-size:12px;color:var(--mu);margin-top:1px}
+.pb{height:4px;border-radius:2px;background:var(--br);overflow:hidden}
+.pf{height:100%;border-radius:2px;background:var(--g);transition:width .4s ease}
+.rw{padding:16px 20px 0;display:none} .rw.show{display:block}
+.cpc{border:1px solid var(--br);border-radius:var(--rxl);overflow:hidden;background:white;box-shadow:0 1px 3px rgba(0,0,0,.06);margin-bottom:14px}
+.cpp{display:grid;grid-template-columns:1fr 1fr;position:relative}
+.cph3{height:128px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-bottom:1px solid var(--br);position:relative}
+.cph3:first-child{border-right:1px solid var(--br)}
+.cphl{position:absolute;top:8px;left:8px;font-size:10px;font-weight:500;padding:2px 8px;border-radius:4px}
+.ly{background:var(--ol);color:#712B13} .lr{background:var(--gl);color:var(--gdd)}
+.cphe{font-size:58px}
+.vsc{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:32px;height:32px;border-radius:50%;background:white;border:1px solid var(--br2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(--mu);z-index:2;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.cpf{padding:14px 16px}
+.sch{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.scp{font-family:'DM Serif Display',serif;font-size:32px;color:var(--g)}
+.scbar{height:8px;border-radius:4px;background:var(--br);overflow:hidden;margin-bottom:12px}
+.scf{height:100%;border-radius:4px;background:var(--g);transition:width 1.2s ease}
+.vrd{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:10px;background:var(--gl)}
+.vri{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;background:var(--gm)}
+.vrt{font-size:12.5px;color:var(--gdd);line-height:1.45}
+.tg2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.tc{border:1px solid var(--br);border-radius:var(--r);padding:10px 12px;background:white}
+.tct{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.tcn{font-size:11.5px;color:var(--mu)} .tcs{font-size:13px;font-weight:500}
+.tcs.hi{color:var(--g)} .tcs.md{color:var(--am)}
+.tcb{height:4px;border-radius:2px;background:var(--br);overflow:hidden}
+.tcf{height:100%;border-radius:2px;transition:width 1s ease}
+.tfh{background:var(--g)} .tfm{background:var(--am)}
+.nc2{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:var(--r);border:1px solid var(--br);background:white;margin-bottom:8px;cursor:pointer;transition:all .15s}
+.nc2:hover{box-shadow:0 1px 3px rgba(0,0,0,.06)} .nc2.top{border-color:var(--gm)}
+.ncp{width:46px;height:46px;border-radius:9px;background:#FFF5E6;display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid var(--br);flex-shrink:0}
+.nci{flex:1} .ncn{font-size:13px;font-weight:500;color:var(--tx)} .ncd{font-size:12px;color:var(--mu);margin-top:1px}
+.ncs{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.ncp2{font-family:'DM Serif Display',serif;font-size:18px}
+.ncp2.hi{color:var(--g)} .ncp2.md{color:var(--am)}
+.ncb{font-size:10px;padding:2px 7px;border-radius:4px}
+.ncb.top{background:var(--gl);color:var(--gdd)} .ncb.ok{background:var(--al);color:#633806}
+.ra{display:flex;gap:8px;margin-bottom:20px}
+.rab{flex:1;padding:12px 6px;border-radius:var(--r);font-size:13px;font-weight:500;cursor:pointer;text-align:center;transition:all .15s;border:none;font-family:'DM Sans',sans-serif}
+.rab.gh{background:var(--g100);color:var(--mu);border:1px solid var(--br2)} .rab.gh:hover{background:var(--g200)}
+.rab.ma{background:var(--g);color:white;box-shadow:0 3px 10px rgba(29,158,117,.25)} .rab.ma:hover{background:var(--gd)}
+.rab.wa{background:var(--ol);color:#712B13;border:1px solid var(--om)}
+/* notify */
+.pan{display:none} .pan.active{display:flex;flex-direction:column;height:100%}
+.mcb2{margin:14px 20px 0;padding:14px;background:var(--gl);border:1px solid var(--gm);border-radius:var(--rl)}
+.mcbt{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+.mcbph{display:flex}
+.mcbp{width:42px;height:42px;border-radius:8px;border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.mcbp:last-child{margin-left:-10px;background:#F0F8FF} .mcbp:first-child{background:#FFF5E6}
+.mcbi{flex:1} .mcbn{font-size:14px;font-weight:500;color:var(--gdd)} .mcbs{font-size:12px;color:var(--gd);margin-top:1px}
+.mcbs strong{color:var(--g);font-weight:500}
+.mcbb{height:4px;border-radius:2px;background:var(--gm);overflow:hidden}
+.mcbf{height:100%;width:83%;background:var(--g);border-radius:2px}
+.oc{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--br);border-radius:var(--r);background:white;margin-bottom:14px}
+.oa{width:46px;height:46px;border-radius:50%;background:var(--gl);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:500;color:var(--gdd);flex-shrink:0}
+.od{flex:1} .on2{font-size:14px;font-weight:500;color:var(--tx);display:flex;align-items:center;gap:6px}
+.vbg{font-size:10px;background:var(--gl);color:var(--gdd);padding:1px 6px;border-radius:4px}
+.os{font-size:12px;color:var(--mu);margin-top:2px} .orw{font-size:12px;color:var(--g);font-weight:500;margin-top:1px}
+.mc{border:1px solid var(--br);border-radius:var(--rl);overflow:hidden;margin-bottom:14px;background:white}
+.mch{display:flex;align-items:center;gap:8px;padding:9px 12px;background:var(--g50);border-bottom:1px solid var(--br)}
+.mch svg{width:14px;height:14px;color:var(--mu)} .mch span{font-size:12px;color:var(--mu);font-weight:500}
+.mcbd{padding:13px 14px;font-size:13px;color:var(--tx);line-height:1.65}
+.mcbd strong{font-weight:500} .mcbd .mg{color:var(--g);font-weight:500}
+.mce{display:flex;align-items:center;justify-content:center;gap:5px;padding:9px;border-top:1px solid var(--br);font-size:12px;color:var(--mu);cursor:pointer}
+.mce:hover{background:var(--g50)} .mce svg{width:13px;height:13px}
+.lr2{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--br);border-radius:var(--r);margin-bottom:14px}
+.lr2 svg{width:17px;height:17px;color:var(--g);flex-shrink:0}
+.li{flex:1} .lt2{font-size:13px;color:var(--tx);font-weight:500} .ls{font-size:11px;color:var(--mu);margin-top:1px}
+.ncard{border:1px solid var(--br);border-radius:var(--rl);overflow:hidden;background:white;margin-bottom:10px;transition:box-shadow .15s}
+.ncard.conn{border-color:var(--gm)} .ncard:hover{box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.nct{display:flex;align-items:center;gap:12px;padding:12px 14px}
+.nlo{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.nni{flex:1} .nnm{font-size:14px;font-weight:500;color:var(--tx)} .nhd{font-size:12px;color:var(--mu);margin-top:1px}
+.nsp{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;padding:4px 10px;border-radius:20px;cursor:pointer}
+.nsp.on{background:var(--gl);color:var(--gdd)} .nsp.off{background:var(--g100);color:var(--mu);border:1px solid var(--br)}
+.nsd{width:6px;height:6px;border-radius:50%;background:var(--g)}
+.npv{border-top:1px solid var(--br);padding:12px 14px;display:none}
+.ncard.conn .npv{display:block}
+.npl{font-size:11px;font-weight:500;color:var(--mu);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px}
+.pmk{border:1px solid var(--br);border-radius:10px;overflow:hidden;background:var(--g50)}
+.pmi{height:72px;display:flex;align-items:center;justify-content:center;font-size:36px;background:#FFF5E6;position:relative;border-bottom:1px solid var(--br)}
+.plb{position:absolute;bottom:6px;right:6px;background:var(--o);color:white;font-size:10px;font-weight:500;padding:2px 7px;border-radius:4px}
+.pmc{padding:8px 10px;font-size:12px;color:var(--tx);line-height:1.5}
+.pmc .ht{color:var(--b)}
+.schr{display:flex;align-items:center;gap:8px;padding:7px 10px 9px;border-top:1px solid var(--br)}
+.schr svg{width:13px;height:13px;color:var(--mu);flex-shrink:0}
+.scht{flex:1;font-size:11.5px;color:var(--mu)} .schc{font-size:11.5px;color:var(--g);cursor:pointer;font-weight:500}
+.abox{border:1px solid var(--br);border-radius:var(--rl);overflow:hidden;margin-bottom:14px;background:white}
+.abxh{display:flex;align-items:center;gap:10px;padding:11px 14px;background:var(--g50);border-bottom:1px solid var(--br)}
+.abxi{width:32px;height:32px;border-radius:8px;background:var(--gl);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.abxi svg{width:16px;height:16px;color:var(--g)}
+.abxt{font-size:13px;font-weight:500;color:var(--tx);flex:1}
+.abxb{font-size:10px;background:var(--gl);color:var(--gdd);padding:2px 8px;border-radius:20px;font-weight:500}
+.abxi2{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-bottom:1px solid var(--br)}
+.abxi2:last-child{border-bottom:none}
+.abck{width:18px;height:18px;border-radius:5px;border:1.5px solid var(--g);display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+.abck svg{width:11px;height:11px;color:var(--g)}
+.ait{font-size:13px;color:var(--tx);font-weight:500} .ais{font-size:11.5px;color:var(--mu);margin-top:2px}
+/* sent */
+.snw{padding:32px 24px;text-align:center;flex:1}
+.sni{width:72px;height:72px;border-radius:50%;background:var(--gl);display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.sni svg{width:34px;height:34px;color:var(--g)}
+.snh{font-family:'DM Serif Display',serif;font-size:24px;color:var(--tx);margin-bottom:8px}
+.sns{font-size:13.5px;color:var(--mu);line-height:1.6;margin-bottom:22px}
+.tl{text-align:left;margin-bottom:22px}
+.tlr{display:flex;align-items:flex-start;gap:12px;padding-bottom:16px;position:relative}
+.tlr:last-child{padding-bottom:0}
+.tlr::before{content:'';position:absolute;left:13px;top:28px;width:1px;height:calc(100% - 14px);background:var(--br)}
+.tlr:last-child::before{display:none}
+.tlic{width:28px;height:28px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px;border:2px solid white}
+.tlic.dn{background:var(--gl)} .tlic.pe{background:var(--al)}
+.tlif{flex:1;padding-top:2px}
+.tlt{font-size:13px;font-weight:500;color:var(--tx)} .tls{font-size:12px;color:var(--mu);margin-top:2px} .tlm{font-size:11px;color:var(--mu);margin-top:1px}
+.fb{width:100%;padding:13px;border-radius:var(--r);font-size:14px;font-weight:500;border:none;background:var(--g);color:white;cursor:pointer;transition:all .15s;font-family:'DM Sans',sans-serif;box-shadow:0 4px 12px rgba(29,158,117,.25)}
+.fb:hover{background:var(--gd)}
+.pul{animation:pla 1.5s infinite}
+@keyframes pla{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+</head>
+<body>
+<div class="phone">
+<div class="notch"></div>
+
+<!-- HOME -->
+<div class="screen active" id="s-home">
+  <div class="tb">
+    <div class="lm"><svg viewBox="0 0 24 24"><path d="M12 22c-4 0-7-2.5-7-6 0-2 1-3.5 2.5-4.5C6 10.5 5.5 9 5.5 7.5A3.5 3.5 0 0 1 9 4c.8 0 1.5.3 2 .7.5-.4 1.2-.7 2-.7a3.5 3.5 0 0 1 3.5 3.5c0 1.5-.5 3-2 4 1.5 1 2.5 2.5 2.5 4.5 0 3.5-3 6-7 6z"/></svg></div>
+    <span class="lt">hue<em>lla</em></span><div class="sp"></div>
+    <div class="ib" onclick="go('s-scan')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg></div>
+    <div class="ib" style="margin-left:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><div class="nd"></div></div>
+  </div>
+  <div class="scroll">
+    <div class="sw"><div class="sb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg><input placeholder="Buscar por zona, nombre, raza..."></div></div>
+    <div class="tw"><div class="tab on" onclick="setTab(this)">Todos</div><div class="tab" onclick="setTab(this)">Perdidos</div><div class="tab" onclick="setTab(this)">Encontrados</div><div class="tab" onclick="setTab(this)">Reunidos</div><div class="tab" onclick="setTab(this)">Cerca de mí</div></div>
+    <div class="ab"><div class="abi"><svg viewBox="0 0 24 24"><path d="M12 22c-4 0-7-2.5-7-6 0-2 1-3.5 2.5-4.5C6 10.5 5.5 9 5.5 7.5A3.5 3.5 0 0 1 9 4c.8 0 1.5.3 2 .7.5-.4 1.2-.7 2-.7a3.5 3.5 0 0 1 3.5 3.5c0 1.5-.5 3-2 4 1.5 1 2.5 2.5 2.5 4.5 0 3.5-3 6-7 6z"/></svg></div><p class="abt"><strong>Alerta en tu zona:</strong> 3 mascotas perdidas en Miraflores en las últimas 24 horas.</p></div>
+    <div class="sh"><h3>Reportes recientes</h3><a>ver todos</a></div>
+    <div class="cr">
+      <div class="pc" onclick="go('s-active')"><div class="ci" style="background:#FFF5E6">🐕<div class="sp2 sl">Perdida</div><div class="dp">2 días</div></div><div class="cb2"><div class="cn">Luna</div><div class="cbr">Labrador dorada, 3 años</div><div class="cl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Miraflores</div></div></div>
+      <div class="pc"><div class="ci" style="background:#F0F8FF">🐈<div class="sp2 sf">Encontrado</div><div class="dp">5 hs</div></div><div class="cb2"><div class="cn">¿Me conoces?</div><div class="cbr">Gato naranja, adulto</div><div class="cl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>San Isidro</div></div></div>
+      <div class="pc"><div class="ci" style="background:#F5F5F0">🐩<div class="sp2 sr">Reunido ✓</div><div class="dp">ayer</div></div><div class="cb2"><div class="cn">Rocky</div><div class="cbr">Poodle blanco, 5 años</div><div class="cl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Barranco</div></div></div>
+      <div class="pc"><div class="ci" style="background:#FFF0F5">🐕‍🦺<div class="sp2 sl">Perdida</div><div class="dp">1 día</div></div><div class="cb2"><div class="cn">Kira</div><div class="cbr">Beagle tricolor, 2 años</div><div class="cl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Surco</div></div></div>
+    </div>
+    <div class="sh"><h3>Mapa de avistamientos</h3><a>ampliar</a></div>
+    <div class="mb"><div class="mbl" style="top:10%;left:8%;width:22%;height:28%"></div><div class="mbl" style="top:10%;left:54%;width:20%;height:28%"></div><div class="mbl" style="top:65%;left:8%;width:20%;height:22%"></div><div class="mbl" style="top:65%;left:60%;width:24%;height:22%"></div><div class="mrh" style="top:44%"></div><div class="mrh" style="top:62%"></div><div class="mrv" style="left:35%"></div><div class="mrv" style="left:60%"></div><div class="ml">Lima, Perú</div><div class="mp" style="top:22%;left:30%"><div class="pd pl">🐕</div><div class="pt" style="background:var(--o)"></div></div><div class="mp" style="top:26%;left:62%"><div class="pd pf">🐈</div><div class="pt" style="background:var(--g)"></div></div><div class="mp" style="top:50%;left:46%"><div class="pd pl">🐩</div><div class="pt" style="background:var(--o)"></div></div><div class="mp" style="top:38%;left:74%"><div class="pd pl">🐕‍🦺</div><div class="pt" style="background:var(--o)"></div></div></div>
+    <div class="sg"><div class="sx"><div class="sn o">24</div><div class="sl2">perdidos hoy</div></div><div class="sx"><div class="sn">38</div><div class="sl2">avistamientos</div></div><div class="sx"><div class="sn g">12</div><div class="sl2">reunidos/mes</div></div></div>
+    <div class="sh"><h3>Actividad reciente</h3><a>ver todo</a></div>
+    <div class="ai" onclick="go('s-active')"><div class="av">🐕</div><div class="aii"><div class="at2">Carlos M. vio a Luna en el Malecón</div><div class="as">Miraflores · "Cerca al Parque Kennedy"</div></div><div class="atm">8 min</div></div>
+    <div class="ai"><div class="av">❤️</div><div class="aii"><div class="at2">¡Rocky fue encontrado y reunido!</div><div class="as">Gracias a 14 personas que compartieron</div></div><div class="atm">1 h</div></div>
+    <div class="ai"><div class="av">🐈</div><div class="aii"><div class="at2">Ana G. encontró un gato sin collar</div><div class="as">San Isidro · Foto adjunta</div></div><div class="atm">3 h</div></div>
+    <button class="cta" onclick="go('s-report')"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Reportar mascota perdida o encontrada</button>
+  </div>
+  <div class="bn">
+    <div class="nb on"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Inicio</span></div>
+    <div class="nb" onclick="go('s-scan')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><span>Mapa</span></div>
+    <div class="nb" onclick="go('s-report')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg><span>Reportar</span></div>
+    <div class="nb" onclick="go('s-scan')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg><span>Escanear</span></div>
+    <div class="nb" onclick="go('s-active')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Perfil</span></div>
+  </div>
+</div>
+
+<!-- REPORT -->
+<div class="screen" id="s-report">
+  <div class="tb"><div class="bb" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div><span class="tbt">Nuevo reporte</span><span style="font-size:12px;color:var(--mu)" id="rsl">Paso 1 de 4</span></div>
+  <div class="scroll" style="padding-bottom:100px">
+    <div class="stw"><div class="sti"><div class="sc2 ac" id="rs1">1</div><div class="sl3" id="rl1"></div></div><div class="sti"><div class="sc2 pe" id="rs2">2</div><div class="sl3" id="rl2"></div></div><div class="sti"><div class="sc2 pe" id="rs3">3</div><div class="sl3" id="rl3"></div></div><div class="sti"><div class="sc2 pe" id="rs4">4</div></div></div>
+    <div class="stl"><span class="stlb on" id="rlb1">Fotos</span><span class="stlb" id="rlb2">Datos</span><span class="stlb" id="rlb3">Ubicación</span><span class="stlb" id="rlb4">Contacto</span></div>
+    <div class="rfp active" id="rp1">
+      <div class="uz" onclick="addPh()"><div class="uiw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg></div><div class="ut">Subir fotos de tu mascota</div><div class="us">Hasta 5 fotos nítidas · sin filtros</div></div>
+      <div class="pg" id="pgrid"><div class="pth" style="background:#FFF5E6" onclick="rmPh(this)">🐕<div class="pdl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6L6 18M6 6l12 12"/></svg></div></div><div class="pth add" onclick="addPh()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="22" height="22"><path d="M12 5v14M5 12h14"/></svg></div></div>
+      <div class="tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><p>Las fotos nítidas aumentan en <strong>73%</strong> las chances de encontrar a tu mascota.</p></div>
+    </div>
+    <div class="rfp" id="rp2">
+      <div class="fi"><label>Nombre <span class="rq">*</span></label><input value="Luna" placeholder="¿Cómo se llama?"></div>
+      <div class="r2"><div class="fi"><label>Tipo <span class="rq">*</span></label><select><option selected>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div class="fi"><label>Sexo</label><select><option selected>Hembra</option><option>Macho</option><option>No sé</option></select></div></div>
+      <div class="r2"><div class="fi"><label>Raza</label><input value="Labrador dorada"></div><div class="fi"><label>Edad</label><select><option>Cachorro</option><option selected>Joven (1-3)</option><option>Adulto</option><option>Mayor</option></select></div></div>
+      <div class="fi"><label>Talla</label><div class="chr" id="szch"><div class="ch" onclick="selCh(this,'szch')">Pequeño</div><div class="ch sel" onclick="selCh(this,'szch')">Mediano</div><div class="ch" onclick="selCh(this,'szch')">Grande</div></div></div>
+      <div class="fi"><label>Señas particulares</label><textarea rows="3">Collar rojo con chapita, mancha blanca en el pecho</textarea></div>
+      <div class="fi"><label>Fecha que se perdió <span class="rq">*</span></label><input type="date" value="2026-03-12"></div>
+    </div>
+    <div class="rfp" id="rp3">
+      <div class="fi"><label>¿Dónde se perdió? <span class="rq">*</span></label><input value="Malecón de la Reserva, Miraflores"></div>
+      <div class="mmi"><div class="mbl" style="top:10%;left:8%;width:25%;height:32%"></div><div class="mbl" style="top:10%;left:58%;width:22%;height:32%"></div><div class="mbl" style="top:65%;left:8%;width:22%;height:25%"></div><div class="mbl" style="top:65%;left:62%;width:26%;height:25%"></div><div class="mrh" style="top:50%"></div><div class="mrv" style="left:46%"></div><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px">📍</div></div>
+      <div class="tip" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg><p>Marca el <strong>último lugar visto</strong>. Notificaremos a usuarios en <strong>3 km</strong>.</p></div>
+      <div class="fi" style="margin-top:14px"><label>Radio de búsqueda</label><div class="chr" id="rdch"><div class="ch" onclick="selCh(this,'rdch')">1 km</div><div class="ch sel" onclick="selCh(this,'rdch')">3 km</div><div class="ch" onclick="selCh(this,'rdch')">5 km</div><div class="ch" onclick="selCh(this,'rdch')">10 km</div></div></div>
+    </div>
+    <div class="rfp" id="rp4">
+      <div class="fi"><label>Contacto <span class="rq">*</span></label>
+        <div class="co2 sel" id="rc1" onclick="selCo2(this,'rc')"><div class="coi">💬</div><div class="cof"><div class="cot">WhatsApp</div><div class="cos">Respuesta más rápida</div></div><div class="rr"><div class="rd"></div></div></div>
+        <div class="co2" id="rc2" onclick="selCo2(this,'rc')"><div class="coi">📞</div><div class="cof"><div class="cot">Llamada</div><div class="cos">Contacto directo</div></div><div class="rr"><div class="rd"></div></div></div>
+        <div class="co2" id="rc3" onclick="selCo2(this,'rc')"><div class="coi">🔒</div><div class="cof"><div class="cot">Chat en la app</div><div class="cos">Sin revelar tu número</div></div><div class="rr"><div class="rd"></div></div></div>
+      </div>
+      <div class="fi"><label>Número <span class="rq">*</span></label><input type="tel" value="+51 987 654 321"></div>
+      <div class="rwr"><div><div style="font-size:13px;font-weight:500;color:var(--tx)">Ofrecer recompensa</div><div style="font-size:12px;color:var(--mu);margin-top:2px">Aumenta la motivación</div></div><div class="tg on" id="rwt" onclick="togRw()"><div class="tk"></div></div></div>
+      <div class="fi" id="rwf"><label>Monto (soles)</label><input type="number" value="200"></div>
+      <div class="suc"><div class="sph"><div class="sphp">🐕</div><div><div class="snm">Luna</div><div class="sbr">Labrador dorada · Hembra · Joven</div></div></div><div class="srws"><div class="srw"><span class="srl">Perdida en</span><span class="srv">Malecón, Miraflores</span></div><div class="srw"><span class="srl">Alcance</span><span class="srv">~4,200 usuarios · 3 km</span></div><div class="srw"><span class="srl">Recompensa</span><span class="srv" style="color:var(--g)">S/ 200</span></div></div></div>
+    </div>
+  </div>
+  <div class="brow"><button class="btnb" id="rbb" style="display:none" onclick="rPrev()">Atrás</button><button class="btnn" id="rbn" onclick="rNext()">Continuar →</button></div>
+</div>
+
+<!-- REPORT SUCCESS -->
+<div class="screen" id="s-rsuc">
+  <div class="tb"><div class="bb" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div><span class="tbt">Reporte publicado</span></div>
+  <div class="sucw">
+    <div class="suci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <div class="suct">¡Reporte publicado!</div>
+    <div class="sucs">Tu reporte de <strong>Luna</strong> ya está activo. Notificando a personas en Miraflores ahora mismo.</div>
+    <div class="rb"><div class="rbn">4,238</div><div class="rbs">personas notificadas en los últimos 2 minutos</div></div>
+    <div style="font-size:13px;font-weight:500;color:var(--mu);margin-bottom:12px">Comparte para ampliar el alcance</div>
+    <div class="shr"><div class="shi"><div class="shc" style="background:#25D366">💬</div><span>WhatsApp</span></div><div class="shi"><div class="shc" style="background:#E1306C">📸</div><span>Instagram</span></div><div class="shi"><div class="shc" style="background:#1877F2">👥</div><span>Facebook</span></div><div class="shi"><div class="shc" style="background:var(--gl)">🖨️</div><span>Flyer PDF</span></div></div>
+    <button class="fb" onclick="go('s-active')">Ver mi reporte activo →</button>
+  </div>
+</div>
+
+<!-- ACTIVE REPORT -->
+<div class="screen" id="s-active">
+  <div class="tb"><div class="bb" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div><span class="tbt">Mi reporte activo</span><div style="display:flex;align-items:center;gap:5px;font-size:12px;font-weight:500;background:var(--ol);color:#712B13;padding:4px 10px;border-radius:20px"><div class="pul" style="width:7px;height:7px;border-radius:50%;background:var(--o)"></div>Activo</div></div>
+  <div class="scroll">
+    <div class="hs"><div class="pm">🐕<div class="phc">3 fotos</div></div><div class="hd"><div class="hn">Luna</div><div class="hbr">Labrador dorada · Hembra · 3 años</div><div class="htg"><span class="htg2">Collar rojo</span><span class="htg2">Mancha blanca</span><span class="htg2 g">S/ 200</span></div></div></div>
+    <div class="stb"><div class="sbi"><div class="sbin o">3</div><div class="sbil">avistamientos</div></div><div class="sbi"><div class="sbin">4,891</div><div class="sbil">alertados</div></div><div class="sbi"><div class="sbin">217</div><div class="sbil">compartidos</div></div><div class="sbi"><div class="sbin g">2</div><div class="sbil">días activo</div></div></div>
+    <div class="sh"><h3>Avistamientos (3)</h3><a>ordenar</a></div>
+    <div style="padding:0 20px">
+      <div class="sic ns"><div class="sct"><div class="sca v">CM</div><div class="sci"><div class="scn">Carlos M.<span class="scvb">verificado</span></div><div class="sctm">Hace 8 min · Miraflores</div></div><span class="scnw">Nuevo</span></div><div class="scm">"La vi corriendo en el Malecón de la Reserva, frente al Larcomar. Tenía el collar rojo."</div><div class="scph">🐕</div><div class="scl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Malecón de la Reserva, Larcomar · ~0.4 km</div><div class="scb"><div class="scbt" onclick="this.textContent='👍 Útil (1)';this.classList.add('cf')">👍 Útil</div><div class="scbt">💬 Contactar</div><div class="scbt p" onclick="go('s-scan')">Ver en mapa →</div></div></div>
+      <div class="sic"><div class="sct"><div class="sca">AG</div><div class="sci"><div class="scn">Ana G.</div><div class="sctm">Hace 3 horas · San Isidro</div></div></div><div class="scm">"Vi un labrador dorado en el Parque El Olivar. Estaba sola y asustada."</div><div class="scl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Parque El Olivar · ~1.8 km</div><div class="scb"><div class="scbt" onclick="this.textContent='👍 Útil (1)';this.classList.add('cf')">👍 Útil</div><div class="scbt">💬 Contactar</div><div class="scbt p">Ver en mapa →</div></div></div>
+      <div class="sic"><div class="sct"><div class="sca v">RP</div><div class="sci"><div class="scn">Roberto P.<span class="scvb">verificado</span></div><div class="sctm">Hace 6 horas · Miraflores</div></div></div><div class="scm">"Vi un labrador dorado en el Parque Kennedy jugando sin dueño visible."</div><div class="scl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>Parque Kennedy · ~0.9 km</div><div class="scb"><div class="scbt" onclick="this.textContent='👍 Útil (1)';this.classList.add('cf')">👍 Útil</div><div class="scbt">💬 Contactar</div><div class="scbt p">Ver en mapa →</div></div></div>
+    </div>
+    <div class="sh"><h3>Actividad reciente</h3><a>ver todo</a></div>
+    <div class="fi2"><div class="fic" style="background:var(--ol)">🔔</div><div class="fit">Compartido en 3 grupos de WhatsApp de Miraflores <span>· 12 min</span></div><div class="ftm">12m</div></div>
+    <div class="fi2"><div class="fic" style="background:var(--gl)">👁</div><div class="fit">Nuevo avistamiento de Carlos M. con foto adjunta</div><div class="ftm">8m</div></div>
+    <div class="fi2"><div class="fic" style="background:var(--bl)">📢</div><div class="fit">217 personas compartieron tu reporte</div><div class="ftm">2h</div></div>
+    <div class="fi2"><div class="fic" style="background:var(--al)">🏥</div><div class="fit">Clínica Vet. Miraflores revisó tu reporte <span>· colaborador</span></div><div class="ftm">3h</div></div>
+    <div class="mr"><div class="mg ne">✏️ Editar</div><div class="mg su" onclick="go('s-notify')">🎉 ¡La encontré!</div><div class="mg da">⏸ Pausar</div></div>
+  </div>
+</div>
+
+<!-- AI SCAN -->
+<div class="screen" id="s-scan">
+  <div class="tb"><div class="bb" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div><span class="tbt">Reconocer mascota</span><span style="font-size:12px;font-weight:500;color:var(--g)">IA visual</span></div>
+  <div class="scroll">
+    <div class="cv" id="camV" onclick="snap()"><div class="cor ctl"></div><div class="cor ctr"></div><div class="cor cbl"></div><div class="cor cbr"></div><div class="cph2" id="camPh"><div class="ciw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><div class="ctm">Fotografiar mascota</div><div class="cts">Toca para capturar</div></div></div>
+    <div class="cbs"><div class="cbt" onclick="snap()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Fotografiar</div><div class="cbt" onclick="snap()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>Galería</div><div class="cbt p" id="aBtn" onclick="runAI()">Analizar con IA →</div></div>
+    <div class="ab2" id="anlB"><div class="at"><div class="sp3"></div><div><div class="alb" id="anlL">Procesando...</div><div class="asb" id="anlS">Extrayendo características</div></div></div><div class="pb"><div class="pf" id="pFl" style="width:0%"></div></div></div>
+    <div class="rw" id="resW">
+      <div class="cpc"><div class="cpp" style="position:relative"><div class="cph3" style="background:#FFF5E6"><span class="cphl ly">Tu foto</span><span class="cphe">🐕</span></div><div class="cph3" style="background:#F0F8FF"><span class="cphl lr">Reporte</span><span class="cphe">🐕</span></div><div class="vsc">vs</div></div><div class="cpf"><div class="sch"><div><div style="font-size:13.5px;font-weight:500;color:var(--tx)">Similitud general</div><div style="font-size:11.5px;color:var(--mu);margin-top:1px">Basado en 6 rasgos visuales</div></div><div class="scp" id="sPct">0%</div></div><div class="scbar"><div class="scf" id="sBar" style="width:0%"></div></div><div class="vrd"><div class="vri">✓</div><div class="vrt">Alta probabilidad — se recomienda contactar al dueño.</div></div></div></div>
+      <div class="tg2">
+        <div class="tc"><div class="tct"><span class="tcn">Color de pelaje</span><span class="tcs hi">92%</span></div><div class="tcb"><div class="tcf tfh" id="t1" style="width:0%"></div></div></div>
+        <div class="tc"><div class="tct"><span class="tcn">Raza / morfología</span><span class="tcs hi">88%</span></div><div class="tcb"><div class="tcf tfh" id="t2" style="width:0%"></div></div></div>
+        <div class="tc"><div class="tct"><span class="tcn">Talla corporal</span><span class="tcs hi">85%</span></div><div class="tcb"><div class="tcf tfh" id="t3" style="width:0%"></div></div></div>
+        <div class="tc"><div class="tct"><span class="tcn">Marcas y manchas</span><span class="tcs hi">79%</span></div><div class="tcb"><div class="tcf tfh" id="t4" style="width:0%"></div></div></div>
+        <div class="tc"><div class="tct"><span class="tcn">Forma del hocico</span><span class="tcs md">71%</span></div><div class="tcb"><div class="tcf tfm" id="t5" style="width:0%"></div></div></div>
+        <div class="tc"><div class="tct"><span class="tcn">Orejas y ojos</span><span class="tcs hi">83%</span></div><div class="tcb"><div class="tcf tfh" id="t6" style="width:0%"></div></div></div>
+      </div>
+      <div style="margin-bottom:14px"><div style="font-size:13.5px;font-weight:500;color:var(--tx);margin-bottom:10px">Coincidencias en la zona</div><div class="nc2 top"><div class="ncp">🐕</div><div class="nci"><div class="ncn">Luna</div><div class="ncd">Labrador dorada · Miraflores · 2 días</div></div><div class="ncs"><span class="ncp2 hi">83%</span><span class="ncb top">mejor</span></div></div><div class="nc2"><div class="ncp">🐕</div><div class="nci"><div class="ncn">Max</div><div class="ncd">Golden retriever · San Isidro · 5 días</div></div><div class="ncs"><span class="ncp2 md">54%</span><span class="ncb ok">posible</span></div></div></div>
+      <div class="ra"><div class="rab gh" onclick="resetScan()">Nueva foto</div><div class="rab wa">No es ninguna</div><div class="rab ma" onclick="go('s-notify')">Avisar al dueño →</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- NOTIFY -->
+<div class="screen" id="s-notify">
+  <div class="tb"><div class="bb" onclick="go('s-scan')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div><span class="tbt" id="nTit">Avisar al dueño</span><span style="font-size:12px;color:var(--mu)" id="nSt">1 de 2</span></div>
+  <div class="pan active" id="np1" style="overflow-y:auto;padding-bottom:90px">
+    <div class="mcb2"><div class="mcbt"><div class="mcbph"><div class="mcbp">🐕</div><div class="mcbp">🐕</div></div><div class="mcbi"><div class="mcbn">Coincidencia con Luna</div><div class="mcbs">Similitud IA: <strong>83%</strong></div></div></div><div class="mcbb"><div class="mcbf"></div></div></div>
+    <div style="padding:0 20px">
+      <div class="sh" style="padding:14px 0 10px"><h3>Dueña del reporte</h3></div>
+      <div class="oc"><div class="oa">MP</div><div class="od"><div class="on2">María P.<span class="vbg">verificada</span></div><div class="os">+51 987 654 321 · Miraflores</div><div class="orw">Recompensa: S/ 200</div></div></div>
+      <div class="sh" style="padding:0 0 10px"><h3>¿Cómo avisar?</h3></div>
+      <div class="co2 sel" id="nc1" onclick="selCo2(this,'nc')"><div class="coi" style="background:#E7F9F0">💬</div><div class="cof"><div class="cot">WhatsApp</div><div class="cos">Recomendado</div></div><div class="rr"><div class="rd"></div></div></div>
+      <div class="co2" id="nc2" onclick="selCo2(this,'nc')"><div class="coi" style="background:var(--bl)">📞</div><div class="cof"><div class="cot">Llamada</div><div class="cos">Contacto directo</div></div><div class="rr"><div class="rd"></div></div></div>
+      <div class="co2" id="nc3" onclick="selCo2(this,'nc')"><div class="coi">🔒</div><div class="cof"><div class="cot">Chat en la app</div><div class="cos">Sin revelar tu número</div></div><div class="rr"><div class="rd"></div></div></div>
+      <div class="sh" style="padding:14px 0 8px"><h3>Mensaje generado por IA</h3></div>
+      <div class="mc"><div class="mch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg><span>Redactado automáticamente · editable</span></div><div class="mcbd">Hola <strong>María</strong>, vi tu reporte de <strong>Luna</strong> en Huella 🐾<br><br>Creo que encontré a tu perra. Es un labrador dorado con collar rojo. La IA indica una similitud de <span class="mg">83%</span> con las fotos de tu reporte.<br><br>Te adjunto mi foto y ubicación. ¡Espero que sea ella!</div><div class="mce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Editar mensaje</div></div>
+      <div class="lr2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg><div class="li"><div class="lt2">Adjuntar mi ubicación actual</div><div class="ls">Malecón de la Reserva, Miraflores</div></div><div class="tg on"><div class="tk"></div></div></div>
+    </div>
+    <div class="brow"><button class="btnb" onclick="go('s-scan')">Cancelar</button><button class="btnn" onclick="goNP2()">Continuar → redes sociales</button></div>
+  </div>
+  <div class="pan" id="np2" style="overflow-y:auto;padding-bottom:90px">
+    <div style="margin:16px 20px;padding:14px;background:var(--g50);border-radius:var(--rl);border:1px solid var(--br);text-align:center"><div style="font-size:15px;font-weight:500;color:var(--tx);margin-bottom:4px">Publicar en redes sociales</div><div style="font-size:13px;color:var(--mu);line-height:1.5">Huella publica y repite automáticamente si no hay novedades.</div></div>
+    <div style="padding:0 20px">
+      <div class="ncard conn"><div class="nct"><div class="nlo" style="background:#E7F9F0">💬</div><div class="nni"><div class="nnm">WhatsApp</div><div class="nhd">3 grupos de barrio conectados</div></div><div class="nsp on"><div class="nsd"></div>Activo</div></div><div class="npv"><div class="npl">Vista previa</div><div class="pmk"><div class="pmi">🐕<div class="plb">PERDIDA</div></div><div class="pmc">🐾 <strong>¿La viste?</strong> Luna, labrador dorada en Miraflores. Collar rojo. Recompensa S/200. <span class="ht">#MascotasPerdidas #Miraflores</span></div></div><div class="schr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span class="scht">Publicar ahora · repetir cada 12 horas</span><span class="schc">cambiar</span></div></div></div>
+      <div class="ncard conn"><div class="nct"><div class="nlo" style="background:#FBE9F0">📸</div><div class="nni"><div class="nnm">Instagram</div><div class="nhd">@usuario · 847 seguidores</div></div><div class="nsp on"><div class="nsd"></div>Activo</div></div><div class="npv"><div class="npl">Vista previa</div><div class="pmk"><div class="pmi" style="height:80px;background:#FFF5E6">🐕</div><div class="pmc"><strong>🚨 PERDIDA — LUNA 🐾</strong><br>Labrador dorada, Miraflores.<br><span class="ht">#perroperdido #miraflores #lima #labrador</span></div></div><div class="schr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span class="scht">Post + Story · renovar cada 24 horas</span><span class="schc">cambiar</span></div></div></div>
+      <div class="ncard conn"><div class="nct"><div class="nlo" style="background:#E8F0FB">👥</div><div class="nni"><div class="nnm">Facebook</div><div class="nhd">Perfil + 2 grupos de Lima</div></div><div class="nsp on"><div class="nsd"></div>Activo</div></div><div class="npv"><div class="npl">Vista previa</div><div class="pmk"><div class="pmi">🐕<div class="plb">PERDIDA</div></div><div class="pmc">Se perdió <strong>Luna</strong>, labrador dorada en Miraflores. Recompensa S/200 🙏 <span class="ht">#LimaMascotas</span></div></div><div class="schr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><span class="scht">Publicar ahora · recordatorio en 48 h</span><span class="schc">cambiar</span></div></div></div>
+      <div class="abox"><div class="abxh"><div class="abxi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg></div><span class="abxt">Automatización activa</span><span class="abxb">4 reglas</span></div><div class="abxi2"><div class="abck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div><div><div class="ait">Hashtags IA según zona y tendencias</div><div class="ais">Miraflores, Lima, Labrador + locales</div></div></div><div class="abxi2"><div class="abck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div><div><div class="ait">Republicación si no hay avistamientos</div><div class="ais">Cada 12 horas hasta marcarla encontrada</div></div></div><div class="abxi2"><div class="abck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div><div><div class="ait">Flyer PDF con QR para imprimir</div><div class="ais">Foto, descripción, contacto y link</div></div></div><div class="abxi2"><div class="abck"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div><div><div class="ait">Push a 4,891 usuarios en 3 km</div><div class="ais">Vecinos de Miraflores y San Isidro</div></div></div></div>
+    </div>
+    <div class="brow"><button class="btnb" onclick="goNP1()">Atrás</button><button class="btnn" onclick="go('s-sent')">Enviar todo ahora ✓</button></div>
+  </div>
+</div>
+
+<!-- SENT -->
+<div class="screen" id="s-sent">
+  <div class="tb"><div class="bb" onclick="go('s-home')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></div><span class="tbt">¡Listo!</span></div>
+  <div class="scroll"><div class="snw">
+    <div class="sni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+    <div class="snh">¡Aviso enviado!</div>
+    <div class="sns">Le avisaste a María sobre Luna y publicaste en 3 redes. La comunidad ya está buscando.</div>
+    <div class="tl">
+      <div class="tlr"><div class="tlic dn">💬</div><div class="tlif"><div class="tlt">WhatsApp enviado a María P.</div><div class="tls">Con foto y ubicación adjunta</div><div class="tlm">Ahora mismo</div></div></div>
+      <div class="tlr"><div class="tlic dn">📸</div><div class="tlif"><div class="tlt">Publicado en Instagram</div><div class="tls">Post + Story · próxima en 24h</div><div class="tlm">Ahora mismo</div></div></div>
+      <div class="tlr"><div class="tlic dn">👥</div><div class="tlif"><div class="tlt">Publicado en Facebook</div><div class="tls">Perfil + 2 grupos · ~1,240 alcance</div><div class="tlm">Ahora mismo</div></div></div>
+      <div class="tlr"><div class="tlic dn">💬</div><div class="tlif"><div class="tlt">3 grupos de WhatsApp</div><div class="tls">Vecinos Miraflores, Lima Mascotas</div><div class="tlm">Ahora mismo</div></div></div>
+      <div class="tlr"><div class="tlic pe">🔔</div><div class="tlif"><div class="tlt">Republicación programada</div><div class="tls">Si no hay respuesta en 12 horas</div><div class="tlm">Pendiente · 14 mar, 10:30 pm</div></div></div>
+    </div>
+    <button class="fb" onclick="go('s-active')">Ver reporte de Luna →</button>
+  </div></div>
+</div>
+
+</div>
+<script>
+function go(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.scroll').forEach(e=>e.scrollTop=0);}
+function setTab(el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el.classList.add('on');}
+let rStep=1;
+function rUpd(){for(let i=1;i<=4;i++){const sc=document.getElementById('rs'+i),lb=document.getElementById('rlb'+i),pn=document.getElementById('rp'+i),ln=document.getElementById('rl'+i);if(pn)pn.className='rfp'+(i===rStep?' active':'');if(i<rStep){sc.className='sc2 dn';sc.textContent='✓';if(ln)ln.className='sl3 dn';}else if(i===rStep){sc.className='sc2 ac';sc.textContent=i;if(ln)ln.className='sl3';}else{sc.className='sc2 pe';sc.textContent=i;if(ln)ln.className='sl3';}lb.className='stlb'+(i===rStep?' on':'');}document.getElementById('rbb').style.display=rStep>1?'':'none';document.getElementById('rbn').textContent=rStep===4?'Publicar reporte ✓':'Continuar →';document.getElementById('rsl').textContent='Paso '+rStep+' de 4';}
+function rNext(){if(rStep<4){rStep++;rUpd();}else{go('s-rsuc');rStep=1;rUpd();}}
+function rPrev(){if(rStep>1){rStep--;rUpd();}}
+function selCh(el,g){document.querySelectorAll('#'+g+' .ch').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');}
+function selCo2(el,p){document.querySelectorAll('[id^="'+p+'"]').forEach(c=>c.classList.remove('sel'));el.classList.add('sel');}
+function togRw(){const t=document.getElementById('rwt');t.classList.toggle('on');document.getElementById('rwf').style.display=t.classList.contains('on')?'':'none';}
+function addPh(){}function rmPh(el){el.remove();}
+let taken=false;
+function snap(){if(taken)return;taken=true;const v=document.getElementById('camV'),ph=document.getElementById('camPh');v.classList.add('shot');ph.innerHTML='<div class="pet-big">🐕</div><div class="sa"></div>';document.getElementById('aBtn').style.display='flex';}
+function runAI(){document.getElementById('aBtn').style.display='none';document.getElementById('anlB').classList.add('show');const steps=[[15,'Detectando animal...','Segmentación con IA'],[35,'Extrayendo rasgos...','Color, morfología, marcas'],[58,'Comparando base de datos...','127 reportes activos en Lima'],[78,'Calculando similitud...','Modelo de reconocimiento animal'],[96,'Generando resultados...','Ordenando por probabilidad'],[100,'Análisis completado','']];let i=0;const pf=document.getElementById('pFl'),lb=document.getElementById('anlL'),sb=document.getElementById('anlS');const t=setInterval(()=>{if(i>=steps.length){clearInterval(t);showRes();return;}pf.style.width=steps[i][0]+'%';lb.textContent=steps[i][1];sb.textContent=steps[i][2];i++;},500);}
+function showRes(){document.getElementById('anlB').classList.remove('show');document.getElementById('resW').classList.add('show');setTimeout(()=>{document.getElementById('sPct').textContent='83%';document.getElementById('sBar').style.width='83%';[[1,92],[2,88],[3,85],[4,79],[5,71],[6,83]].forEach(([n,v])=>setTimeout(()=>{document.getElementById('t'+n).style.width=v+'%';},100));},80);}
+function resetScan(){taken=false;document.getElementById('camV').classList.remove('shot');document.getElementById('camPh').innerHTML='<div class="ciw"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="26" height="26"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div><div class="ctm">Fotografiar mascota</div><div class="cts">Toca para capturar</div>';document.getElementById('aBtn').style.display='none';document.getElementById('anlB').classList.remove('show');document.getElementById('resW').classList.remove('show');document.getElementById('sPct').textContent='0%';document.getElementById('sBar').style.width='0%';document.getElementById('pFl').style.width='0%';for(let i=1;i<=6;i++)document.getElementById('t'+i).style.width='0%';}
+function goNP2(){document.getElementById('np1').classList.remove('active');document.getElementById('np2').classList.add('active');document.getElementById('nTit').textContent='Publicar en redes';document.getElementById('nSt').textContent='2 de 2';}
+function goNP1(){document.getElementById('np2').classList.remove('active');document.getElementById('np1').classList.add('active');document.getElementById('nTit').textContent='Avisar al dueño';document.getElementById('nSt').textContent='1 de 2';}
+</script>
+</body>
+</html>
