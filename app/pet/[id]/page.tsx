@@ -14,6 +14,7 @@ import { StatusPill } from "@/components/pet-card";
 import type { Pet, Sighting } from "@/lib/demo-data";
 import { deletePet, deleteSighting, getPet, getPets, getSightings, isOwnedPet, isOwnedSighting, markPetStatus, updateSighting, updateSightingStatus } from "@/lib/pet-store";
 import { getCurrentUser, getReport, incrementReportView, listReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
+import { getCase, type CaseRecord } from "@/lib/cases";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { compressImage, fileToDataUrl } from "@/lib/image-utils";
 import { formatDate, normalizeWhatsapp, timeAgo } from "@/lib/utils";
@@ -95,13 +96,15 @@ export default function PetDetailPage() {
   const [owned, setOwned] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(0);
   const [report, setReport] = useState<Report | undefined>();
+  const [caseRecord, setCaseRecord] = useState<CaseRecord | undefined>();
   const [signedIn, setSignedIn] = useState(false);
 
   async function load() {
     const foundReport = await getReport(params.id);
-    const [legacyPet, reports, legacyPets, items, user] = await Promise.all([getPet(params.id), listReports(true), getPets(), getSightings(params.id, foundReport?.pet_id), getCurrentUser()]);
+    const [legacyPet, reports, legacyPets, items, user, foundCase] = await Promise.all([getPet(params.id), listReports(true), getPets(), getSightings(params.id, foundReport?.pet_id), getCurrentUser(), getCase(params.id)]);
     const found = foundReport ? reportToLegacyPet(foundReport) : legacyPet;
     setReport(foundReport);
+    setCaseRecord(foundCase);
     setPet(found);
     setAllPets(reports.length ? reports.map(reportToLegacyPet) : legacyPets);
     setSightings(items);
@@ -127,13 +130,14 @@ export default function PetDetailPage() {
     return allPets.filter((item) => item.id !== pet.id && item.estado === "encontrado" && districts.has(item.distrito) && new Date(item.fecha_reporte).getTime() >= cutoff).slice(0, 5);
   }, [allPets, pet]);
   const timeline = useMemo(() => {
+    if (caseRecord) return caseRecord.timeline;
     if (!pet) return [];
     return [
       { date: pet.creado_en, label: "Reporte creado" },
       ...sightings.map((item) => ({ date: item.visto_en ?? item.creado_en, label: (item.estado_avistamiento ?? item.estado) === "confirmado" ? "Avistamiento confirmado" : "Avistamiento recibido" })),
       ...(pet.cerrado_en ? [{ date: pet.cerrado_en, label: "Mascota reunida" }] : []),
     ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [pet, sightings]);
+  }, [caseRecord, pet, sightings]);
 
   async function closeReport() {
     if (!pet) return;
@@ -218,7 +222,7 @@ export default function PetDetailPage() {
 
           {matches.length > 0 && <div className="form-card"><h2 className="mb-3 font-bold">Posibles coincidencias cercanas</h2><div className="space-y-3">{matches.map((match) => <Link key={match.id} href={`/pet/${match.id}`} className="flex gap-3 rounded-xl border border-black/10 p-2 hover:bg-[#F8F7F4]"><img src={match.foto_principal} alt={match.nombre} className="h-16 w-16 rounded-lg object-contain bg-[#F8F7F4]" /><div><div className="font-semibold">{match.nombre}</div><div className="text-sm text-[#7A7871]">{match.raza} · {match.distrito}</div></div></Link>)}</div></div>}
 
-          <div className="form-card"><h2 className="mb-3 font-bold">Historial del caso</h2><div className="space-y-3">{timeline.map((item) => <div key={`${item.date}-${item.label}`} className="flex gap-3"><div className="w-16 text-sm font-semibold text-[#1D9E75]">{formatDate(item.date).slice(0, 6)}</div><div className="border-l border-black/10 pl-3 text-sm">{item.label}</div></div>)}</div></div>
+          <div className="form-card"><h2 className="mb-3 font-bold">Timeline del caso</h2><div className="space-y-3">{timeline.map((item) => <div key={`${item.date}-${item.label}`} className="flex gap-3"><div className="w-16 text-sm font-semibold text-[#1D9E75]">{formatDate(item.date).slice(0, 6)}</div><div className="border-l border-black/10 pl-3 text-sm">{item.label}</div></div>)}</div></div>
 
           <div className="space-y-3">
             <h2 className="text-xl font-bold">Avistamientos ({sightings.length})</h2>

@@ -6,8 +6,8 @@ import { Bell, Heart, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PetCard } from "@/components/pet-card";
 import type { Pet, Sighting } from "@/lib/demo-data";
-import { getPets, getSightings } from "@/lib/pet-store";
-import { listMyReports, listReports, reportToLegacyPet, type Report } from "@/lib/sprint14-store";
+import { getSightings } from "@/lib/pet-store";
+import { listCases, listMyCases, type CaseRecord } from "@/lib/cases";
 import { distanceKm, formatDistance, timeAgo } from "@/lib/utils";
 
 export default function HomePage() {
@@ -16,7 +16,7 @@ export default function HomePage() {
   const [coords, setCoords] = useState<{ latitude: number | null; longitude: number | null }>({ latitude: null, longitude: null });
   const [sightingCount, setSightingCount] = useState(0);
   const [recentSightings, setRecentSightings] = useState<Sighting[]>([]);
-  const [myActiveReports, setMyActiveReports] = useState<Report[]>([]);
+  const [myActiveCases, setMyActiveCases] = useState<CaseRecord[]>([]);
   const [showOnboarding, setShowOnboarding] = useState(false);
 
   useEffect(() => {
@@ -27,20 +27,18 @@ export default function HomePage() {
       setSightingCount(items.length);
       setRecentSightings(items.slice(0, 4));
     });
-    listMyReports().then((reports) => setMyActiveReports(reports.filter((report) => report.estado === "activo")));
+    listMyCases().then((cases) => setMyActiveCases(cases.filter((caseRecord) => caseRecord.status !== "reunido" && caseRecord.status !== "archivado")));
   }, []);
 
   useEffect(() => {
-    Promise.all([listReports(false), getPets()]).then(([reports, publicPets]) => {
-      const mappedReports = reports.map(reportToLegacyPet);
-      const combined = [...mappedReports, ...publicPets].filter((pet, index, items) => items.findIndex((item) => item.id === pet.id) === index);
-      const visiblePets = combined.filter((pet) => pet.estado === "perdido");
-      setPets(visiblePets.sort((a, b) => {
-        const da = distanceKm(coords.latitude, coords.longitude, a.latitud, a.longitud) ?? Number.MAX_SAFE_INTEGER;
-        const db = distanceKm(coords.latitude, coords.longitude, b.latitud, b.longitud) ?? Number.MAX_SAFE_INTEGER;
+    listCases(false).then((cases) => {
+      const visibleCases = cases.filter((caseRecord) => caseRecord.pet.estado === "perdido");
+      setPets(visibleCases.sort((a, b) => {
+        const da = distanceKm(coords.latitude, coords.longitude, a.latitude, a.longitude) ?? Number.MAX_SAFE_INTEGER;
+        const db = distanceKm(coords.latitude, coords.longitude, b.latitude, b.longitude) ?? Number.MAX_SAFE_INTEGER;
         if (da !== db) return da - db;
-        return new Date(b.fecha_reporte).getTime() - new Date(a.fecha_reporte).getTime();
-      }));
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      }).map((caseRecord) => caseRecord.pet));
     });
   }, [coords.latitude, coords.longitude]);
 
@@ -50,7 +48,7 @@ export default function HomePage() {
   }), [pets, query]);
 
   const lostPets = filtered.filter((pet) => pet.estado === "perdido");
-  const firstActiveReport = myActiveReports[0];
+  const firstActiveCase = myActiveCases[0];
   function finishOnboarding() {
     window.localStorage.setItem("huella:onboarding-complete", "1");
     setShowOnboarding(false);
@@ -85,14 +83,14 @@ export default function HomePage() {
               <Button className="w-full" asChild><Link href="/perdi-mi-mascota">🔴 Perdí mi mascota</Link></Button>
               <Button className="w-full" variant="outline" asChild><Link href="/reportar-avistamiento">🟡 Vi una mascota</Link></Button>
             </div>
-            {firstActiveReport ? <>
-              <div className="mb-3 mt-4 flex items-center gap-2 text-sm font-bold text-[#712B13]"><Bell size={17} /> Hay novedades sobre {firstActiveReport.pet?.nombre ?? "tu mascota"}</div>
+            {firstActiveCase ? <>
+              <div className="mb-3 mt-4 flex items-center gap-2 text-sm font-bold text-[#712B13]"><Bell size={17} /> Hay novedades sobre {firstActiveCase.pet.nombre ?? "tu mascota"}</div>
               <ul className="space-y-2 text-sm leading-6 text-[#6B6860]">
                 <li>Nuevo avistamiento recibido</li>
-                <li>Posible coincidencia cerca de {firstActiveReport.distrito}</li>
+                <li>Posible coincidencia cerca de {firstActiveCase.district}</li>
                 <li>Mascota rescatada similar en revisión</li>
               </ul>
-              <div className="mt-4 grid gap-2"><Button className="w-full" asChild><Link href={`/pet/${firstActiveReport.id}`}>Ver caso activo</Link></Button><Button className="w-full" variant="outline" asChild><Link href="/mis-reportes">Mis Reportes</Link></Button></div>
+              <div className="mt-4 grid gap-2"><Button className="w-full" asChild><Link href={`/pet/${firstActiveCase.id}`}>Ver caso activo</Link></Button><Button className="w-full" variant="outline" asChild><Link href="/mis-reportes">Mis Reportes</Link></Button></div>
             </> : <>
               <div className="mb-3 mt-4 flex items-center gap-2 text-sm font-bold text-[#712B13]"><Bell size={17} /> Búsquedas cerca de ti</div>
               <div className="space-y-2 text-sm leading-6 text-[#6B6860]"><p>Mascotas desaparecidas cerca de ti</p><p>Últimos avistamientos</p><p>Cómo funciona Huella</p></div>

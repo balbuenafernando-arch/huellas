@@ -9,9 +9,9 @@ import { createNotification, createSighting } from "@/lib/pet-store";
 import { compressImage, fileToDataUrl } from "@/lib/image-utils";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { findLostPetMatches } from "@/lib/matching";
-import { getCurrentUser } from "@/lib/sprint14-store";
+import { createRegisteredPet, createReport, getCurrentUser } from "@/lib/sprint14-store";
 import { formatDistance } from "@/lib/utils";
-import type { Pet } from "@/lib/demo-data";
+import type { CaseMatch } from "@/lib/cases";
 
 const districtCoords: Record<string, [number, number]> = {
   Miraflores: [-12.1211, -77.0297],
@@ -23,12 +23,13 @@ const districtCoords: Record<string, [number, number]> = {
   "Pueblo Libre": [-12.0763, -77.0611],
   "La Molina": [-12.0864, -76.9224],
   Lince: [-12.0846, -77.0348],
-  "Jesús María": [-12.0706, -77.0432],
+  "Jesus Maria": [-12.0706, -77.0432],
   Chorrillos: [-12.1823, -77.0301],
   Surquillo: [-12.1121, -77.0116],
 };
 
-const traits = ["Collar", "Placa", "Pañuelo", "Mancha blanca", "Oreja doblada", "Cola corta", "Cojera", "Herida visible", "Ojo de color distinto", "Otro"];
+const traits = ["Collar", "Placa", "Panuelo", "Mancha blanca", "Oreja doblada", "Cola corta", "Cojera", "Herida visible", "Ojo de color distinto", "Otro"];
+const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
 
 async function uploadOrEncodePhoto(file: File) {
   const compressed = await compressImage(file);
@@ -43,7 +44,8 @@ async function uploadOrEncodePhoto(file: File) {
 export default function ReportSightingPage() {
   const [district, setDistrict] = useState("Miraflores");
   const [coords, setCoords] = useState<{ latitude: number | null; longitude: number | null }>({ latitude: null, longitude: null });
-  const [matches, setMatches] = useState<Array<{ pet: Pet; distance: number | null; score: number; reasons: string[] }>>([]);
+  const [matches, setMatches] = useState<CaseMatch[]>([]);
+  const [selectedCaseId, setSelectedCaseId] = useState("");
   const [underCare, setUnderCare] = useState("no");
   const [reviewedMatches, setReviewedMatches] = useState(false);
   const [sent, setSent] = useState(false);
@@ -57,7 +59,7 @@ export default function ReportSightingPage() {
 
   const useLocation = () => {
     if (!navigator.geolocation) {
-      setError("Tu navegador no permite obtener la ubicación.");
+      setError("Tu navegador no permite obtener la ubicacion.");
       return;
     }
 
@@ -66,7 +68,7 @@ export default function ReportSightingPage() {
         setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
         setError("");
       },
-      () => setError("No pudimos obtener tu ubicación. Puedes completar la zona manualmente."),
+      () => setError("No pudimos obtener tu ubicacion. Puedes completar la zona manualmente."),
     );
   };
 
@@ -76,30 +78,77 @@ export default function ReportSightingPage() {
     const form = new FormData(formElement);
     const user = await getCurrentUser();
     if (!user) {
-      setError("Inicia sesión para crear un avistamiento.");
+      setError("Inicia sesion para crear un avistamiento.");
       return;
     }
+
     const especie = String(form.get("especie"));
     const tamano = String(form.get("tamano"));
     const color = String(form.get("color"));
     const rasgos = form.getAll("rasgos").map(String);
+    const seenAt = String(form.get("visto_en"));
     const [fallbackLat, fallbackLng] = districtCoords[district] ?? districtCoords.Miraflores;
     const latitude = coords.latitude ?? fallbackLat;
     const longitude = coords.longitude ?? fallbackLng;
-    const foundMatches = await findLostPetMatches({ especie, tamano, color, distrito: district, rasgos, latitude, longitude });
+    const foundMatches = await findLostPetMatches({ especie, tamano, color, distrito: district, rasgos, fecha: seenAt, latitude, longitude });
+
     if (foundMatches.length && !reviewedMatches) {
-      setMatches(foundMatches.map((item) => ({ pet: item.pet, distance: item.distance, score: item.score, reasons: item.reasons })));
+      setMatches(foundMatches);
       setReviewedMatches(true);
       return;
     }
 
     setSaving(true);
+    setError("");
     const file = form.get("foto") as File | null;
     let foto: string | null = null;
     if (file?.size) foto = await uploadOrEncodePhoto(file);
+
+    const selectedMatch = matches.find((match) => match.caseId === selectedCaseId);
+    let reportId: string | null = selectedMatch?.caseId ?? null;
+    let petId: string | null = null;
+
+    if (!selectedMatch) {
+      const photoUrl = foto ?? fallbackPhoto;
+      const pet = await createRegisteredPet({
+        nombre: "Mascota vista",
+        alias: "",
+        especie,
+        raza: "No indicada",
+        tamano,
+        color,
+        sexo: "",
+        edad: "",
+        salud: "",
+        esterilizado: false,
+        placa_medalla: "",
+        caracteristicas: rasgos,
+        telefono: "",
+        contacto_preferido: "whatsapp",
+        fotos: [photoUrl],
+        foto_principal: photoUrl,
+        foto_url: photoUrl,
+        rasgo_privado: "",
+      });
+      const report = await createReport({
+        pet_id: pet.id,
+        tipo_reporte: "encontrado",
+        estado: "activo",
+        distrito: district,
+        descripcion: String(form.get("comentario")),
+        foto_url: photoUrl,
+        whatsapp: "",
+        latitude,
+        longitude,
+        pet,
+      });
+      reportId = report.id;
+      petId = pet.id;
+    }
+
     await createSighting({
-      pet_id: null,
-      report_id: null,
+      pet_id: petId,
+      report_id: reportId,
       especie,
       tamano,
       color,
@@ -107,48 +156,64 @@ export default function ReportSightingPage() {
       comentario: String(form.get("comentario")),
       foto,
       ubicacion: String(form.get("ubicacion")),
-      visto_en: String(form.get("visto_en")),
+      visto_en: seenAt,
       situacion: underCare === "si" ? "la_tengo_conmigo" : "solo_la_vi",
       latitud: latitude,
       longitud: longitude,
     });
-    await Promise.all(matches.map(({ pet }) => createNotification({ pet_id: pet.id, tipo: "nuevo_avistamiento", mensaje: `Se encontró una posible coincidencia para ${pet.nombre}.` })));
+
+    if (selectedMatch) {
+      await createNotification({
+        pet_id: selectedMatch.pet.id,
+        tipo: "nuevo_avistamiento",
+        mensaje: `Se encontro una posible coincidencia para ${selectedMatch.pet.nombre}.`,
+      });
+    }
+
     setSaving(false);
     setSent(true);
     formElement.reset();
   }
 
-  if (sent) return (
-    <main className="container py-6">
-      <section className="form-card mx-auto max-w-xl space-y-4">
-        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Avistamiento publicado. Gracias por ayudar.</div>
-        <Button asChild><Link href="/">Volver al inicio</Link></Button>
-      </section>
-    </main>
-  );
+  if (sent) {
+    return (
+      <main className="container py-6">
+        <section className="form-card mx-auto max-w-xl space-y-4">
+          <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Avistamiento asociado a un caso. Gracias por ayudar.</div>
+          <Button asChild><Link href="/">Volver al inicio</Link></Button>
+        </section>
+      </main>
+    );
+  }
 
   return (
     <main className="container py-6">
       <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Inicio</Link>
-      <div className="mb-5"><h1 className="font-serif text-4xl">Vi una mascota</h1><p className="mt-2 text-[#6B6860]">No necesitas saber de quién es. Describe lo que viste y HUELLA buscará posibles coincidencias.</p></div>
+      <div className="mb-5"><h1 className="font-serif text-4xl">Vi una mascota</h1><p className="mt-2 text-[#6B6860]">Describe lo que viste. HUELLA buscara casos similares antes de guardar la informacion.</p></div>
       <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
-          {error && <div className="rounded-xl bg-[#FAECE7] p-3 text-sm text-[#712B13]">{error} <Link href="/auth" className="font-semibold underline">Iniciar sesión</Link></div>}
-          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño</label><select className="select" name="tamano"><option>Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
-          <div><label className="label">Color</label><input required className="field" name="color" placeholder="Marrón, blanco, negro..." /></div>
-          <div><label className="label">Ubicación</label><input required className="field" name="ubicacion" placeholder="Calle, parque o referencia" /></div>
-          <Button type="button" variant="outline" className="w-full" onClick={useLocation}><MapPin size={18} />Usar mi ubicación actual</Button>
+          {error && <div className="rounded-xl bg-[#FAECE7] p-3 text-sm text-[#712B13]">{error} <Link href="/auth" className="font-semibold underline">Iniciar sesion</Link></div>}
+          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamano</label><select className="select" name="tamano"><option>Pequeno</option><option>Mediano</option><option>Grande</option></select></div></div>
+          <div><label className="label">Color</label><input required className="field" name="color" placeholder="Marron, blanco, negro..." /></div>
+          <div><label className="label">Ubicacion</label><input required className="field" name="ubicacion" placeholder="Calle, parque o referencia" /></div>
+          <Button type="button" variant="outline" className="w-full" onClick={useLocation}><MapPin size={18} />Usar mi ubicacion actual</Button>
           <div><label className="label">Distrito</label><select className="select" value={district} onChange={(event) => setDistrict(event.target.value)}>{Object.keys(districtCoords).map((item) => <option key={item}>{item}</option>)}</select></div>
           <div><label className="label">Fecha y hora</label><input required className="field" type="datetime-local" name="visto_en" /></div>
-          <div><label className="label">Comentario</label><textarea required className="textarea min-h-24" name="comentario" placeholder="Qué hacía, hacia dónde iba, si parecía asustada..." /></div>
+          <div><label className="label">Comentario</label><textarea required className="textarea min-h-24" name="comentario" placeholder="Que hacia, hacia donde iba, si parecia asustada..." /></div>
           <div><label className="label">Rasgos distintivos</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="rasgos" value={trait} />{trait}</label>)}</div></div>
-          <div><label className="label">¿La mascota está bajo tu cuidado temporal?</label><select className="select" value={underCare} onChange={(event) => setUnderCare(event.target.value)}><option value="no">No</option><option value="si">Sí</option></select></div>
+          <div><label className="label">La mascota esta bajo tu cuidado temporal?</label><select className="select" value={underCare} onChange={(event) => setUnderCare(event.target.value)}><option value="no">No</option><option value="si">Si</option></select></div>
           <div><label className="label">Foto opcional</label><input className="field" name="foto" type="file" accept="image/*" /></div>
-          <Button disabled={saving}><Send size={18} />{saving ? "Publicando..." : matches.length && reviewedMatches ? "Publicar de todos modos" : "Buscar coincidencias"}</Button>
+          <Button disabled={saving}><Send size={18} />{saving ? "Guardando..." : matches.length && reviewedMatches ? selectedCaseId ? "Asociar al caso seleccionado" : "Crear caso de seguimiento" : "Buscar coincidencias"}</Button>
         </section>
         <aside className="space-y-3">
-          <div className="form-card"><h2 className="font-bold">Posibles coincidencias</h2><p className="mt-2 text-sm text-[#6B6860]">Se comparan especie, color, tamaño, distrito y distancia geográfica.</p></div>
-          {matches.map(({ pet, distance, score, reasons }) => <Link key={pet.id} href={`/pet/${pet.id}`} className="form-card block hover:bg-[#F8F7F4]"><div className="flex gap-3"><img src={pet.foto_principal} alt={pet.nombre} className="h-16 w-16 rounded-lg object-cover" /><div><strong>Posible coincidencia</strong><p className="text-sm text-[#7A7871]">{pet.nombre} · {pet.tipo} · {pet.distrito}</p><p className="text-xs text-[#1D9E75]">Score {score} · {reasons.slice(0, 3).map((reason) => `✓ ${reason}`).join(" · ")}</p>{distance !== null && <p className="text-sm font-semibold text-[#1D9E75]">{formatDistance(distance)}</p>}</div></div></Link>)}
+          <div className="form-card"><h2 className="font-bold">Encontramos casos similares</h2><p className="mt-2 text-sm text-[#6B6860]">Se comparan especie, color, tamano, distrito, fecha, rasgos y distancia geografica.</p>{reviewedMatches && !selectedCaseId && <p className="mt-2 text-sm font-semibold text-[#6B4A10]">Si ninguno coincide, se creara un caso de seguimiento para centralizar futuras pistas.</p>}</div>
+          {matches.map(({ caseId, pet, distance, score, reasons }) => (
+            <article key={caseId} className={`form-card ${selectedCaseId === caseId ? "border-[#1D9E75] bg-[#FAFDFB]" : ""}`}>
+              <div className="flex gap-3"><img src={pet.foto_principal} alt={pet.nombre} className="h-16 w-16 rounded-lg object-cover" /><div><strong>Posible coincidencia</strong><p className="text-sm text-[#7A7871]">{pet.nombre} · {pet.tipo} · {pet.distrito}</p><p className="text-xs text-[#1D9E75]">Score {score} · {reasons.slice(0, 3).map((reason) => `✓ ${reason}`).join(" · ")}</p>{distance !== null && <p className="text-sm font-semibold text-[#1D9E75]">{formatDistance(distance)}</p>}</div></div>
+              <div className="mt-3 grid gap-2 min-[390px]:flex"><Button type="button" size="sm" onClick={() => setSelectedCaseId(caseId)}>Este corresponde</Button><Button type="button" size="sm" variant="outline" asChild><Link href={`/pet/${caseId}`}>Ver caso</Link></Button></div>
+            </article>
+          ))}
+          {matches.length > 0 && <Button type="button" variant="outline" className="w-full" onClick={() => setSelectedCaseId("")}>Ninguno coincide</Button>}
         </aside>
       </form>
     </main>

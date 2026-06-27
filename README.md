@@ -184,6 +184,25 @@ Refacción final de producto:
 - Mis Reportes se organiza en `Mis mascotas perdidas` y `Mis avistamientos`.
 - Privacidad reforzada: zona aproximada y contacto desde el reporte sin mostrar el número públicamente.
 
+## HUELLA v3.0
+
+Para una base existente, ejecuta:
+
+```sql
+supabase/migrations/20260626_v3_0_cases.sql
+```
+
+Refacción hacia arquitectura centrada en casos:
+
+- El eje de dominio pasa a ser `Caso`: una búsqueda viva que agrupa mascota, estado, historial, avistamientos, comentarios, actualizaciones, coincidencias y notificaciones.
+- `lib/cases.ts` adapta las tablas actuales `reports`, `pets` y `sightings` sin romper compatibilidad.
+- `lib/matching.ts` calcula coincidencias contra casos activos mediante especie, raza, color, tamaño, distrito, fecha, rasgos y distancia.
+- `lib/pets.ts`, `lib/sightings.ts`, `lib/notifications.ts` y `lib/services.ts` dejan preparados puntos de entrada por dominio.
+- Home lista casos activos cercanos usando distancia y recencia.
+- `Vi una mascota` primero muestra casos similares; si uno corresponde, el avistamiento se asocia al caso. Si ninguno corresponde, se crea un caso de seguimiento para centralizar futuras pistas.
+- El detalle de mascota usa el timeline centralizado del caso.
+- La migración agrega `cases`, `case_updates`, `case_comments` y `case_matches`, además de referencias opcionales desde `sightings` y `notifications`.
+
 ## Despliegue en Vercel
 
 1. Sube el proyecto a GitHub.
