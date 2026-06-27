@@ -64,13 +64,13 @@ export default function MisMascotasPage() {
   return (
     <main className="container py-6">
       <div className="mb-5 flex flex-col gap-3 min-[390px]:flex-row min-[390px]:items-end min-[390px]:justify-between">
-        <div><h1 className="font-serif text-4xl">Mis Mascotas</h1><p className="mt-2 text-[#6B6860]">Mantén registrada la información de tus mascotas para publicar avisos de búsqueda rápidamente en caso de pérdida.</p></div>
-        <Button type="button" onClick={() => { setEditing(null); setShowForm(true); }}><Plus size={18} />Agregar mascota</Button>
+        <div><h1 className="font-serif text-4xl">Mis Mascotas</h1><p className="mt-2 text-[#6B6860]">Mantén registrada la información de tus mascotas. Buenas fotos y rasgos distintivos ayudan a encontrar coincidencias reales cuando haga falta buscarlas.</p></div>
+        <Button type="button" onClick={() => { setEditing(null); setShowForm(true); }}><Plus size={18} />Registrar mascota</Button>
       </div>
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
         <section className="space-y-3">
           <h2 className="text-xl font-bold">Mascotas registradas</h2>
-          {pets.length === 0 && <div className="form-card text-sm text-[#6B6860]">Aún no registraste mascotas. Puedes hacerlo ahora o crear una ficha automáticamente desde Perdí mi mascota.</div>}
+          {pets.length === 0 && <div className="form-card text-sm text-[#6B6860]">Aún no registraste mascotas. Puedes crear una ficha ahora con fotos claras, colores, señales y datos de contacto para actuar más rápido si se pierde.</div>}
           {pets.map((pet) => <article key={pet.id} className="form-card flex flex-col gap-3 min-[390px]:flex-row">
             <img src={pet.foto_principal ?? pet.foto_url} alt={pet.nombre} className="h-40 w-full rounded-xl bg-[#F8F7F4] object-cover min-[390px]:h-24 min-[390px]:w-24" />
             <div className="flex-1">
@@ -87,7 +87,7 @@ export default function MisMascotasPage() {
 
         {showForm ? <form onSubmit={submit} className="form-card space-y-4">
           <h2 className="font-bold">{editing ? "Editar mascota" : "Registrar mascota"}</h2>
-          <p className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">Incluye fotografías donde se aprecien manchas, collares, cicatrices u otros rasgos distintivos.</p>
+          <p className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">Incluye fotografías donde se aprecien manchas, collares, cicatrices u otros rasgos distintivos. Esa información mejora las posibles coincidencias.</p>
           <div><label className="label">Nombre</label><input className="field" name="nombre" required defaultValue={editing?.nombre} /></div>
           <div><label className="label">Alias</label><input className="field" name="alias" defaultValue={editing?.alias ?? ""} placeholder="Lunita, Lulu" /></div>
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie" defaultValue={editing?.especie ?? "Perro"}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño</label><select className="select" name="tamano" defaultValue={editing?.tamano ?? "Mediano"}><option>Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
@@ -100,7 +100,7 @@ export default function MisMascotasPage() {
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Teléfono</label><input className="field" name="telefono" defaultValue={editing?.telefono ?? ""} /></div><div><label className="label">Contacto preferido</label><select className="select" name="contacto_preferido" defaultValue={editing?.contacto_preferido ?? "whatsapp"}><option value="whatsapp">WhatsApp</option><option value="telefono">Teléfono</option><option value="ambos">Ambos</option></select></div></div>
           <div><label className="label">Fotos (hasta 5)</label><input className="field" type="file" name="fotos" accept="image/*" multiple /></div>
           <div><label className="label">URL de foto principal opcional</label><input className="field" name="foto_principal" defaultValue={editing?.foto_principal ?? editing?.foto_url} /></div>
-          <div><label className="label">Rasgo privado de verificación</label><input className="field" name="rasgo_privado" defaultValue={editing?.rasgo_privado ?? ""} placeholder="No visible públicamente" /></div>
+          <div><label className="label">Dato de verificación</label><input className="field" name="rasgo_privado" defaultValue={editing?.rasgo_privado ?? ""} placeholder="Información no visible públicamente" /></div>
           <div className="grid gap-2 min-[390px]:flex">
             <Button disabled={saving}><Plus size={18} />{saving ? "Guardando..." : "Guardar mascota"}</Button>
             <Button type="button" variant="outline" onClick={() => { setEditing(null); setShowForm(false); }}>Cancelar</Button>

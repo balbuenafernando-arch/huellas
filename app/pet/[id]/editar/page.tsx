@@ -107,12 +107,12 @@ export default function EditPetPage() {
   }
 
   if (!pet) return <main className="container py-10">Cargando...</main>;
-  if (!allowed) return <main className="container py-10"><Link href={`/pet/${pet.id}`} className="text-[#1D9E75]">Volver</Link><p className="mt-4">Solo el navegador que creó este reporte puede editarlo.</p></main>;
+  if (!allowed) return <main className="container py-10"><Link href={`/pet/${pet.id}`} className="text-[#1D9E75]">Volver</Link><p className="mt-4">Solo el navegador que creó este caso puede editarlo.</p></main>;
 
   return (
     <main className="container py-6">
-      <Link href={`/pet/${pet.id}`} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Volver al reporte</Link>
-      <h1 className="mb-5 font-serif text-4xl">Editar reporte</h1>
+      <Link href={`/pet/${pet.id}`} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Volver al caso</Link>
+      <h1 className="mb-5 font-serif text-4xl">Editar caso</h1>
       <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           <div><label className="label">Nombre</label><input required className="field" name="nombre" defaultValue={pet.nombre} /></div>
@@ -133,7 +133,7 @@ export default function EditPetPage() {
           <div><label className="label">Dirección</label><input required className="field" name="direccion" defaultValue={pet.direccion} /></div>
           <div><label className="label">WhatsApp</label><input required className="field" name="whatsapp" defaultValue={pet.whatsapp} /></div>
           <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa_monto" type="number" min="0" defaultValue={pet.recompensa_monto ?? ""} /></div>
-          <div className="flex flex-wrap gap-2"><Button type="submit" disabled={saving}><Save size={18} />{saving ? "Guardando..." : "Guardar cambios"}</Button><Button type="button" variant="outline" onClick={remove}><Trash2 size={18} />Eliminar reporte</Button></div>
+          <div className="flex flex-wrap gap-2"><Button type="submit" disabled={saving}><Save size={18} />{saving ? "Guardando..." : "Guardar cambios"}</Button><Button type="button" variant="outline" onClick={remove}><Trash2 size={18} />Eliminar caso</Button></div>
         </section>
       </form>
     </main>

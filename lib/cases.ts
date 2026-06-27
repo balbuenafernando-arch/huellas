@@ -32,6 +32,7 @@ export type CaseTimelineItem = {
 
 export type CaseMatch = {
   caseId: string;
+  petId: string | null;
   pet: Pet;
   score: number;
   distance: number | null;

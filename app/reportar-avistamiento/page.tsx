@@ -1,6 +1,6 @@
 "use client";
 
-import type { FormEvent } from "react";
+import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, MapPin, Send } from "lucide-react";
@@ -30,6 +30,39 @@ const districtCoords: Record<string, [number, number]> = {
 
 const traits = ["Collar", "Placa", "Panuelo", "Mancha blanca", "Oreja doblada", "Cola corta", "Cojera", "Herida visible", "Ojo de color distinto", "Otro"];
 const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
+const DRAFT_KEY = "huella:sighting-draft";
+
+type SightingDraft = {
+  especie: string;
+  tamano: string;
+  color: string;
+  ubicacion: string;
+  distrito: string;
+  vistoEn: string;
+  comentario: string;
+  rasgos: string[];
+  underCare: string;
+  photoDataUrl: string | null;
+};
+
+const defaultDraft: SightingDraft = {
+  especie: "Perro",
+  tamano: "Mediano",
+  color: "",
+  ubicacion: "",
+  distrito: "Miraflores",
+  vistoEn: "",
+  comentario: "",
+  rasgos: [],
+  underCare: "no",
+  photoDataUrl: null,
+};
+
+function loadDraft() {
+  if (typeof window === "undefined") return defaultDraft;
+  const raw = window.sessionStorage.getItem(DRAFT_KEY);
+  return raw ? { ...defaultDraft, ...JSON.parse(raw) as Partial<SightingDraft> } : defaultDraft;
+}
 
 async function uploadOrEncodePhoto(file: File) {
   const compressed = await compressImage(file);
@@ -42,20 +75,29 @@ async function uploadOrEncodePhoto(file: File) {
 }
 
 export default function ReportSightingPage() {
-  const [district, setDistrict] = useState("Miraflores");
+  const [draft, setDraft] = useState<SightingDraft>(defaultDraft);
+  const [district, setDistrict] = useState(defaultDraft.distrito);
   const [coords, setCoords] = useState<{ latitude: number | null; longitude: number | null }>({ latitude: null, longitude: null });
   const [matches, setMatches] = useState<CaseMatch[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState("");
-  const [underCare, setUnderCare] = useState("no");
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [associationMessage, setAssociationMessage] = useState("");
   const [reviewedMatches, setReviewedMatches] = useState(false);
   const [sent, setSent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const saved = loadDraft();
+    setDraft(saved);
+    setDistrict(saved.distrito);
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition((position) => setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
   }, []);
+
+  useEffect(() => {
+    window.sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ ...draft, distrito: district }));
+  }, [draft, district]);
 
   const useLocation = () => {
     if (!navigator.geolocation) {
@@ -72,6 +114,33 @@ export default function ReportSightingPage() {
     );
   };
 
+  function updateDraft<K extends keyof SightingDraft>(key: K, value: SightingDraft[K]) {
+    setDraft((current) => ({ ...current, [key]: value }));
+    setReviewedMatches(false);
+    setSelectedCaseId("");
+    setAssociationMessage("");
+  }
+
+  async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    setPhotoFile(file);
+    if (!file) {
+      updateDraft("photoDataUrl", null);
+      return;
+    }
+    updateDraft("photoDataUrl", await fileToDataUrl(file));
+  }
+
+  function toggleTrait(trait: string, checked: boolean) {
+    const next = checked ? [...draft.rasgos, trait] : draft.rasgos.filter((item) => item !== trait);
+    updateDraft("rasgos", Array.from(new Set(next)));
+  }
+
+  function selectCase(match: CaseMatch) {
+    setSelectedCaseId(match.caseId);
+    setAssociationMessage(`Avistamiento asociado a ${match.pet.nombre}. Presiona "Asociar al caso seleccionado" para finalizar.`);
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formElement: HTMLFormElement = event.currentTarget;
@@ -82,11 +151,11 @@ export default function ReportSightingPage() {
       return;
     }
 
-    const especie = String(form.get("especie"));
-    const tamano = String(form.get("tamano"));
-    const color = String(form.get("color"));
+    const especie = String(form.get("especie") || draft.especie);
+    const tamano = String(form.get("tamano") || draft.tamano);
+    const color = String(form.get("color") || draft.color);
     const rasgos = form.getAll("rasgos").map(String);
-    const seenAt = String(form.get("visto_en"));
+    const seenAt = String(form.get("visto_en") || draft.vistoEn);
     const [fallbackLat, fallbackLng] = districtCoords[district] ?? districtCoords.Miraflores;
     const latitude = coords.latitude ?? fallbackLat;
     const longitude = coords.longitude ?? fallbackLng;
@@ -100,13 +169,13 @@ export default function ReportSightingPage() {
 
     setSaving(true);
     setError("");
-    const file = form.get("foto") as File | null;
-    let foto: string | null = null;
+    const file = photoFile ?? form.get("foto") as File | null;
+    let foto: string | null = draft.photoDataUrl;
     if (file?.size) foto = await uploadOrEncodePhoto(file);
 
     const selectedMatch = matches.find((match) => match.caseId === selectedCaseId);
     let reportId: string | null = selectedMatch?.caseId ?? null;
-    let petId: string | null = null;
+    let petId: string | null = selectedMatch?.petId ?? null;
 
     if (!selectedMatch) {
       const photoUrl = foto ?? fallbackPhoto;
@@ -155,9 +224,9 @@ export default function ReportSightingPage() {
       distrito: district,
       comentario: String(form.get("comentario")),
       foto,
-      ubicacion: String(form.get("ubicacion")),
+      ubicacion: String(form.get("ubicacion") || draft.ubicacion),
       visto_en: seenAt,
-      situacion: underCare === "si" ? "la_tengo_conmigo" : "solo_la_vi",
+      situacion: draft.underCare === "si" ? "la_tengo_conmigo" : "solo_la_vi",
       latitud: latitude,
       longitud: longitude,
     });
@@ -172,6 +241,9 @@ export default function ReportSightingPage() {
 
     setSaving(false);
     setSent(true);
+    window.sessionStorage.removeItem(DRAFT_KEY);
+    setDraft(defaultDraft);
+    setPhotoFile(null);
     formElement.reset();
   }
 
@@ -193,24 +265,25 @@ export default function ReportSightingPage() {
       <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           {error && <div className="rounded-xl bg-[#FAECE7] p-3 text-sm text-[#712B13]">{error} <Link href="/auth" className="font-semibold underline">Iniciar sesion</Link></div>}
-          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamano</label><select className="select" name="tamano"><option>Pequeno</option><option>Mediano</option><option>Grande</option></select></div></div>
-          <div><label className="label">Color</label><input required className="field" name="color" placeholder="Marron, blanco, negro..." /></div>
-          <div><label className="label">Ubicacion</label><input required className="field" name="ubicacion" placeholder="Calle, parque o referencia" /></div>
+          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie" value={draft.especie} onChange={(event) => updateDraft("especie", event.target.value)}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamano</label><select className="select" name="tamano" value={draft.tamano} onChange={(event) => updateDraft("tamano", event.target.value)}><option>Pequeno</option><option>Mediano</option><option>Grande</option></select></div></div>
+          <div><label className="label">Color</label><input required className="field" name="color" value={draft.color} onChange={(event) => updateDraft("color", event.target.value)} placeholder="Marron, blanco, negro..." /></div>
+          <div><label className="label">Ubicacion</label><input required className="field" name="ubicacion" value={draft.ubicacion} onChange={(event) => updateDraft("ubicacion", event.target.value)} placeholder="Calle, parque o referencia" /></div>
           <Button type="button" variant="outline" className="w-full" onClick={useLocation}><MapPin size={18} />Usar mi ubicacion actual</Button>
-          <div><label className="label">Distrito</label><select className="select" value={district} onChange={(event) => setDistrict(event.target.value)}>{Object.keys(districtCoords).map((item) => <option key={item}>{item}</option>)}</select></div>
-          <div><label className="label">Fecha y hora</label><input required className="field" type="datetime-local" name="visto_en" /></div>
-          <div><label className="label">Comentario</label><textarea required className="textarea min-h-24" name="comentario" placeholder="Que hacia, hacia donde iba, si parecia asustada..." /></div>
-          <div><label className="label">Rasgos distintivos</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="rasgos" value={trait} />{trait}</label>)}</div></div>
-          <div><label className="label">La mascota esta bajo tu cuidado temporal?</label><select className="select" value={underCare} onChange={(event) => setUnderCare(event.target.value)}><option value="no">No</option><option value="si">Si</option></select></div>
-          <div><label className="label">Foto opcional</label><input className="field" name="foto" type="file" accept="image/*" /></div>
+          <div><label className="label">Distrito</label><select className="select" value={district} onChange={(event) => { setDistrict(event.target.value); setReviewedMatches(false); setAssociationMessage(""); }}>{Object.keys(districtCoords).map((item) => <option key={item}>{item}</option>)}</select></div>
+          <div><label className="label">Fecha y hora</label><input required className="field" type="datetime-local" name="visto_en" value={draft.vistoEn} onChange={(event) => updateDraft("vistoEn", event.target.value)} /></div>
+          <div><label className="label">Comentario</label><textarea required className="textarea min-h-24" name="comentario" value={draft.comentario} onChange={(event) => updateDraft("comentario", event.target.value)} placeholder="Que hacia, hacia donde iba, si parecia asustada..." /></div>
+          <div><label className="label">Rasgos distintivos</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="rasgos" value={trait} checked={draft.rasgos.includes(trait)} onChange={(event) => toggleTrait(trait, event.target.checked)} />{trait}</label>)}</div></div>
+          <div><label className="label">La mascota esta bajo tu cuidado temporal?</label><select className="select" value={draft.underCare} onChange={(event) => updateDraft("underCare", event.target.value)}><option value="no">No</option><option value="si">Si</option></select></div>
+          <div><label className="label">Foto opcional</label><input className="field" name="foto" type="file" accept="image/*" onChange={handlePhoto} />{draft.photoDataUrl && <p className="mt-2 text-xs font-semibold text-[#1D9E75]">Foto conservada en este formulario.</p>}</div>
+          {associationMessage && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{associationMessage}</div>}
           <Button disabled={saving}><Send size={18} />{saving ? "Guardando..." : matches.length && reviewedMatches ? selectedCaseId ? "Asociar al caso seleccionado" : "Crear caso de seguimiento" : "Buscar coincidencias"}</Button>
         </section>
         <aside className="space-y-3">
           <div className="form-card"><h2 className="font-bold">Encontramos casos similares</h2><p className="mt-2 text-sm text-[#6B6860]">Se comparan especie, color, tamano, distrito, fecha, rasgos y distancia geografica.</p>{reviewedMatches && !selectedCaseId && <p className="mt-2 text-sm font-semibold text-[#6B4A10]">Si ninguno coincide, se creara un caso de seguimiento para centralizar futuras pistas.</p>}</div>
-          {matches.map(({ caseId, pet, distance, score, reasons }) => (
+          {matches.map(({ caseId, petId, pet, distance, score, reasons }) => (
             <article key={caseId} className={`form-card ${selectedCaseId === caseId ? "border-[#1D9E75] bg-[#FAFDFB]" : ""}`}>
               <div className="flex gap-3"><img src={pet.foto_principal} alt={pet.nombre} className="h-16 w-16 rounded-lg object-cover" /><div><strong>Posible coincidencia</strong><p className="text-sm text-[#7A7871]">{pet.nombre} · {pet.tipo} · {pet.distrito}</p><p className="text-xs text-[#1D9E75]">Score {score} · {reasons.slice(0, 3).map((reason) => `✓ ${reason}`).join(" · ")}</p>{distance !== null && <p className="text-sm font-semibold text-[#1D9E75]">{formatDistance(distance)}</p>}</div></div>
-              <div className="mt-3 grid gap-2 min-[390px]:flex"><Button type="button" size="sm" onClick={() => setSelectedCaseId(caseId)}>Este corresponde</Button><Button type="button" size="sm" variant="outline" asChild><Link href={`/pet/${caseId}`}>Ver caso</Link></Button></div>
+              <div className="mt-3 grid gap-2 min-[390px]:flex"><Button type="button" size="sm" onClick={() => selectCase({ caseId, petId, pet, distance, score, reasons })}>Este corresponde</Button><Button type="button" size="sm" variant="outline" asChild><Link href={`/pet/${caseId}`}>Ver caso</Link></Button></div>
             </article>
           ))}
           {matches.length > 0 && <Button type="button" variant="outline" className="w-full" onClick={() => setSelectedCaseId("")}>Ninguno coincide</Button>}

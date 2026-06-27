@@ -133,7 +133,7 @@ export default function PetDetailPage() {
     if (caseRecord) return caseRecord.timeline;
     if (!pet) return [];
     return [
-      { date: pet.creado_en, label: "Reporte creado" },
+      { date: pet.creado_en, label: "Caso creado" },
       ...sightings.map((item) => ({ date: item.visto_en ?? item.creado_en, label: (item.estado_avistamiento ?? item.estado) === "confirmado" ? "Avistamiento confirmado" : "Avistamiento recibido" })),
       ...(pet.cerrado_en ? [{ date: pet.cerrado_en, label: "Mascota reunida" }] : []),
     ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -159,11 +159,11 @@ export default function PetDetailPage() {
     router.push("/");
   }
 
-  if (!pet) return <main className="container py-10"><Link href="/" className="text-[#1D9E75]">Volver</Link><p className="mt-4">Reporte no encontrado.</p></main>;
+  if (!pet) return <main className="container py-10"><Link href="/" className="text-[#1D9E75]">Volver</Link><p className="mt-4">Caso no encontrado.</p></main>;
 
   return (
     <main className="container py-5">
-      <Link href="/" className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Volver</Link>
+      <button type="button" onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))} className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Volver</button>
       <div className="grid gap-5 lg:grid-cols-[.92fr_1.08fr]">
         <section className="space-y-3">
           <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl bg-[#F8F7F4] shadow-soft">
@@ -192,11 +192,11 @@ export default function PetDetailPage() {
             </div>
             <div className="mt-3"><ContentReportButton targetType="pet" targetId={pet.id} /></div>
             {owned && <div className="mt-3 grid gap-2 border-t border-black/10 pt-3 min-[390px]:flex min-[390px]:flex-wrap">
-              <Button variant="outline" asChild><Link href={`/pet/${pet.id}/editar`}><Edit size={17} />Editar reporte</Link></Button>
+              <Button variant="outline" asChild><Link href={`/pet/${pet.id}/editar`}><Edit size={17} />Editar caso</Link></Button>
               {report?.pet_id && <Button variant="outline" asChild><Link href={`/mascota/${report.pet_id}/historial`}>Historial</Link></Button>}
               {pet.estado !== "reunido" && <Button variant="outline" onClick={closeReport}><CheckCircle size={17} />Mascota encontrada</Button>}
               {report?.estado === "reunido" && <Button variant="outline" onClick={reopenReport}>Reabrir búsqueda</Button>}
-              <Button variant="outline" onClick={removeReport}><Trash2 size={17} />Eliminar reporte</Button>
+              <Button variant="outline" onClick={removeReport}><Trash2 size={17} />Eliminar caso</Button>
             </div>}
           </div>
 

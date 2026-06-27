@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ContentReportButton } from "@/components/content-report-button";
 import type { Sighting } from "@/lib/demo-data";
@@ -29,6 +29,7 @@ const situationLabels: Record<string, string> = {
 
 export default function SightingDetailPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const [sighting, setSighting] = useState<Sighting>();
   const [report, setReport] = useState<Report | undefined>();
   const [owned, setOwned] = useState(false);
@@ -69,6 +70,7 @@ export default function SightingDetailPage() {
 
   return (
     <main className="container py-6">
+      <button type="button" onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))} className="mb-3 text-sm font-semibold text-[#6B6860]">Volver</button>
       <section className="form-card mx-auto max-w-2xl space-y-4">
         <div><h1 className="font-serif text-4xl">Avistamiento</h1><p className="mt-2 text-sm text-[#6B6860]">{formatDateTime(sighting.visto_en ?? sighting.creado_en)}{distance ? ` · ${distance}` : ""}</p></div>
         {sighting.foto && <img src={sighting.foto} alt="Foto del avistamiento" className="max-h-[420px] w-full rounded-xl bg-[#F8F7F4] object-contain" />}
@@ -77,7 +79,7 @@ export default function SightingDetailPage() {
         <div><h2 className="font-bold">Ubicación</h2><p className="mt-1 text-[#6B6860]">{sighting.ubicacion}</p></div>
         <div><h2 className="font-bold">Situación observada</h2><p className="mt-1 text-[#6B6860]">{situationLabels[String(sighting.situacion ?? "")] ?? "Solo la vi"}</p></div>
         <div><h2 className="font-bold">Placa o medalla</h2><p className="mt-1 text-[#6B6860]">{sighting.llevaba_placa === "si" ? `Sí${sighting.nombre_observado ? ` · ${sighting.nombre_observado}` : ""}` : sighting.llevaba_placa === "no" ? "No" : "No pude verificar"}</p></div>
-        <div className="grid gap-2 min-[390px]:flex"><Button onClick={share}>Compartir avistamiento</Button>{(sighting.report_id || sighting.pet_id) && <Button variant="outline" asChild><Link href={`/pet/${sighting.report_id ?? sighting.pet_id}`}>Ver reporte</Link></Button>}</div>
+        <div className="grid gap-2 min-[390px]:flex"><Button onClick={share}>Compartir avistamiento</Button>{(sighting.report_id || sighting.pet_id) && <Button variant="outline" asChild><Link href={`/pet/${sighting.report_id ?? sighting.pet_id}`}>Ver caso</Link></Button>}</div>
         <ContentReportButton targetType="sighting" targetId={sighting.id} />
         {owned && <div className="border-t border-black/10 pt-4"><h2 className="mb-2 font-bold">Estado de revisión</h2><div className="grid gap-2">{reviewStates.map((state) => <Button key={state.value} variant={sighting.estado_revision === state.value ? "default" : "outline"} onClick={() => changeReview(state.value)}>{state.label}</Button>)}</div></div>}
       </section>

@@ -46,7 +46,7 @@ export default function ReportarPage() {
     setSaving(true);
     const duplicates = await findPotentialDuplicateReports({ distrito, especie: String(form.get("tipo")), fecha: new Date().toISOString(), latitude: latitud, longitude: longitud });
     if (duplicates.length && !duplicateWarning) {
-      setDuplicateWarning("Hay reportes similares recientes en este distrito. Revisa si ya existe, o vuelve a publicar para continuar.");
+      setDuplicateWarning("Hay casos similares recientes en este distrito. Revisa si ya existe, o vuelve a publicar para continuar.");
       setSaving(false);
       return;
     }
@@ -105,14 +105,14 @@ export default function ReportarPage() {
   if (publishedPet) return (
     <main className="container py-6">
       <section className="form-card mx-auto max-w-xl space-y-4">
-        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Reporte publicado</div>
+        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Caso publicado</div>
         <h1 className="font-serif text-4xl">{publishedPet.nombre}</h1>
         <img src={publishedPet.foto_principal} alt={publishedPet.nombre} className="max-h-80 w-full rounded-xl bg-[#F8F7F4] object-contain" />
         <div className="grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
           <PosterButton pet={publishedPet} />
           <ShareButton pet={publishedPet} />
           <Button variant="outline" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/pet/${publishedPet.id}`).then(() => alert("Enlace copiado."))}>Copiar enlace</Button>
-          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver reporte</Link></Button>
+          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver caso</Link></Button>
         </div>
       </section>
     </main>
@@ -120,7 +120,7 @@ export default function ReportarPage() {
 
   return (
     <main className="container py-6">
-      <div className="mb-5"><h1 className="font-serif text-4xl">Reportar mascota perdida</h1><p className="mt-2 text-[#6B6860]">Publica un reporte simple para activar la búsqueda comunitaria.</p></div>
+      <div className="mb-5"><h1 className="font-serif text-4xl">Crear caso de mascota perdida</h1><p className="mt-2 text-[#6B6860]">Publica un caso simple para activar la búsqueda comunitaria.</p></div>
       <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           {duplicateWarning && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">{duplicateWarning}</div>}
@@ -142,7 +142,7 @@ export default function ReportarPage() {
           <div className="rounded-2xl border border-black/10 bg-[#C8EEE0] p-5 text-[#085041]"><MapPin className="mb-2" /><p className="font-semibold">Ubicación aproximada</p><p className="text-sm">Para el MVP, el mapa usa coordenadas reales aproximadas por distrito.</p></div>
           <div><label className="label">WhatsApp</label><input required className="field" name="whatsapp" placeholder="+51 987 654 321" /></div>
           <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa_monto" type="number" min="0" placeholder="Monto en soles" /></div>
-          <Button type="submit" size="lg" className="w-full" disabled={saving}><Send size={18} />{saving ? "Publicando..." : "Publicar reporte"}</Button>
+      <Button type="submit" size="lg" className="w-full" disabled={saving}><Send size={18} />{saving ? "Publicando..." : "Publicar caso"}</Button>
         </section>
       </form>
     </main>

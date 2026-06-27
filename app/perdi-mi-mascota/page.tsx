@@ -112,7 +112,7 @@ export default function EmergencyReportPage() {
           <ShareButton pet={publishedPet} />
           <PosterButton pet={publishedPet} />
           <Button variant="outline" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/pet/${publishedPet.id}`).then(() => alert("Enlace copiado."))}>Copiar enlace</Button>
-          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver reporte</Link></Button>
+          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver caso</Link></Button>
         </div>
       </section>
     </main>
@@ -123,7 +123,7 @@ export default function EmergencyReportPage() {
       <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Inicio</Link>
       <form onSubmit={submit} className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
-          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Completa un solo formulario. HUELLA crea la mascota, el reporte y publica el aviso.</p></div>
+          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Completa un solo formulario. HUELLA crea la mascota, abre el caso y publica el aviso.</p></div>
           {error && <div className="rounded-xl bg-[#FAECE7] p-3 text-sm text-[#712B13]">{error} <Link href="/auth" className="font-semibold underline">Iniciar sesión</Link></div>}
           {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre} · {pet.especie}</option>)}<option value="">No está registrada</option></select></div>}
           {!selectedPetId && <>
@@ -132,7 +132,7 @@ export default function EmergencyReportPage() {
             <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño</label><select className="select" name="tamano"><option>Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
             <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Color</label><input required className="field" name="color" placeholder="Marrón, blanco..." /></div><div><label className="label">Raza aproximada</label><input className="field" name="raza" placeholder="Mestizo, labrador..." /></div></div>
             <div><label className="label">Foto</label><input className="field" type="file" name="foto" accept="image/*" /></div>
-            <div><label className="label">Rasgo privado de verificación</label><input className="field" name="rasgo_privado" placeholder="No visible públicamente" /></div>
+            <div><label className="label">Dato de verificación</label><input className="field" name="rasgo_privado" placeholder="Información no visible públicamente" /></div>
           </>}
         </section>
         <section className="form-card space-y-4">

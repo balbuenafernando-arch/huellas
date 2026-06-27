@@ -77,7 +77,7 @@ export function scoreCaseMatch(caseRecord: CaseRecord, criteria: MatchCriteria):
     reasons.push("Zona cercana");
   }
 
-  return { caseId: caseRecord.id, pet, score, distance, reasons };
+  return { caseId: caseRecord.id, petId: caseRecord.petId, pet, score, distance, reasons };
 }
 
 export async function findLostPetMatches(criteria: MatchCriteria) {
