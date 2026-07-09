@@ -166,8 +166,8 @@ function reportToLostPatch(input: Partial<Report>) {
 }
 
 export function getDemoUserId() {
-  if (typeof window === "undefined") return "demo-user";
-  if (!sessionDemoUserId) sessionDemoUserId = crypto.randomUUID();
+  if (typeof window === "undefined") return "";
+  if (!sessionDemoUserId) sessionDemoUserId = "";
   return sessionDemoUserId;
 }
 
@@ -176,25 +176,19 @@ export async function getCurrentUser() {
     const { data } = await supabase.auth.getUser();
     return data.user;
   }
-  return { id: getDemoUserId(), email: "demo@huella.local" };
+  return null;
 }
 
 export async function signInWithEmail(email: string, password: string) {
-  if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-  } else {
-    getDemoUserId();
-  }
+  void email;
+  void password;
+  throw new Error("HUELLA solo permite ingresar con Google.");
 }
 
 export async function signUpWithEmail(email: string, password: string) {
-  if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.auth.signUp({ email, password });
-    if (error) throw error;
-  } else {
-    getDemoUserId();
-  }
+  void email;
+  void password;
+  throw new Error("HUELLA solo permite ingresar con Google.");
 }
 
 export async function signInWithGoogle() {
@@ -209,12 +203,15 @@ export async function signInWithGoogle() {
     });
     if (error) throw error;
   } else {
-    getDemoUserId();
+    throw new Error("Supabase no está configurado.");
   }
 }
 
 export async function signOut() {
-  if (isSupabaseConfigured && supabase) await supabase.auth.signOut();
+  if (isSupabaseConfigured && supabase) {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  }
 }
 
 export async function uploadMascotaImage(file: File, bucket = "mascotas") {

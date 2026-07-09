@@ -54,7 +54,7 @@ export type Sighting = {
 export type Notification = {
   id: string;
   pet_id: string;
-  tipo: "nuevo_avistamiento" | "avistamiento_confirmado" | "reporte_actualizado" | "reporte_cerrado" | "coincidencia_alta" | "caso_cercano" | "cambio_trayectoria" | "zona_probable";
+  tipo: "nuevo_avistamiento" | "avistamiento_confirmado" | "reporte_actualizado" | "reporte_cerrado" | "coincidencia_alta" | "caso_cercano";
   mensaje: string;
   leido: boolean;
   creado_en: string;

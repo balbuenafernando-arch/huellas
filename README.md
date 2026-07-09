@@ -221,7 +221,7 @@ supabase/migrations/20260610_pre_beta.sql
 
 - Onboarding inicial en Inicio sin obligar a registrar mascota.
 - Inicios de sesión y registros vuelven a Home.
-- Acción pública `/reportar-avistamiento` disponible sin cuenta.
+- Acción `/reportar-avistamiento` disponible para usuarios autenticados.
 - Navegación principal sin ambigüedad entre crear reportes y gestionar reportes.
 - Avistamientos enlazados al reporte público mediante `report_id`.
 

@@ -49,7 +49,7 @@ export default function HomePage() {
     .slice(0, 4), [cases]);
   const visibleNearby = nearbyCases.slice(0, 8);
   const activeLastSighting = activeCase?.sightings.slice().sort((a, b) => new Date(b.visto_en ?? b.creado_en).getTime() - new Date(a.visto_en ?? a.creado_en).getTime())[0];
-  const activeLastMovement = activeCase?.timeline.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+  const activeLastUpdate = activeCase?.timeline.slice().sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
 
   useEffect(() => {
     if (!activeCase) {
@@ -90,7 +90,7 @@ export default function HomePage() {
               <p className="text-sm font-semibold text-[#1D9E75]">{activeCase.status === "reunido" ? "Reunido" : "Búsqueda activa"}</p>
             </div>
             <p className="text-sm text-[#6B6860]">Último avistamiento: {activeLastSighting ? timeAgo(activeLastSighting.visto_en ?? activeLastSighting.creado_en) : "sin avistamientos todavía"}</p>
-            <p className="text-sm text-[#6B6860]">Último movimiento: {activeLastMovement ? timeAgo(activeLastMovement.date) : "sin novedades todavía"}</p>
+            <p className="text-sm text-[#6B6860]">Última actualización: {activeLastUpdate ? timeAgo(activeLastUpdate.date) : "sin novedades todavía"}</p>
             <p className="text-sm text-[#6B6860]">Tiempo transcurrido: {timeAgo(activeCase.createdAt)}</p>
             {pendingContacts > 0 && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm font-semibold text-[#6B4A10]">Tienes personas intentando ayudarte. {pendingContacts} solicitud{pendingContacts === 1 ? "" : "es"} pendiente{pendingContacts === 1 ? "" : "s"}.</div>}
             <Button asChild><Link href={`/pet/${activeCase.id}`}>Ver centro de búsqueda</Link></Button>

@@ -36,6 +36,7 @@ const mobileNav = [
   { href: "/mis-reportes", label: "Mis avistamientos", icon: PawPrint },
   ...mainNav.slice(2),
   { href: "/notificaciones", label: "Notificaciones", icon: Bell },
+  { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
   { href: "/auth", label: "Configuración", icon: Settings },
 ];
 
@@ -44,6 +45,7 @@ const moreNav = [
   { href: "/mis-reportes", label: "Mis búsquedas", icon: ClipboardList },
   { href: "/mis-reportes", label: "Mis avistamientos", icon: PawPrint },
   { href: "/notificaciones", label: "Notificaciones", icon: Bell },
+  { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
   { href: "/auth", label: "Perfil", icon: UserCircle },
   { href: "/auth", label: "Ayuda", icon: HelpCircle },
 ];

@@ -12,15 +12,11 @@ export type SearchPoint = {
   label: string;
 };
 
-export type MovementEstimate = {
+export type RecentActivitySummary = {
   points: SearchPoint[];
-  direction: string | null;
-  probableZone: {
-    latitude: number;
-    longitude: number;
-    radiusKm: number;
-    label: string;
-  } | null;
+  lastSighting: SearchPoint | null;
+  sightingsCount: number;
+  lastUpdatedAt: string | null;
 };
 
 export type SmartHomeSection = {
@@ -49,7 +45,7 @@ function toPoint(sighting: Sighting): SearchPoint | null {
   };
 }
 
-export function estimateCaseMovement(caseRecord: CaseRecord): MovementEstimate {
+export function summarizeRecentActivity(caseRecord: CaseRecord): RecentActivitySummary {
   const basePoint: SearchPoint | null = caseRecord.latitude != null && caseRecord.longitude != null ? {
     id: `${caseRecord.id}-origin`,
     latitude: caseRecord.latitude,
@@ -63,27 +59,14 @@ export function estimateCaseMovement(caseRecord: CaseRecord): MovementEstimate {
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   const points = [basePoint, ...sightingPoints].filter((point): point is SearchPoint => Boolean(point));
 
-  if (points.length === 0) return { points, direction: null, probableZone: null };
-
-  const latest = points[points.length - 1];
-  const recent = points.slice(-3);
-  const center = recent.reduce((acc, point) => ({
-    latitude: acc.latitude + point.latitude / recent.length,
-    longitude: acc.longitude + point.longitude / recent.length,
-  }), { latitude: 0, longitude: 0 });
-  const maxDistance = Math.max(
-    0.5,
-    ...recent.map((point) => distanceKm(center.latitude, center.longitude, point.latitude, point.longitude) ?? 0),
-  );
+  const lastSighting = sightingPoints[sightingPoints.length - 1] ?? null;
+  const lastPoint = points[points.length - 1] ?? null;
 
   return {
     points,
-    direction: null,
-    probableZone: {
-      ...center,
-      radiusKm: Math.min(5, Math.max(0.5, maxDistance + 0.5)),
-      label: `Zona probable alrededor de ${latest.label}`,
-    },
+    lastSighting,
+    sightingsCount: sightingPoints.length,
+    lastUpdatedAt: lastPoint?.date ?? null,
   };
 }
 

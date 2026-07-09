@@ -1,89 +1,74 @@
 "use client";
 
-import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { LogOut, Mail, UserCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { getCurrentUser, signInWithEmail, signInWithGoogle, signOut, signUpWithEmail } from "@/lib/sprint14-store";
+import { supabase } from "@/lib/supabase";
+import { signOut } from "@/lib/sprint14-store";
+
+function displayName(user: User) {
+  return String(user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email ?? "Usuario HUELLA");
+}
+
+function avatarUrl(user: User) {
+  return String(user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? "");
+}
 
 export default function AuthPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [signedIn, setSignedIn] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    getCurrentUser().then((user) => setSignedIn(Boolean(user)));
-  }, []);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    await authenticate("login");
-  }
-
-  async function authenticate(mode: "login" | "signup") {
-    setLoading(true);
-    setMessage("");
-    try {
-      if (mode === "login") await signInWithEmail(email, password);
-      else await signUpWithEmail(email, password);
-      setSignedIn(true);
-      router.push("/");
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo completar la acción.");
-    } finally {
+    if (!supabase) {
       setLoading(false);
-    }
-  }
-
-  async function closeSession() {
-    await signOut();
-    setSignedIn(false);
-    setMessage("Sesión cerrada.");
-  }
-
-  async function google() {
-    if (signedIn) {
-      router.push("/");
       return;
     }
-    setLoading(true);
-    setMessage("");
-    try {
-      await signInWithGoogle();
-      setSignedIn(true);
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : "No se pudo iniciar con Google.");
-    } finally {
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
       setLoading(false);
-    }
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  async function closeSession() {
+    setMessage("");
+    await signOut();
+    setUser(null);
+    router.replace("/");
   }
+
+  if (loading) {
+    return <main className="container py-6"><section className="form-card mx-auto max-w-md text-sm font-semibold text-[#6B6860]">Cargando perfil...</section></main>;
+  }
+
+  if (!user) return null;
+
+  const avatar = avatarUrl(user);
 
   return (
     <main className="container py-6">
-      <section className="form-card mx-auto max-w-md space-y-4">
-        <div><h1 className="font-serif text-4xl">Perfil</h1><p className="mt-2 text-sm text-[#6B6860]">Entra para cuidar tus búsquedas, tus mascotas y las pistas que recibas.</p></div>
-        {signedIn && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]">Sesión activa. No volveremos a pedir autenticación si ya estás conectado.</div>}
-        <Button type="button" className="w-full" onClick={google} disabled={loading}>{signedIn ? "Continuar" : "Continuar con Google"}</Button>
-        {!signedIn && <form className="space-y-3" onSubmit={submit}>
-          <div><label className="label">Email</label><input className="field" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></div>
-          <div><label className="label">Contraseña</label><input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} /></div>
-          {message && <p className="text-sm text-[#712B13]">{message}</p>}
-          <div className="grid gap-2 min-[390px]:grid-cols-2">
-            <Button disabled={loading}>{loading ? "Entrando..." : "Iniciar sesión"}</Button>
-            <Button type="button" variant="outline" disabled={loading} onClick={() => authenticate("signup")}>Crear cuenta</Button>
+      <section className="form-card mx-auto max-w-md space-y-5">
+        <div>
+          <h1 className="font-serif text-4xl">Perfil</h1>
+          <p className="mt-2 text-sm text-[#6B6860]">Datos vinculados a tu cuenta Google.</p>
+        </div>
+        <div className="flex items-center gap-4 rounded-xl bg-[#F8F7F4] p-4">
+          {avatar ? <img src={avatar} alt={displayName(user)} className="h-16 w-16 rounded-full object-cover" /> : <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-[#1D9E75]"><UserCircle size={34} /></span>}
+          <div className="min-w-0">
+            <p className="truncate text-lg font-bold">{displayName(user)}</p>
+            <p className="mt-1 flex items-center gap-2 truncate text-sm text-[#6B6860]"><Mail size={15} />{user.email}</p>
           </div>
-        </form>}
-        {signedIn && <Button type="button" variant="outline" className="w-full" onClick={closeSession}>Cerrar sesión</Button>}
-      </section>
-      <section className="form-card mx-auto mt-5 max-w-md space-y-3">
-        <h2 className="font-bold">Ayuda</h2>
-        <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Preguntas frecuentes</summary><p className="mt-2 text-sm text-[#6B6860]">Puedes explorar casos y enviar pistas sin cuenta. La cuenta sirve para cuidar tus mascotas y dar seguimiento.</p></details>
-        <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Cómo funciona HUELLA</summary><p className="mt-2 text-sm text-[#6B6860]">Una búsqueda y un avistamiento pueden conectarse por zona, rasgos y momento.</p></details>
-        <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Política de privacidad</summary><p className="mt-2 text-sm text-[#6B6860]">HUELLA evita mostrar teléfonos, correos e identificadores internos de forma pública.</p></details>
-        <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Consejos de búsqueda</summary><p className="mt-2 text-sm text-[#6B6860]">Actualiza el caso, revisa coincidencias cercanas y prioriza zonas del último avistamiento confirmado.</p></details>
+        </div>
+        {message && <p className="text-sm text-[#712B13]">{message}</p>}
+        <Button type="button" variant="outline" className="w-full" onClick={closeSession}><LogOut size={18} />Cerrar sesión</Button>
       </section>
     </main>
   );

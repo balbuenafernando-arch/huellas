@@ -162,7 +162,7 @@ export default function EmergencyReportPage() {
         <h1 className="font-serif text-4xl">{publishedPet.nombre}</h1>
         <img src={publishedPet.foto_principal} alt={publishedPet.nombre} className="max-h-80 w-full rounded-xl bg-[#F8F7F4] object-contain" />
         <div className="grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-          <ShareButton pet={publishedPet} />
+          <ShareButton pet={publishedPet} label="Compartir búsqueda" />
           <PosterButton pet={publishedPet} />
           <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver centro de búsqueda</Link></Button>
         </div>

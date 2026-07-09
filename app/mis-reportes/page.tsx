@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Heart, RotateCcw, Share2 } from "lucide-react";
+import { Heart, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PosterButton, ShareButton } from "@/components/report-actions";
 import { getSightings, isOwnedSighting } from "@/lib/pet-store";
@@ -14,15 +14,6 @@ import { formatDateTime } from "@/lib/utils";
 
 function ReportRow({ report, sightingCount, onChanged }: { report: Report; sightingCount: number; onChanged: () => void }) {
   const pet = reportToLegacyPet(report);
-
-  async function share() {
-    const url = `${window.location.origin}/pet/${report.id}`;
-    if (navigator.share) await navigator.share({ title: `Caso ${publicCaseCode(report.id)} HUELLA`, url });
-    else {
-      await navigator.clipboard.writeText(url);
-      alert("Enlace copiado.");
-    }
-  }
 
   return (
     <article className="form-card">
@@ -37,14 +28,13 @@ function ReportRow({ report, sightingCount, onChanged }: { report: Report; sight
           <p className="text-sm text-[#7A7871]">{report.distrito}</p>
           <div className={`mt-3 rounded-xl p-3 text-sm font-semibold ${sightingCount > 0 ? "bg-[#E1F5EE] text-[#085041]" : "bg-[#F8F7F4] text-[#6B6860]"}`}>{sightingCount > 0 ? `${sightingCount} avistamiento${sightingCount === 1 ? "" : "s"} para revisar` : "HUELLA sigue comparando zona y rasgos."}</div>
           <div className="mt-3 grid gap-2 min-[390px]:grid-cols-2">
-            <ShareButton pet={pet} />
-            <PosterButton pet={pet} />
+            <ShareButton pet={pet} label={report.estado === "reunido" ? "Compartir historia" : "Compartir búsqueda"} />
+            {report.estado !== "reunido" && <PosterButton pet={pet} />}
           </div>
           <div className="mt-3 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
             <Button size="sm" asChild><Link href={`/pet/${report.id}`}>Ver centro de búsqueda</Link></Button>
             <Button size="sm" variant="outline" asChild><Link href={`/pet/${report.id}/editar`}>Editar</Link></Button>
             {report.estado === "activo" ? <Button size="sm" asChild><Link href={`/pet/${report.id}`}><Heart size={16} />Cerrar búsqueda</Link></Button> : <Button size="sm" onClick={() => updateReport(report.id, { estado: "activo" }).then(onChanged)}><RotateCcw size={16} />Reabrir búsqueda</Button>}
-            <Button size="sm" variant="outline" onClick={share}><Share2 size={16} />Compartir</Button>
           </div>
         </div>
       </div>

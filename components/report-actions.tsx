@@ -31,7 +31,7 @@ function drawPseudoQr(ctx: CanvasRenderingContext2D, url: string, x: number, y: 
   }
 }
 
-export function ShareButton({ pet }: { pet: Pet }) {
+export function ShareButton({ pet, label = "Compartir" }: { pet: Pet; label?: string }) {
   async function share() {
     const url = caseUrl(pet);
     if (navigator.share) {
@@ -42,7 +42,7 @@ export function ShareButton({ pet }: { pet: Pet }) {
     alert("Enlace copiado al portapapeles.");
   }
 
-  return <Button type="button" variant="outline" onClick={share}><Share2 size={18} />Compartir</Button>;
+  return <Button type="button" variant="outline" onClick={share}><Share2 size={18} />{label}</Button>;
 }
 
 export function WhatsAppShareButton({ pet }: { pet: Pet }) {

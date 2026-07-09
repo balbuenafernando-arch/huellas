@@ -4,6 +4,8 @@ import { ClipboardList, Heart, Home, MapPin } from "lucide-react";
 import Link from "next/link";
 import { OfflineBanner } from "@/components/feedback";
 import { AppHeader } from "@/components/app-header";
+import { AuthGate } from "@/components/auth-gate";
+import { AppErrorBoundary } from "@/components/app-error-boundary";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -38,16 +40,20 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
   return (
     <html lang="es">
       <body>
-        <div className="shell">
-          <AppHeader />
-          <OfflineBanner />
-          {children}
-          <nav className="bottom-nav">
-            <div className="container flex items-center justify-around">
-              {primaryNav.map((item) => <Link key={item.href} href={item.href} className="nav-item"><item.icon size={22} /><span>{item.label}</span></Link>)}
+        <AuthGate>
+          <AppErrorBoundary>
+            <div className="shell">
+              <AppHeader />
+              <OfflineBanner />
+              {children}
+              <nav className="bottom-nav">
+                <div className="container flex items-center justify-around">
+                  {primaryNav.map((item) => <Link key={item.href} href={item.href} className="nav-item"><item.icon size={22} /><span>{item.label}</span></Link>)}
+                </div>
+              </nav>
             </div>
-          </nav>
-        </div>
+          </AppErrorBoundary>
+        </AuthGate>
       </body>
     </html>
   );

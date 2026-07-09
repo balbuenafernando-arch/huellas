@@ -9,7 +9,7 @@ import { FriendlyError, DetailSkeleton } from "@/components/feedback";
 import type { Sighting } from "@/lib/demo-data";
 import { getSighting, getPet, updateSightingReview, isOwnedPet } from "@/lib/pet-store";
 import { getCurrentUser, getReport, type Report, updateReport } from "@/lib/sprint14-store";
-import { formatDate, formatDateTime, formatDistance, distanceKm } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import { friendlyError } from "@/lib/form-validation";
 
 const reviewStates: Array<{ value: NonNullable<Sighting["estado_revision"]>; label: string }> = [
@@ -35,7 +35,6 @@ export default function SightingDetailPage() {
   const [sighting, setSighting] = useState<Sighting>();
   const [report, setReport] = useState<Report | undefined>();
   const [owned, setOwned] = useState(false);
-  const [distance, setDistance] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -50,9 +49,6 @@ export default function SightingDetailPage() {
       const [legacyPet, foundReport, user] = await Promise.all([found.pet_id ? getPet(found.pet_id) : Promise.resolve(undefined), getReport(found.report_id ?? found.pet_id ?? ""), getCurrentUser()]);
       setReport(foundReport);
       setOwned(Boolean(foundReport && user && foundReport.user_id === user.id) || isOwnedPet(legacyPet));
-      const baseLatitude = foundReport?.latitude ?? legacyPet?.latitud;
-      const baseLongitude = foundReport?.longitude ?? legacyPet?.longitud;
-      setDistance(formatDistance(distanceKm(baseLatitude, baseLongitude, found.latitud, found.longitud)));
       setError("");
     } catch (caught) {
       setError(friendlyError(caught, "No pudimos cargar el avistamiento. Inténtalo otra vez."));
@@ -97,20 +93,19 @@ export default function SightingDetailPage() {
       <button type="button" onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))} className="mb-3 text-sm font-semibold text-[#6B6860]">Volver</button>
       {error && <div className="mb-4"><FriendlyError message={error} onRetry={load} /></div>}
       <section className="form-card mx-auto max-w-2xl space-y-4">
+        {sighting.foto && <img src={sighting.foto} alt="Foto del avistamiento" className="max-h-[420px] w-full rounded-xl bg-[#F8F7F4] object-contain" />}
         <div>
           <h1 className="font-serif text-4xl">Avistamiento</h1>
           <p className="mt-2 text-sm text-[#6B6860]">Reportado por un miembro de la comunidad</p>
         </div>
-        {sighting.foto && <img src={sighting.foto} alt="Foto del avistamiento" className="max-h-[420px] w-full rounded-xl bg-[#F8F7F4] object-contain" />}
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-[#F8F7F4] p-3"><h2 className="font-bold">Fecha</h2><p className="mt-1 text-[#6B6860]">{formatDate(date)}</p></div>
           <div className="rounded-xl bg-[#F8F7F4] p-3"><h2 className="font-bold">Hora</h2><p className="mt-1 text-[#6B6860]">{new Date(date).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</p></div>
           <div className="rounded-xl bg-[#F8F7F4] p-3"><h2 className="font-bold">Ubicación</h2><p className="mt-1 text-[#6B6860]">{sighting.ubicacion}</p></div>
-          <div className="rounded-xl bg-[#F8F7F4] p-3"><h2 className="font-bold">Distancia</h2><p className="mt-1 text-[#6B6860]">{distance ?? "No disponible"}</p></div>
         </div>
-        {(sighting.especie || sighting.color || sighting.tamano || sighting.distrito) && <div><h2 className="font-bold">Datos observados</h2><p className="mt-1 text-[#6B6860]">{[sighting.especie, sighting.tamano, sighting.color, sighting.distrito].filter(Boolean).join(" · ")}</p></div>}
-        <div><h2 className="font-bold">Situación observada</h2><p className="mt-1 text-[#6B6860]">{situationLabels[String(sighting.situacion ?? "")] ?? "Solo la vi"}</p></div>
         <div><h2 className="font-bold">Descripción</h2><p className="mt-1 leading-7">{sighting.comentario}</p></div>
+        <div><h2 className="font-bold">Situación observada</h2><p className="mt-1 text-[#6B6860]">{situationLabels[String(sighting.situacion ?? "")] ?? "Solo la vi"}</p></div>
+        {(sighting.especie || sighting.color || sighting.tamano || sighting.distrito) && <div><h2 className="font-bold">Datos observados</h2><p className="mt-1 text-[#6B6860]">{[sighting.especie, sighting.tamano, sighting.color, sighting.distrito].filter(Boolean).join(" · ")}</p></div>}
         <div><h2 className="font-bold">Placa o medalla</h2><p className="mt-1 text-[#6B6860]">{sighting.llevaba_placa === "si" ? `Sí${sighting.nombre_observado ? ` · ${sighting.nombre_observado}` : ""}` : sighting.llevaba_placa === "no" ? "No" : "No pude verificar"}</p></div>
         <div className="grid gap-2 min-[390px]:flex"><Button onClick={share}>Compartir avistamiento</Button>{(sighting.report_id || sighting.pet_id) && <Button variant="outline" asChild><Link href={`/pet/${sighting.report_id ?? sighting.pet_id}`}>Ver centro de búsqueda</Link></Button>}</div>
         <ContentReportButton targetType="sighting" targetId={sighting.id} />

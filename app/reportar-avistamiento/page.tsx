@@ -46,7 +46,6 @@ type SightingDraft = {
   comentario: string;
   rasgos: string[];
   situacion: string;
-  direccionAnimal: string;
   photoDataUrl: string | null;
 };
 
@@ -60,17 +59,8 @@ const defaultDraft: SightingDraft = {
   comentario: "",
   rasgos: [],
   situacion: "solo_la_vi",
-  direccionAnimal: "quieto",
   photoDataUrl: null,
 };
-
-const directions = [
-  ["norte", "Norte"],
-  ["sur", "Sur"],
-  ["oeste", "Oeste"],
-  ["este", "Este"],
-  ["quieto", "Quieto"],
-];
 
 const quickSituations = [
   ["solo_la_vi", "La vi"],
@@ -253,9 +243,8 @@ export default function ReportSightingPage() {
         petId = pet.id;
       }
 
-      const direccionTexto = directions.find(([value]) => value === draft.direccionAnimal)?.[1] ?? "Quieto";
       const situacionTexto = quickSituations.find(([value]) => value === draft.situacion)?.[1] ?? "La vi";
-      const comentario = `${String(form.get("comentario"))}\nSituación: ${situacionTexto}\nDirección del animal: ${direccionTexto}`;
+      const comentario = `${String(form.get("comentario"))}\nSituación observada: ${situacionTexto}`;
 
       await createSighting({
         pet_id: petId,
@@ -297,7 +286,7 @@ export default function ReportSightingPage() {
     return (
       <main className="container py-6">
         <section className="form-card mx-auto max-w-xl space-y-4">
-          <ProgressiveSigninCard />
+          <ProgressiveSigninCard context="sighting" />
           <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Avistamiento recibido. Gracias por detenerte a ayudar.</div>
           <Button asChild><Link href="/">Volver al inicio</Link></Button>
         </section>
@@ -329,8 +318,7 @@ export default function ReportSightingPage() {
           <div><label className="label">Distrito</label><select className="select" value={district} onChange={(event) => { setDistrict(event.target.value); setReviewedMatches(false); setAssociationMessage(""); }}>{Object.keys(districtCoords).map((item) => <option key={item}>{item}</option>)}</select></div>
           <div><label className="label">Fecha y hora</label><input required className="field" type="datetime-local" name="visto_en" value={draft.vistoEn} onChange={(event) => updateDraft("vistoEn", event.target.value)} /></div>
           <div><label className="label">Situación observada</label><div className="grid gap-2 min-[390px]:grid-cols-2">{quickSituations.map(([value, label]) => <button key={value} type="button" onClick={() => updateDraft("situacion", value)} className={`min-h-11 rounded-xl border px-3 text-left text-sm font-semibold ${draft.situacion === value ? "border-[#1D9E75] bg-[#E1F5EE] text-[#085041]" : "border-black/10 bg-white text-[#4D4A43]"}`}>{label}</button>)}</div></div>
-          <div><label className="label">Dirección del animal</label><div className="grid grid-cols-2 gap-2 min-[390px]:grid-cols-5">{directions.map(([value, label]) => <button key={value} type="button" onClick={() => updateDraft("direccionAnimal", value)} className={`min-h-11 rounded-xl border px-2 text-sm font-semibold ${draft.direccionAnimal === value ? "border-[#1D9E75] bg-[#E1F5EE] text-[#085041]" : "border-black/10 bg-white text-[#4D4A43]"}`}>{label}</button>)}</div></div>
-          <div><label className="label">Comentario</label><textarea required maxLength={1000} className="textarea min-h-24" name="comentario" value={draft.comentario} onChange={(event) => updateDraft("comentario", event.target.value)} placeholder="Qué hacía, hacia dónde iba, si parecía asustada..." /></div>
+          <div><label className="label">Comentario</label><textarea required maxLength={1000} className="textarea min-h-24" name="comentario" value={draft.comentario} onChange={(event) => updateDraft("comentario", event.target.value)} placeholder="Qué hacía, cómo se veía, si parecía asustada..." /></div>
           <div><label className="label">Rasgos distintivos</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="rasgos" value={trait} checked={draft.rasgos.includes(trait)} onChange={(event) => toggleTrait(trait, event.target.checked)} />{trait}</label>)}</div></div>
           {associationMessage && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{associationMessage}</div>}
           <Button disabled={saving}><Send size={18} />{saving ? "Enviando avistamiento..." : matches.length && reviewedMatches ? selectedCaseId ? "Unir a este caso" : "Enviar avistamiento" : "Buscar coincidencias"}</Button>

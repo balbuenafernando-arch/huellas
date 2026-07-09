@@ -4,8 +4,6 @@
 alter table public.cases
   add column if not exists last_sighting_at timestamptz,
   add column if not exists last_activity_at timestamptz default now(),
-  add column if not exists probable_zone jsonb default '{}'::jsonb,
-  add column if not exists movement_direction text,
   add column if not exists search_radius_km integer default 10 check (search_radius_km in (1, 3, 5, 10, 20)),
   add column if not exists urgency text default 'normal' check (urgency in ('normal', 'alta')),
   add column if not exists follower_count integer not null default 0 check (follower_count >= 0);
@@ -17,7 +15,6 @@ alter table public.case_matches
   add column if not exists algorithm_version text not null default 'v2-attributes-distance-time';
 
 alter table public.sightings
-  add column if not exists movement_direction text,
   add column if not exists structured_action text check (
     structured_action is null
     or structured_action in ('solo_la_vi', 'la_tengo_conmigo', 'herida', 'siguiendo', 'otra_mascota')
