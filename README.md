@@ -31,7 +31,7 @@ Abre `http://localhost:3000`. Para producción, configura Supabase. Sin Supabase
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://TU-PROYECTO.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=TU_PUBLISHABLE_KEY
+NEXT_PUBLIC_SUPABASE_ANON_KEY=TU_ANON_KEY
 NEXT_PUBLIC_SITE_URL=http://localhost:3000
 ```
 
@@ -118,7 +118,7 @@ Variables necesarias en Vercel:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+NEXT_PUBLIC_SUPABASE_ANON_KEY
 NEXT_PUBLIC_SITE_URL
 ```
 
@@ -126,7 +126,7 @@ Pasos para redeploy:
 
 1. Ejecutar `supabase/migrations/20260708_iteration_1_supabase.sql` y luego `supabase/migrations/20260709_iteration_1_1_hardening.sql` en Supabase.
 2. Configurar el bucket `pet-photos` si no quedó creado por SQL.
-3. En Vercel, configurar `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+3. En Vercel, configurar `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
 4. Ejecutar un nuevo deploy con build command `npm run build`.
 
 ## Actualización MVP 1.1

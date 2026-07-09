@@ -7,7 +7,7 @@ export type FeedbackType = "Sugerencia" | "Error" | "Algo no se entiende" | "Exp
 export const APP_VERSION = "beta-ready";
 
 export async function submitFeedback(input: { tipo: FeedbackType; comentario: string; screenshot_url?: string | null }) {
-  if (!isSupabaseConfigured || !supabase) throw new Error("Supabase no está configurado.");
+  if (!isSupabaseConfigured || !supabase) throw new Error("No pudimos enviar el feedback.");
   const { data: userData } = await supabase.auth.getUser();
   if (!userData.user) throw new Error("Necesitas iniciar sesión.");
   const { error } = await supabase.from("feedback").insert({

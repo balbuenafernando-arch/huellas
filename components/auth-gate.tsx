@@ -8,7 +8,7 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { signInWithGoogle } from "@/lib/sprint14-store";
 import { Button } from "@/components/ui/button";
 
-function WelcomeScreen({ onContinue, loading }: { onContinue: () => void; loading: boolean }) {
+function WelcomeScreen({ onContinue, loading, error }: { onContinue: () => void; loading: boolean; error: string }) {
   return (
     <main className="container grid min-h-[100svh] place-items-center py-8">
       <section className="form-card mx-auto w-full max-w-xl space-y-5">
@@ -35,8 +35,8 @@ function WelcomeScreen({ onContinue, loading }: { onContinue: () => void; loadin
           ))}
         </div>
         <p className="rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">Tu cuenta Google solo se utiliza para identificarte y proteger la comunidad.</p>
-        {!isSupabaseConfigured && <p className="rounded-xl bg-[#FFF7F3] p-3 text-sm font-semibold text-[#712B13]">Supabase no está configurado. Agrega las variables públicas para habilitar el ingreso.</p>}
-        <Button type="button" className="w-full" onClick={onContinue} disabled={loading || !isSupabaseConfigured}>
+        {error && <p className="rounded-xl bg-[#FFF7F3] p-3 text-sm font-semibold text-[#712B13]">{error}</p>}
+        <Button type="button" className="w-full" onClick={onContinue} disabled={loading}>
           {loading ? "Conectando..." : "Continuar con Google"}
         </Button>
       </section>
@@ -48,6 +48,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
+  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -73,8 +74,11 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
   async function continueWithGoogle() {
     setSigningIn(true);
+    setAuthError("");
     try {
       await signInWithGoogle();
+    } catch {
+      setAuthError("No pudimos iniciar con Google. Inténtalo otra vez.");
     } finally {
       setSigningIn(false);
     }
@@ -84,7 +88,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     return <main className="container grid min-h-[100svh] place-items-center py-8"><div className="form-card text-sm font-semibold text-[#6B6860]">Verificando sesión...</div></main>;
   }
 
-  if (!user) return <WelcomeScreen onContinue={continueWithGoogle} loading={signingIn} />;
+  if (!user) return <WelcomeScreen onContinue={continueWithGoogle} loading={signingIn} error={authError} />;
 
   return <>{children}</>;
 }

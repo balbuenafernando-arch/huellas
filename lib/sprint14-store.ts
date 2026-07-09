@@ -203,7 +203,7 @@ export async function signInWithGoogle() {
     });
     if (error) throw error;
   } else {
-    throw new Error("Supabase no está configurado.");
+    throw new Error("No pudimos iniciar con Google.");
   }
 }
 
