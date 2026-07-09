@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { createSighting, findPotentialDuplicateSightings } from "@/lib/pet-store";
 import { uploadImage } from "@/services/image-service";
 import type { Sighting } from "@/lib/demo-data";
+import { FriendlyError } from "@/components/feedback";
+import { friendlyError, validateImageFile, validateNotFuture } from "@/lib/form-validation";
 
 export function SightingForm({ petId, reportId, onCreated }: { petId: string; reportId?: string | null; onCreated: () => void }) {
   const [comentario, setComentario] = useState("");
@@ -16,54 +18,71 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
   const [coords, setCoords] = useState<{ latitude: number | null; longitude: number | null }>({ latitude: null, longitude: null });
   const [placa, setPlaca] = useState("no_pude_verificar");
   const [warning, setWarning] = useState("");
+  const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   function useLocation() {
-    if (!navigator.geolocation) return;
+    if (!navigator.geolocation) {
+      setError("Tu navegador no permite obtener ubicación. Puedes escribir una referencia manual.");
+      return;
+    }
     navigator.geolocation.getCurrentPosition((position) => {
       setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
       if (!ubicacion) setUbicacion("Ubicación actual compartida");
-    });
+      setError("");
+    }, () => setError("No pudimos tomar tu ubicación. Escribe una referencia cercana."));
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!comentario.trim() || !ubicacion.trim() || !vistoEn) return;
-    const form = new FormData(event.currentTarget);
-    setSaving(true);
-    const duplicates = await findPotentialDuplicateSightings({ petId: reportId ?? petId, ubicacion, vistoEn });
-    if (duplicates.length && !warning) {
-      setWarning("Ya hay pistas parecidas cerca. Revisa si ayudan; si tu información agrega algo, envíala igual.");
-      setSaving(false);
+    if (saving || !comentario.trim() || !ubicacion.trim() || !vistoEn) return;
+    const validationMessage = validateNotFuture(vistoEn, "La fecha del avistamiento") || validateImageFile(foto);
+    if (validationMessage) {
+      setError(validationMessage);
       return;
     }
-    let fotoUrl: string | null = null;
-    if (foto) fotoUrl = await uploadImage(foto);
-    await createSighting({
-      pet_id: petId,
-      report_id: reportId ?? null,
-      comentario,
-      foto: fotoUrl,
-      ubicacion,
-      visto_en: vistoEn,
-      situacion: String(form.get("situacion") ?? "solo_la_vi") as Sighting["situacion"],
-      llevaba_placa: String(form.get("llevaba_placa") ?? "no_pude_verificar") as Sighting["llevaba_placa"],
-      nombre_observado: String(form.get("nombre_observado") ?? "").trim() || null,
-      latitud: coords.latitude,
-      longitud: coords.longitude,
-    });
-    setComentario("");
-    setUbicacion("");
-    setVistoEn("");
-    setWarning("");
-    setFoto(null);
-    setSaving(false);
-    onCreated();
+    const form = new FormData(event.currentTarget);
+    setSaving(true);
+    setError("");
+    try {
+      const duplicates = await findPotentialDuplicateSightings({ petId: reportId ?? petId, ubicacion, vistoEn });
+      if (duplicates.length && !warning) {
+      setWarning("Ya hay avistamientos parecidos cerca. Revisa si ayudan; si tu información agrega algo, envíala igual.");
+        setSaving(false);
+        return;
+      }
+      let fotoUrl: string | null = null;
+      if (foto) fotoUrl = await uploadImage(foto);
+      await createSighting({
+        pet_id: petId,
+        report_id: reportId ?? null,
+        comentario,
+        foto: fotoUrl,
+        ubicacion,
+        visto_en: vistoEn,
+        situacion: String(form.get("situacion") ?? "solo_la_vi") as Sighting["situacion"],
+        llevaba_placa: String(form.get("llevaba_placa") ?? "no_pude_verificar") as Sighting["llevaba_placa"],
+        nombre_observado: String(form.get("nombre_observado") ?? "").trim() || null,
+        latitud: coords.latitude,
+        longitud: coords.longitude,
+      });
+      setComentario("");
+      setUbicacion("");
+      setVistoEn("");
+      setWarning("");
+      setFoto(null);
+      onCreated();
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos enviar el avistamiento. Revisa tu conexión e inténtalo otra vez."));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
     <form onSubmit={submit} className="form-card space-y-4">
-      <h2 className="font-bold">🐾 Compartir pista</h2>
+      <h2 className="font-bold">Compartir avistamiento</h2>
+      {error && <FriendlyError message={error} />}
       {warning && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">{warning}</div>}
       <div>
         <label className="label">Ubicación</label>
@@ -76,7 +95,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       </div>
       <div>
         <label className="label">Descripción</label>
-        <textarea required className="textarea min-h-24" value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Cuenta dónde, cuándo y cómo viste a esta mascota" />
+        <textarea required maxLength={1000} className="textarea min-h-24" value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Cuenta dónde, cuándo y cómo viste a esta mascota" />
       </div>
       <fieldset>
         <legend className="label">Situación observada</legend>
@@ -101,10 +120,19 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       {placa === "si" && <div><label className="label">Nombre observado</label><input className="field" name="nombre_observado" placeholder="Nombre en la placa" /></div>}
       <div>
         <label className="label">Foto (opcional pero recomendada)</label>
-        <input className="field" type="file" accept="image/*" onChange={(e) => setFoto(e.target.files?.[0] ?? null)} />
+        <input className="field" type="file" accept="image/*" onChange={(e) => {
+          const file = e.target.files?.[0] ?? null;
+          const validationMessage = validateImageFile(file);
+          if (validationMessage) {
+            setError(validationMessage);
+            return;
+          }
+          setFoto(file);
+          setError("");
+        }} />
       </div>
       <div className="flex gap-2 rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]"><MapPin size={18} className="shrink-0" />Comparte una referencia clara para orientar la búsqueda.</div>
-      <Button type="submit" disabled={saving || !comentario.trim() || !ubicacion.trim() || !vistoEn}><Send size={18} />{saving ? "Enviando pista..." : "Enviar pista"}</Button>
+      <Button type="submit" disabled={saving || !comentario.trim() || !ubicacion.trim() || !vistoEn}><Send size={18} />{saving ? "Enviando avistamiento..." : "Enviar avistamiento"}</Button>
     </form>
   );
 }

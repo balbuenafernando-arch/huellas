@@ -24,8 +24,8 @@ function drawImageToCanvas(image: HTMLImageElement, maxSize: number) {
 }
 
 export async function compressImage(file: File) {
-  if (!allowedTypes.has(file.type)) throw new Error("Formato de imagen no permitido.");
-  if (file.size > maxBytes) throw new Error("La imagen supera el tamano maximo permitido.");
+  if (!allowedTypes.has(file.type)) throw new Error("Usa una imagen en formato JPG, PNG o WebP.");
+  if (file.size > maxBytes) throw new Error("La imagen no puede superar 5 MB.");
 
   const image = new Image();
   const objectUrl = URL.createObjectURL(file);

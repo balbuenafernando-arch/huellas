@@ -45,12 +45,15 @@ export default function AuthPage() {
   }
 
   async function google() {
+    if (signedIn) {
+      router.push("/");
+      return;
+    }
     setLoading(true);
     setMessage("");
     try {
       await signInWithGoogle();
       setSignedIn(true);
-      router.push("/");
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "No se pudo iniciar con Google.");
     } finally {
@@ -61,18 +64,18 @@ export default function AuthPage() {
   return (
     <main className="container py-6">
       <section className="form-card mx-auto max-w-md space-y-4">
-        <div><h1 className="font-serif text-4xl">Perfil</h1><p className="mt-2 text-sm text-[#6B6860]">Entra para cuidar tus casos, tus mascotas y las pistas que recibas.</p></div>
-        {signedIn && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]">Sesión activa.</div>}
-        <Button type="button" className="w-full" onClick={google} disabled={loading}>Continuar con Google</Button>
-        <form className="space-y-3" onSubmit={submit}>
+        <div><h1 className="font-serif text-4xl">Perfil</h1><p className="mt-2 text-sm text-[#6B6860]">Entra para cuidar tus búsquedas, tus mascotas y las pistas que recibas.</p></div>
+        {signedIn && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]">Sesión activa. No volveremos a pedir autenticación si ya estás conectado.</div>}
+        <Button type="button" className="w-full" onClick={google} disabled={loading}>{signedIn ? "Continuar" : "Continuar con Google"}</Button>
+        {!signedIn && <form className="space-y-3" onSubmit={submit}>
           <div><label className="label">Email</label><input className="field" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /></div>
           <div><label className="label">Contraseña</label><input className="field" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} /></div>
           {message && <p className="text-sm text-[#712B13]">{message}</p>}
           <div className="grid gap-2 min-[390px]:grid-cols-2">
             <Button disabled={loading}>{loading ? "Entrando..." : "Iniciar sesión"}</Button>
-            <Button type="button" variant="outline" disabled={loading} onClick={() => authenticate("signup")}>Registrarme</Button>
+            <Button type="button" variant="outline" disabled={loading} onClick={() => authenticate("signup")}>Crear cuenta</Button>
           </div>
-        </form>
+        </form>}
         {signedIn && <Button type="button" variant="outline" className="w-full" onClick={closeSession}>Cerrar sesión</Button>}
       </section>
       <section className="form-card mx-auto mt-5 max-w-md space-y-3">

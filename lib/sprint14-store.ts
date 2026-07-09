@@ -8,9 +8,11 @@ import { uploadImage } from "@/services/image-service";
 export type RegisteredPet = {
   id: string;
   user_id: string;
+  owner_id?: string | null;
   nombre: string;
   alias?: string | null;
   especie: string;
+  tipo?: string | null;
   raza: string;
   tamano?: string | null;
   color: string;
@@ -19,13 +21,13 @@ export type RegisteredPet = {
   salud?: string | null;
   esterilizado?: boolean;
   placa_medalla?: string | null;
-  caracteristicas?: string[] | null;
   telefono?: string | null;
   contacto_preferido?: "whatsapp" | "telefono" | "ambos" | string | null;
   fotos?: string[] | null;
   foto_principal?: string | null;
-  rasgo_privado?: string | null;
   foto_url: string;
+  caracteristicas?: string[] | null;
+  rasgo_privado?: string | null;
   created_at: string;
 };
 
@@ -58,18 +60,109 @@ export type ReportHistoryItem = {
   reunited_at?: string | null;
 };
 
-const DEMO_USER_KEY = "huella:demo-user";
+type LostReportRow = {
+  id: string;
+  pet_id: string | null;
+  owner_id: string;
+  status: "active" | "reunited" | "archived";
+  district: string;
+  approximate_address: string | null;
+  description: string | null;
+  reward_text: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  lost_at: string | null;
+  reunited_at: string | null;
+  views_count: number;
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+  pet?: RegisteredPet | null;
+  private_contact?: { contact_whatsapp?: string | null; contact_phone?: string | null } | null;
+};
+
 const REGISTERED_PETS_KEY = "huella:v14:pets";
 const REPORTS_KEY = "huella:v14:reports";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let sessionDemoUserId = "";
 
 function readLocal<T>(key: string, fallback: T): T {
+  void key;
   return fallback;
 }
 
 function writeLocal<T>(key: string, value: T) {
   void key;
   void value;
+}
+
+function isUuid(value?: string | null) {
+  return Boolean(value && UUID_RE.test(value));
+}
+
+function statusToLegacy(status?: string): Report["estado"] {
+  return status === "reunited" ? "reunido" : "activo";
+}
+
+function legacyStatusToLost(status?: Report["estado"]) {
+  return status === "reunido" ? "reunited" : "active";
+}
+
+function petPhoto(pet?: RegisteredPet | null) {
+  return pet?.foto_principal ?? pet?.foto_url ?? pet?.fotos?.[0] ?? "";
+}
+
+function lostReportToReport(row: LostReportRow): Report {
+  return {
+    id: row.id,
+    user_id: row.owner_id,
+    pet_id: row.pet_id,
+    tipo_reporte: "perdido",
+    estado: statusToLegacy(row.status),
+    distrito: row.district,
+    descripcion: row.description ?? "",
+    foto_url: petPhoto(row.pet),
+    whatsapp: row.private_contact?.contact_whatsapp ?? row.private_contact?.contact_phone ?? null,
+    latitude: row.latitude,
+    longitude: row.longitude,
+    views_count: row.views_count,
+    reunited_at: row.reunited_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    fecha_reporte: row.lost_at ?? row.created_at,
+    pet: row.pet ?? null,
+  };
+}
+
+function reportToLostInsert(report: Report, ownerId: string) {
+  return {
+    pet_id: report.pet_id,
+    owner_id: ownerId,
+    status: legacyStatusToLost(report.estado),
+    district: report.distrito,
+    approximate_address: report.distrito,
+    description: report.descripcion,
+    latitude: report.latitude,
+    longitude: report.longitude,
+    lost_at: report.fecha_reporte,
+    reunited_at: report.reunited_at ?? null,
+    is_public: true,
+  };
+}
+
+function reportToLostPatch(input: Partial<Report>) {
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.estado) {
+    patch.status = legacyStatusToLost(input.estado);
+    patch.reunited_at = input.estado === "reunido" ? input.reunited_at ?? new Date().toISOString() : null;
+  }
+  if (input.distrito !== undefined) patch.district = input.distrito;
+  if (input.descripcion !== undefined) patch.description = input.descripcion;
+  if (input.latitude !== undefined) patch.latitude = input.latitude;
+  if (input.longitude !== undefined) patch.longitude = input.longitude;
+  if (input.fecha_reporte !== undefined) patch.lost_at = input.fecha_reporte;
+  if (input.views_count !== undefined) patch.views_count = input.views_count;
+  return patch;
 }
 
 export function getDemoUserId() {
@@ -106,7 +199,14 @@ export async function signUpWithEmail(email: string, password: string) {
 
 export async function signInWithGoogle() {
   if (isSupabaseConfigured && supabase) {
-    const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: typeof window !== "undefined" ? window.location.origin : undefined } });
+    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo,
+        queryParams: { access_type: "offline", prompt: "select_account" },
+      },
+    });
     if (error) throw error;
   } else {
     getDemoUserId();
@@ -124,7 +224,11 @@ export async function uploadMascotaImage(file: File, bucket = "mascotas") {
 export async function listMyRegisteredPets() {
   const user = await getCurrentUser();
   if (isSupabaseConfigured && supabase && user) {
-    const { data, error } = await supabase.from("pets").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
+    const { data, error } = await supabase
+      .from("pets")
+      .select("*")
+      .or(`user_id.eq.${user.id},owner_id.eq.${user.id}`)
+      .order("created_at", { ascending: false });
     if (!error && data) return data as RegisteredPet[];
   }
   return readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, []).filter((pet) => pet.user_id === user?.id);
@@ -133,10 +237,19 @@ export async function listMyRegisteredPets() {
 export async function createRegisteredPet(input: Omit<RegisteredPet, "id" | "user_id" | "created_at">) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Necesitas iniciar sesión.");
-  const pet: RegisteredPet = { ...input, id: crypto.randomUUID(), user_id: user.id, created_at: new Date().toISOString() };
+  const now = new Date().toISOString();
+  const pet: RegisteredPet = { ...input, id: crypto.randomUUID(), user_id: user.id, owner_id: user.id, created_at: now };
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from("pets").insert(pet).select().single();
+    const { rasgo_privado, ...insertable } = pet;
+    const { data, error } = await supabase.from("pets").insert(insertable).select().single();
     if (error) throw error;
+    if (rasgo_privado) {
+      await supabase.from("pet_private_details").upsert({
+        pet_id: data.id,
+        owner_id: user.id,
+        rasgo_privado,
+      });
+    }
     return data as RegisteredPet;
   }
   writeLocal(REGISTERED_PETS_KEY, [pet, ...readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, [])]);
@@ -144,27 +257,34 @@ export async function createRegisteredPet(input: Omit<RegisteredPet, "id" | "use
 }
 
 export async function updateRegisteredPet(id: string, input: Partial<RegisteredPet>) {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && isUuid(id)) {
     const user = await getCurrentUser();
-    await supabase.from("pets").update(input).eq("id", id).eq("user_id", user?.id);
+    const { rasgo_privado, ...patch } = input;
+    await supabase.from("pets").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`);
+    if (rasgo_privado !== undefined && user) {
+      await supabase.from("pet_private_details").upsert({ pet_id: id, owner_id: user.id, rasgo_privado });
+    }
   }
   writeLocal(REGISTERED_PETS_KEY, readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, []).map((pet) => pet.id === id ? { ...pet, ...input } : pet));
 }
 
 export async function deleteRegisteredPet(id: string) {
-  if (isSupabaseConfigured && supabase) {
+  if (isSupabaseConfigured && supabase && isUuid(id)) {
     const user = await getCurrentUser();
-    await supabase.from("pets").delete().eq("id", id).eq("user_id", user?.id);
+    await supabase.from("pets").delete().eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`);
   }
   writeLocal(REGISTERED_PETS_KEY, readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, []).filter((pet) => pet.id !== id));
 }
 
 export async function listReports(includeReunidos = false) {
   if (isSupabaseConfigured && supabase) {
-    let query = supabase.from("reports").select("*, pet:pets(*)").order("created_at", { ascending: false });
-    if (!includeReunidos) query = query.eq("estado", "activo");
+    let query = supabase
+      .from("lost_reports")
+      .select("*, pet:pets(*), private_contact:report_private_contacts(contact_whatsapp, contact_phone)")
+      .order("created_at", { ascending: false });
+    if (!includeReunidos) query = query.eq("status", "active");
     const { data, error } = await query;
-    if (!error && data?.length) return data as Report[];
+    if (!error && data?.length) return (data as unknown as LostReportRow[]).map(lostReportToReport);
   }
   const local = readLocal<Report[]>(REPORTS_KEY, []);
   if (local.length) return includeReunidos ? local : local.filter((report) => report.estado === "activo");
@@ -174,16 +294,24 @@ export async function listReports(includeReunidos = false) {
 export async function listMyReports() {
   const user = await getCurrentUser();
   if (isSupabaseConfigured && supabase && user) {
-    const { data, error } = await supabase.from("reports").select("*, pet:pets(*)").eq("user_id", user.id).order("created_at", { ascending: false });
-    if (!error && data) return data as Report[];
+    const { data, error } = await supabase
+      .from("lost_reports")
+      .select("*, pet:pets(*), private_contact:report_private_contacts(contact_whatsapp, contact_phone)")
+      .eq("owner_id", user.id)
+      .order("created_at", { ascending: false });
+    if (!error && data) return (data as unknown as LostReportRow[]).map(lostReportToReport);
   }
   return readLocal<Report[]>(REPORTS_KEY, []).filter((report) => report.user_id === user?.id);
 }
 
 export async function getReport(id: string) {
-  if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from("reports").select("*, pet:pets(*)").eq("id", id).single();
-    if (!error && data) return data as Report;
+  if (isSupabaseConfigured && supabase && isUuid(id)) {
+    const { data, error } = await supabase
+      .from("lost_reports")
+      .select("*, pet:pets(*), private_contact:report_private_contacts(contact_whatsapp, contact_phone)")
+      .eq("id", id)
+      .maybeSingle();
+    if (!error && data) return lostReportToReport(data as unknown as LostReportRow);
   }
   const localReport = readLocal<Report[]>(REPORTS_KEY, []).find((report) => report.id === id);
   if (localReport) return localReport;
@@ -195,8 +323,8 @@ export async function incrementReportView(id: string) {
   const report = await getReport(id);
   if (!report) return;
   const next = (report.views_count ?? 0) + 1;
-  if (isSupabaseConfigured && supabase) {
-    await supabase.from("reports").update({ views_count: next }).eq("id", id);
+  if (isSupabaseConfigured && supabase && isUuid(id)) {
+    await supabase.from("lost_reports").update({ views_count: next, updated_at: new Date().toISOString() }).eq("id", id);
   }
   writeLocal(REPORTS_KEY, readLocal<Report[]>(REPORTS_KEY, []).map((item) => item.id === id ? { ...item, views_count: next } : item));
 }
@@ -207,10 +335,21 @@ export async function createReport(input: Omit<Report, "id" | "user_id" | "creat
   const now = new Date().toISOString();
   const report: Report = { ...input, id: crypto.randomUUID(), user_id: user.id, created_at: now, updated_at: now, fecha_reporte: now };
   if (isSupabaseConfigured && supabase) {
-    const { pet, ...insertable } = report;
-    const { data, error } = await supabase.from("reports").insert(insertable).select().single();
+    const { data, error } = await supabase
+      .from("lost_reports")
+      .insert(reportToLostInsert(report, user.id))
+      .select("*, pet:pets(*), private_contact:report_private_contacts(contact_whatsapp, contact_phone)")
+      .single();
     if (error) throw error;
-    return data as Report;
+    const saved = lostReportToReport(data as unknown as LostReportRow);
+    if (input.whatsapp) {
+      await supabase.from("report_private_contacts").upsert({
+        report_id: saved.id,
+        owner_id: user.id,
+        contact_whatsapp: input.whatsapp,
+      });
+    }
+    return saved;
   }
   writeLocal(REPORTS_KEY, [report, ...readLocal<Report[]>(REPORTS_KEY, [])]);
   return report;
@@ -221,7 +360,16 @@ export async function updateReport(id: string, input: Partial<Report>) {
   const patch = { ...input, updated_at: new Date().toISOString() };
   if (input.estado === "reunido" && !input.reunited_at) patch.reunited_at = new Date().toISOString();
   if (input.estado === "activo") patch.reunited_at = null;
-  if (isSupabaseConfigured && supabase) await supabase.from("reports").update(patch).eq("id", id).eq("user_id", user?.id);
+  if (isSupabaseConfigured && supabase && isUuid(id)) {
+    await supabase.from("lost_reports").update(reportToLostPatch(input)).eq("id", id).eq("owner_id", user?.id);
+    if (input.whatsapp !== undefined && user) {
+      await supabase.from("report_private_contacts").upsert({
+        report_id: id,
+        owner_id: user.id,
+        contact_whatsapp: input.whatsapp,
+      });
+    }
+  }
   writeLocal(REPORTS_KEY, readLocal<Report[]>(REPORTS_KEY, []).map((report) => report.id === id ? { ...report, ...patch } : report));
 }
 
@@ -267,18 +415,18 @@ export async function getBasicMetrics() {
 export function reportToLegacyPet(report: Report): LegacyPet {
   return {
     id: report.id,
-    nombre: report.pet?.nombre ?? (report.tipo_reporte === "encontrado" ? "Mascota encontrada" : "Mascota perdida"),
-    tipo: report.pet?.especie ?? "Mascota",
+    nombre: report.pet?.nombre ?? "Mascota perdida",
+    tipo: report.pet?.especie ?? report.pet?.tipo ?? "Mascota",
     raza: report.pet?.raza ?? "",
     descripcion: report.descripcion,
-    estado: report.estado === "reunido" ? "reunido" : report.tipo_reporte as PetStatus,
+    estado: report.estado === "reunido" ? "reunido" : "perdido" as PetStatus,
     distrito: report.distrito,
     direccion: report.distrito,
     latitud: report.latitude ?? -12.105,
     longitud: report.longitude ?? -77.03,
     whatsapp: report.whatsapp ?? "",
     foto_principal: report.pet?.foto_principal ?? report.pet?.foto_url ?? report.foto_url,
-    fotos: report.pet?.fotos ?? [report.pet?.foto_principal ?? report.pet?.foto_url ?? report.foto_url],
+    fotos: report.pet?.fotos ?? [report.pet?.foto_principal ?? report.pet?.foto_url ?? report.foto_url].filter(Boolean),
     alias: report.pet?.alias ? report.pet.alias.split(",").map((item) => item.trim()).filter(Boolean) : [],
     caracteristicas: report.pet?.caracteristicas ?? [],
     caracteristicas_personalizadas: report.pet?.salud ?? "",

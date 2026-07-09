@@ -2,19 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle, RotateCcw, Share2 } from "lucide-react";
+import { Heart, RotateCcw, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PosterButton, ShareButton } from "@/components/report-actions";
 import { getSightings, isOwnedSighting } from "@/lib/pet-store";
 import type { Sighting } from "@/lib/demo-data";
 import { listCases } from "@/lib/cases";
+import { publicCaseCode } from "@/lib/case-display";
 import { listMyReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { formatDateTime } from "@/lib/utils";
 
 function ReportRow({ report, sightingCount, onChanged }: { report: Report; sightingCount: number; onChanged: () => void }) {
+  const pet = reportToLegacyPet(report);
+
   async function share() {
     const url = `${window.location.origin}/pet/${report.id}`;
-    if (navigator.share) await navigator.share({ title: "Caso Huella", url });
+    if (navigator.share) await navigator.share({ title: `Caso ${publicCaseCode(report.id)} HUELLA`, url });
     else {
       await navigator.clipboard.writeText(url);
       alert("Enlace copiado.");
@@ -24,20 +27,23 @@ function ReportRow({ report, sightingCount, onChanged }: { report: Report; sight
   return (
     <article className="form-card">
       <div className="flex flex-col gap-4 min-[390px]:flex-row">
-        <img src={report.foto_url} alt={report.pet?.nombre ?? "Mascota perdida"} className="h-40 w-full rounded-xl bg-[#F8F7F4] object-cover min-[390px]:h-24 min-[390px]:w-24" />
+        <img src={report.foto_url} alt={report.pet?.nombre ?? "Mascota perdida"} className="h-40 w-full rounded-xl bg-[#F8F7F4] object-cover min-[390px]:h-24 min-[390px]:w-24" loading="lazy" />
         <div className="flex-1">
-          <div className="flex flex-wrap items-center gap-2"><h3 className="font-bold">{report.pet?.nombre ?? "Mascota perdida"}</h3><span className={`status-pill ${report.estado === "reunido" ? "status-reunido" : "status-perdido"}`}>{report.estado === "reunido" ? "Reunido" : "Perdido"}</span></div>
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-bold">{report.pet?.nombre ?? "Mascota perdida"}</h3>
+            <span className={`status-pill ${report.estado === "reunido" ? "status-reunido" : "status-perdido"}`}>{report.estado === "reunido" ? "Reunido" : "Búsqueda activa"}</span>
+          </div>
+          <p className="text-xs font-semibold text-[#1D9E75]">Caso {publicCaseCode(report.id)}</p>
           <p className="text-sm text-[#7A7871]">{report.distrito}</p>
-          <div className={`mt-3 rounded-xl p-3 text-sm font-semibold ${sightingCount > 0 ? "bg-[#E1F5EE] text-[#085041]" : "bg-[#F8F7F4] text-[#6B6860]"}`}>{sightingCount > 0 ? `${sightingCount} pista${sightingCount === 1 ? "" : "s"} para revisar` : "Huellas sigue comparando zona y rasgos."}</div>
-          <div className="mt-3 grid gap-2 min-[390px]:grid-cols-3">
-            <ShareButton pet={reportToLegacyPet(report)} />
-            <PosterButton pet={reportToLegacyPet(report)} />
-            {report.whatsapp && <Button size="sm" variant="outline" asChild><a href={`https://wa.me/${report.whatsapp.replace(/\D/g, "")}`} target="_blank" rel="noreferrer">WhatsApp</a></Button>}
+          <div className={`mt-3 rounded-xl p-3 text-sm font-semibold ${sightingCount > 0 ? "bg-[#E1F5EE] text-[#085041]" : "bg-[#F8F7F4] text-[#6B6860]"}`}>{sightingCount > 0 ? `${sightingCount} avistamiento${sightingCount === 1 ? "" : "s"} para revisar` : "HUELLA sigue comparando zona y rasgos."}</div>
+          <div className="mt-3 grid gap-2 min-[390px]:grid-cols-2">
+            <ShareButton pet={pet} />
+            <PosterButton pet={pet} />
           </div>
           <div className="mt-3 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-            <Button size="sm" asChild><Link href={`/pet/${report.id}`}>Ver caso</Link></Button>
+            <Button size="sm" asChild><Link href={`/pet/${report.id}`}>Ver centro de búsqueda</Link></Button>
             <Button size="sm" variant="outline" asChild><Link href={`/pet/${report.id}/editar`}>Editar</Link></Button>
-            {report.estado === "activo" ? <Button size="sm" onClick={() => updateReport(report.id, { estado: "reunido" }).then(onChanged)}><CheckCircle size={16} />Marcar como reunida</Button> : <Button size="sm" onClick={() => updateReport(report.id, { estado: "activo" }).then(onChanged)}><RotateCcw size={16} />Reabrir busqueda</Button>}
+            {report.estado === "activo" ? <Button size="sm" asChild><Link href={`/pet/${report.id}`}><Heart size={16} />Cerrar búsqueda</Link></Button> : <Button size="sm" onClick={() => updateReport(report.id, { estado: "activo" }).then(onChanged)}><RotateCcw size={16} />Reabrir búsqueda</Button>}
             <Button size="sm" variant="outline" onClick={share}><Share2 size={16} />Compartir</Button>
           </div>
         </div>
@@ -79,10 +85,18 @@ export default function MisReportesPage() {
 
   return (
     <main className="container py-6">
-      <div className="mb-5"><h1 className="font-serif text-4xl">Mis casos</h1><p className="mt-2 text-[#6B6860]">Aquí ves qué necesita atención y qué pistas llegaron.</p></div>
+      <div className="mb-5"><h1 className="font-serif text-4xl">Mis búsquedas</h1><p className="mt-2 text-[#6B6860]">Aquí ves qué necesita atención y qué avistamientos llegaron.</p></div>
       <div className="grid gap-5 lg:grid-cols-2">
-        <section className="space-y-3"><h2 className="text-xl font-bold">Mis mascotas perdidas</h2>{lost.length === 0 && <div className="form-card text-sm text-[#6B6860]">Aun no tienes casos de mascotas perdidas. Si necesitas ayuda, puedes crear uno desde "Perdi mi mascota".</div>}{lost.map((report) => <ReportRow key={report.id} report={report} sightingCount={caseSightingCounts[report.id] ?? 0} onChanged={load} />)}</section>
-        <section className="space-y-3"><h2 className="text-xl font-bold">Mis avistamientos</h2>{sightings.length === 0 && <div className="form-card text-sm text-[#6B6860]">Cuando compartas una pista, quedará aquí para que puedas volver a verla.</div>}{sightings.map((sighting) => <Link key={sighting.id} href={`/avistamiento/${sighting.id}`} className="form-card block hover:bg-[#F8F7F4]"><h3 className="font-bold">{sightingTitle(sighting)}</h3><p className="mt-1 text-sm text-[#7A7871]">{sighting.distrito ?? sighting.ubicacion}</p><p className="mt-1 text-sm">{formatDateTime(sighting.visto_en ?? sighting.creado_en)}</p></Link>)}</section>
+        <section className="space-y-3">
+          <h2 className="text-xl font-bold">Mis búsquedas activas</h2>
+          {lost.length === 0 && <div className="form-card empty-state text-sm"><strong>Aún no tienes búsquedas activas.</strong><span>Si necesitas ayuda, empieza desde “Perdí mi mascota”.</span></div>}
+          {lost.map((report) => <ReportRow key={report.id} report={report} sightingCount={caseSightingCounts[report.id] ?? 0} onChanged={load} />)}
+        </section>
+        <section className="space-y-3">
+          <h2 className="text-xl font-bold">Mis avistamientos</h2>
+          {sightings.length === 0 && <div className="form-card empty-state text-sm"><strong>Aún no compartiste avistamientos.</strong><span>Si ves una mascota que podría estar perdida, tu información puede ayudar.</span></div>}
+          {sightings.map((sighting) => <Link key={sighting.id} href={`/avistamiento/${sighting.id}`} className="form-card block hover:bg-[#F8F7F4]"><h3 className="font-bold">{sightingTitle(sighting)}</h3><p className="mt-1 text-sm text-[#7A7871]">{sighting.distrito ?? sighting.ubicacion}</p><p className="mt-1 text-sm">{formatDateTime(sighting.visto_en ?? sighting.creado_en)}</p></Link>)}
+        </section>
       </div>
     </main>
   );

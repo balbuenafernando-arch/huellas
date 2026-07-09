@@ -5,7 +5,7 @@ import { uploadPublicImage } from "@/repositories/storage-repository";
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxBytes = 5 * 1024 * 1024;
 const targetBytes = 500 * 1024;
-const maxImages = 4;
+const maxImages = 5;
 const outputSizes = [1280, 1120, 960];
 const outputQualities = [0.72, 0.64, 0.56, 0.48];
 
@@ -43,8 +43,8 @@ function drawImageToCanvas(image: HTMLImageElement, maxSize: number) {
 }
 
 async function optimizeImage(file: File) {
-  if (!allowedTypes.has(file.type)) throw new Error("Formato de imagen no permitido.");
-  if (file.size > maxBytes) throw new Error("La imagen supera el tamano maximo permitido.");
+  if (!allowedTypes.has(file.type)) throw new Error("Usa una imagen en formato JPG, PNG o WebP.");
+  if (file.size > maxBytes) throw new Error("La imagen no puede superar 5 MB.");
 
   const image = new Image();
   const objectUrl = URL.createObjectURL(file);

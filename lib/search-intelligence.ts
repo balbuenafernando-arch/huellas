@@ -49,15 +49,6 @@ function toPoint(sighting: Sighting): SearchPoint | null {
   };
 }
 
-function directionFromDelta(deltaLat: number, deltaLng: number) {
-  if (Math.abs(deltaLat) < 0.001 && Math.abs(deltaLng) < 0.001) return "sin desplazamiento claro";
-  const vertical = deltaLat > 0 ? "norte" : "sur";
-  const horizontal = deltaLng > 0 ? "este" : "oeste";
-  if (Math.abs(deltaLat) > Math.abs(deltaLng) * 1.6) return vertical;
-  if (Math.abs(deltaLng) > Math.abs(deltaLat) * 1.6) return horizontal;
-  return `${vertical}-${horizontal}`;
-}
-
 export function estimateCaseMovement(caseRecord: CaseRecord): MovementEstimate {
   const basePoint: SearchPoint | null = caseRecord.latitude != null && caseRecord.longitude != null ? {
     id: `${caseRecord.id}-origin`,
@@ -75,8 +66,6 @@ export function estimateCaseMovement(caseRecord: CaseRecord): MovementEstimate {
   if (points.length === 0) return { points, direction: null, probableZone: null };
 
   const latest = points[points.length - 1];
-  const previous = points.length > 1 ? points[points.length - 2] : null;
-  const direction = previous ? directionFromDelta(latest.latitude - previous.latitude, latest.longitude - previous.longitude) : null;
   const recent = points.slice(-3);
   const center = recent.reduce((acc, point) => ({
     latitude: acc.latitude + point.latitude / recent.length,
@@ -89,11 +78,11 @@ export function estimateCaseMovement(caseRecord: CaseRecord): MovementEstimate {
 
   return {
     points,
-    direction,
+    direction: null,
     probableZone: {
       ...center,
       radiusKm: Math.min(5, Math.max(0.5, maxDistance + 0.5)),
-      label: `Estimación alrededor de ${latest.label}`,
+      label: `Zona probable alrededor de ${latest.label}`,
     },
   };
 }

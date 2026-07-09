@@ -1,13 +1,17 @@
 "use client";
 
-import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import type { ChangeEvent, FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Camera, MapPin, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createRegisteredPet, createReport, listMyRegisteredPets, reportToLegacyPet, type RegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
 import { PosterButton, ShareButton } from "@/components/report-actions";
+import { ProgressiveSigninCard } from "@/components/progressive-signin-card";
 import type { Pet } from "@/lib/demo-data";
+import { fileToDataUrl } from "@/lib/image-utils";
+import { FriendlyError } from "@/components/feedback";
+import { friendlyError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
 
 const districtCoords: Record<string, [number, number]> = {
   Miraflores: [-12.1211, -77.0297],
@@ -33,9 +37,14 @@ export default function EmergencyReportPage() {
   const [error, setError] = useState("");
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
   const [locationConfirmed, setLocationConfirmed] = useState(false);
+  const [recentPhoto, setRecentPhoto] = useState<File | null>(null);
+  const [recentPhotoPreview, setRecentPhotoPreview] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (navigator.geolocation) navigator.geolocation.getCurrentPosition((position) => setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition((position) => setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
+    }
     listMyRegisteredPets().then((items) => {
       setRegisteredPets(items);
       setSelectedPetId(items[0]?.id ?? "");
@@ -43,46 +52,88 @@ export default function EmergencyReportPage() {
   }, []);
 
   function useLocation() {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition((position) => setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
+    if (!navigator.geolocation) {
+      setError("Tu navegador no permite obtener ubicación. Puedes continuar con distrito y referencia.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
+        setError("");
+      },
+      () => setError("No pudimos tomar tu ubicación. Puedes cambiar la ubicación manualmente."),
+    );
+  }
+
+  async function handleRecentPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setRecentPhoto(file);
+    try {
+      setRecentPhotoPreview(file ? await fileToDataUrl(file) : null);
+      setError("");
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos preparar la imagen. Intenta con otra foto."));
+    }
+  }
+
+  function removeRecentPhoto() {
+    setRecentPhoto(null);
+    setRecentPhotoPreview(null);
+    if (photoInputRef.current) photoInputRef.current.value = "";
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     const form = new FormData(event.currentTarget);
     const [fallbackLat, fallbackLng] = districtCoords[district] ?? districtCoords.Miraflores;
-    const file = form.get("foto") as File | null;
+    const file = recentPhoto;
+    const fecha = String(form.get("fecha") || new Date().toISOString().slice(0, 10));
+    const hora = String(form.get("hora") || "");
+    const validationMessage =
+      requiredText(form.get("ultima_ubicacion"), "La última ubicación", 240) ||
+      requiredText(form.get("whatsapp"), "El WhatsApp de contacto", 40) ||
+      requiredText(form.get("observaciones"), "Las observaciones", 1000) ||
+      validateNotFuture(`${fecha}T${hora || "00:00"}`, "La fecha de pérdida") ||
+      validateImageFile(file);
+    if (validationMessage) {
+      setError(validationMessage);
+      return;
+    }
+
     let foto_url = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
     setSaving(true);
     setError("");
     try {
       const selectedPet = registeredPets.find((item) => item.id === selectedPetId);
       let pet = selectedPet;
+      if (file?.size) foto_url = await uploadMascotaImage(file, "mascotas");
       if (!pet) {
-        if (file?.size) foto_url = await uploadMascotaImage(file, "mascotas");
         pet = await createRegisteredPet({
-        nombre: String(form.get("nombre")),
-        alias: String(form.get("alias") || ""),
-        especie: String(form.get("especie")),
-        raza: String(form.get("raza") || form.get("tamano") || "No indicada"),
-        tamano: String(form.get("tamano")),
-        color: String(form.get("color")),
-        sexo: "",
-        edad: String(form.get("edad") || ""),
-        salud: "",
-        esterilizado: false,
-        placa_medalla: "",
-        caracteristicas: form.getAll("caracteristicas").map(String),
-        telefono: String(form.get("whatsapp") || ""),
-        contacto_preferido: "whatsapp",
-        fotos: [foto_url],
-        foto_principal: foto_url,
-        foto_url,
-        rasgo_privado: String(form.get("rasgo_privado") || ""),
-      });
+          nombre: String(form.get("nombre")),
+          alias: "",
+          especie: String(form.get("especie")),
+          raza: String(form.get("raza") || form.get("tamano") || "No indicada"),
+          tamano: String(form.get("tamano")),
+          color: String(form.get("color")),
+          sexo: "",
+          edad: String(form.get("edad") || ""),
+          salud: "",
+          esterilizado: false,
+          placa_medalla: "",
+          caracteristicas: form.getAll("caracteristicas").map(String),
+          telefono: String(form.get("whatsapp") || ""),
+          contacto_preferido: "whatsapp",
+          fotos: [foto_url],
+          foto_principal: foto_url,
+          foto_url,
+        });
       }
-      const fecha = String(form.get("fecha") || new Date().toISOString().slice(0, 10));
-      const hora = String(form.get("hora") || "");
       const recompensa = String(form.get("recompensa") || "");
       const report = await createReport({
         pet_id: pet.id,
@@ -90,7 +141,7 @@ export default function EmergencyReportPage() {
         estado: "activo",
         distrito: district,
         descripcion: `${String(form.get("observaciones"))} Última ubicación: ${String(form.get("ultima_ubicacion"))}. Fecha: ${fecha}. Hora: ${hora}. Recompensa: ${recompensa || "no indicada"}.`,
-        foto_url: pet.foto_principal ?? pet.foto_url,
+        foto_url: file?.size ? foto_url : pet.foto_principal ?? pet.foto_url,
         whatsapp: String(form.get("whatsapp") || ""),
         latitude: coords.latitude ?? fallbackLat,
         longitude: coords.longitude ?? fallbackLng,
@@ -98,7 +149,8 @@ export default function EmergencyReportPage() {
       });
       setPublishedPet(reportToLegacyPet(report));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No pudimos activar la búsqueda. Revisa los datos e inténtalo otra vez.");
+      setError(friendlyError(caught, "No pudimos activar la búsqueda. Revisa los datos e inténtalo otra vez."));
+    } finally {
       setSaving(false);
     }
   }
@@ -106,14 +158,13 @@ export default function EmergencyReportPage() {
   if (publishedPet) return (
     <main className="container py-6">
       <section className="form-card mx-auto max-w-xl space-y-4">
-        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Tu búsqueda ya está activa</div>
+        <ProgressiveSigninCard continueHref={`/pet/${publishedPet.id}`} />
         <h1 className="font-serif text-4xl">{publishedPet.nombre}</h1>
         <img src={publishedPet.foto_principal} alt={publishedPet.nombre} className="max-h-80 w-full rounded-xl bg-[#F8F7F4] object-contain" />
         <div className="grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
           <ShareButton pet={publishedPet} />
           <PosterButton pet={publishedPet} />
-          <Button variant="outline" onClick={() => navigator.clipboard.writeText(`${window.location.origin}/pet/${publishedPet.id}`).then(() => alert("Enlace copiado."))}>Copiar enlace</Button>
-          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver caso</Link></Button>
+          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver centro de búsqueda</Link></Button>
         </div>
       </section>
     </main>
@@ -125,23 +176,34 @@ export default function EmergencyReportPage() {
       <form onSubmit={submit} className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 1 · Foto y nombre</div>
-          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Vamos paso a paso. Huellas abre la búsqueda y conecta posibles pistas por ti.</p></div>
-          {error && <div className="rounded-xl bg-[#FAECE7] p-3 text-sm text-[#712B13]">{error} <Link href="/auth" className="font-semibold underline">Iniciar sesión</Link></div>}
+          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Vamos paso a paso. HUELLA abre la búsqueda y conecta posibles avistamientos por ti.</p></div>
+          {error && <FriendlyError message={error} />}
           {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre} · {pet.especie}</option>)}<option value="">No está registrada</option></select></div>}
+          <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={handleRecentPhoto} />
+          <button type="button" onClick={() => photoInputRef.current?.click()} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#1D9E75] bg-white p-4 text-center text-[#085041]">
+            <Camera size={28} />
+            <span className="font-bold">{recentPhotoPreview ? "Cambiar foto" : "Agregar foto reciente"}</span>
+            <span className="text-sm text-[#6B6860]">Una foto clara ayuda a reconocer rasgos y compartir la búsqueda.</span>
+          </button>
           {!selectedPetId && <>
-            <div><label className="label">Nombre</label><input required className="field" name="nombre" placeholder="Luna" /></div>
-            <div><label className="label">Alias</label><input className="field" name="alias" placeholder="Lunita, Lulu" /></div>
+            <div><label className="label">Nombre</label><input required maxLength={120} className="field" name="nombre" placeholder="Luna" /></div>
             <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño</label><select className="select" name="tamano"><option>Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
-            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Color</label><input required className="field" name="color" placeholder="Marrón, blanco..." /></div><div><label className="label">Raza aproximada</label><input className="field" name="raza" placeholder="Mestizo, labrador..." /></div></div>
-            <div><label className="label">Foto</label><input className="field" type="file" name="foto" accept="image/*" /></div>
-            <div><label className="label">Dato de verificación</label><input className="field" name="rasgo_privado" placeholder="Información no visible públicamente" /></div>
+            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Color</label><input required maxLength={120} className="field" name="color" placeholder="Marrón, blanco..." /></div><div><label className="label">Raza aproximada</label><input maxLength={120} className="field" name="raza" placeholder="Mestizo, labrador..." /></div></div>
           </>}
         </section>
         <section className="form-card space-y-4">
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 2 · Última ubicación</div>
-          <Camera className="text-[#1D9E75]" />
+          <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-3">
+            {recentPhotoPreview ? <div className="space-y-3">
+              <img src={recentPhotoPreview} alt="Foto reciente" className="max-h-64 w-full rounded-xl bg-white object-contain" />
+              <div className="grid gap-2 min-[390px]:grid-cols-2">
+                <Button type="button" variant="outline" onClick={() => photoInputRef.current?.click()}><Camera size={18} />Reemplazar foto</Button>
+                <Button type="button" variant="outline" onClick={removeRecentPhoto}>Eliminar foto</Button>
+              </div>
+            </div> : <p className="text-sm text-[#6B6860]">Cuando agregues una foto, aquí verás la vista previa antes de publicar.</p>}
+          </div>
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha</label><input required className="field" name="fecha" type="date" /></div><div><label className="label">Hora</label><input required className="field" name="hora" type="time" /></div></div>
-          <div><label className="label">Última ubicación</label><input required className="field" name="ultima_ubicacion" placeholder="Zona aproximada, parque o avenida" /></div>
+          <div><label className="label">Última ubicación</label><input required maxLength={240} className="field" name="ultima_ubicacion" placeholder="Zona aproximada, parque o avenida" /></div>
           <div><label className="label">Distrito</label><select className="select" value={district} onChange={(event) => setDistrict(event.target.value)}>{Object.keys(districtCoords).map((item) => <option key={item}>{item}</option>)}</select></div>
           <Button type="button" variant="outline" className="w-full" onClick={useLocation}><MapPin size={18} />Usar mi ubicación actual</Button>
           <div className="grid gap-2 rounded-xl bg-[#F8F7F4] p-3 text-sm">
@@ -152,10 +214,10 @@ export default function EmergencyReportPage() {
             </div>
           </div>
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 3 · Contacto</div>
-          <div><label className="label">WhatsApp de contacto</label><input required className="field" name="whatsapp" placeholder="+51 987 654 321" /></div>
-          <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa" placeholder="Monto o descripción" /></div>
-          <div><label className="label">Observaciones</label><textarea required className="textarea min-h-24" name="observaciones" placeholder="Comportamiento, último momento visto, cuidados importantes" /></div>
-          <Button disabled={saving} className="w-full"><Send size={18} />{saving ? "Activando..." : "Empezar búsqueda"}</Button>
+          <div><label className="label">WhatsApp de contacto</label><input required maxLength={40} className="field" name="whatsapp" placeholder="+51 987 654 321" /></div>
+          <div><label className="label">Recompensa opcional</label><input maxLength={160} className="field" name="recompensa" placeholder="Monto o descripción" /></div>
+          <div><label className="label">Observaciones</label><textarea required maxLength={1000} className="textarea min-h-24" name="observaciones" placeholder="Comportamiento, último momento visto, cuidados importantes" /></div>
+          <Button disabled={saving} className="w-full"><Send size={18} />{saving ? "Activando búsqueda..." : "Empezar búsqueda"}</Button>
         </section>
       </form>
     </main>

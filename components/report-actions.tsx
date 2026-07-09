@@ -1,9 +1,19 @@
 "use client";
 
-import { Download, Share2 } from "lucide-react";
+import { Download, MessageCircle, Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Pet } from "@/lib/demo-data";
 import { formatDate } from "@/lib/utils";
+import { publicCaseCode } from "@/lib/case-display";
+
+function caseUrl(pet: Pet) {
+  return `${window.location.origin}/pet/${pet.id}`;
+}
+
+function shareText(pet: Pet) {
+  const code = publicCaseCode(pet.id);
+  return `Caso ${code}: ${pet.nombre} en ${pet.distrito}. Ayúdanos compartiendo esta búsqueda en HUELLA.`;
+}
 
 function drawPseudoQr(ctx: CanvasRenderingContext2D, url: string, x: number, y: number, size: number) {
   const cells = 29;
@@ -23,9 +33,9 @@ function drawPseudoQr(ctx: CanvasRenderingContext2D, url: string, x: number, y: 
 
 export function ShareButton({ pet }: { pet: Pet }) {
   async function share() {
-    const url = `${window.location.origin}/pet/${pet.id}`;
+    const url = caseUrl(pet);
     if (navigator.share) {
-      await navigator.share({ title: `Huella: ${pet.nombre}`, text: `${pet.nombre} en ${pet.distrito}`, url });
+      await navigator.share({ title: `HUELLA: ${pet.nombre}`, text: shareText(pet), url });
       return;
     }
     await navigator.clipboard.writeText(url);
@@ -35,14 +45,34 @@ export function ShareButton({ pet }: { pet: Pet }) {
   return <Button type="button" variant="outline" onClick={share}><Share2 size={18} />Compartir</Button>;
 }
 
+export function WhatsAppShareButton({ pet }: { pet: Pet }) {
+  function openWhatsApp() {
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${shareText(pet)} ${caseUrl(pet)}`)}`, "_blank", "noopener,noreferrer");
+  }
+
+  return <Button type="button" variant="outline" onClick={openWhatsApp}><MessageCircle size={18} />WhatsApp</Button>;
+}
+
 export function PosterButton({ pet }: { pet: Pet }) {
   async function downloadPoster() {
+    const url = caseUrl(pet);
+    const code = publicCaseCode(pet.id);
+    const cacheKey = `huella:poster:${pet.id}:${pet.foto_principal}:${pet.nombre}:${pet.estado}:${pet.descripcion}:${pet.fecha_reporte}`;
+    const cached = window.sessionStorage.getItem(cacheKey);
+
+    if (cached) {
+      const link = document.createElement("a");
+      link.download = `huella-${code}-${pet.nombre.toLowerCase()}-afiche.png`;
+      link.href = cached;
+      link.click();
+      return;
+    }
+
     const canvas = document.createElement("canvas");
     canvas.width = 1080;
     canvas.height = 1350;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    const url = `${window.location.origin}/pet/${pet.id}`;
 
     ctx.fillStyle = "#F8F7F4";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -75,7 +105,7 @@ export function PosterButton({ pet }: { pet: Pet }) {
     ctx.font = "500 36px Arial";
     ctx.fillText(`${pet.distrito} · zona aproximada`, 60, 918);
     ctx.font = "28px Arial";
-    ctx.fillText(`Caso iniciado: ${formatDate(pet.fecha_reporte)}`, 60, 965);
+    ctx.fillText(`Caso ${code} · iniciado: ${formatDate(pet.fecha_reporte)}`, 60, 965);
     const details = [...(pet.caracteristicas ?? []), ...(pet.condiciones_especiales ?? [])].slice(0, 4).join(" · ");
     if (details) ctx.fillText(details, 60, 1010, 900);
     ctx.font = "30px Arial";
@@ -87,11 +117,13 @@ export function PosterButton({ pet }: { pet: Pet }) {
 
     drawPseudoQr(ctx, url, 745, 1010, 285);
     ctx.font = "26px Arial";
-    ctx.fillText("Escanea el caso", 760, 1320);
+    ctx.fillText(`Escanea ${code}`, 760, 1320);
 
+    const dataUrl = canvas.toDataURL("image/png");
+    window.sessionStorage.setItem(cacheKey, dataUrl);
     const link = document.createElement("a");
-    link.download = `huella-${pet.nombre.toLowerCase()}-afiche.png`;
-    link.href = canvas.toDataURL("image/png");
+    link.download = `huella-${code}-${pet.nombre.toLowerCase()}-afiche.png`;
+    link.href = dataUrl;
     link.click();
   }
 
