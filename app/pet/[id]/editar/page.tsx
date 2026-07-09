@@ -9,22 +9,11 @@ import { Button } from "@/components/ui/button";
 import type { Pet } from "@/lib/demo-data";
 import { deletePet, distinctiveFeatures, getPet, isOwnedPet, specialConditions, updatePet } from "@/lib/pet-store";
 import { getCurrentUser, getReport, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { compressImage, fileToDataUrl } from "@/lib/image-utils";
+import { uploadImage } from "@/services/image-service";
 
 const districtCoords: Record<string, [number, number]> = {
   Miraflores: [-12.1211, -77.0297], "San Isidro": [-12.0975, -77.0366], Surco: [-12.1278, -76.9849], Barranco: [-12.1499, -77.0215], "San Borja": [-12.0969, -76.9996], Magdalena: [-12.0916, -77.0679], "Pueblo Libre": [-12.0763, -77.0611], "La Molina": [-12.0864, -76.9224], Lince: [-12.0846, -77.0348], "Jesús María": [-12.0706, -77.0432], Chorrillos: [-12.1823, -77.0301], Surquillo: [-12.1121, -77.0116]
 };
-
-async function uploadOrEncodePhoto(file: File) {
-  const compressed = await compressImage(file);
-  if (isSupabaseConfigured && supabase) {
-    const path = `${crypto.randomUUID()}-${compressed.name.replace(/[^a-zA-Z0-9.-]/g, "-")}`;
-    const { error } = await supabase.storage.from("pets").upload(path, compressed);
-    if (!error) return supabase.storage.from("pets").getPublicUrl(path).data.publicUrl;
-  }
-  return fileToDataUrl(compressed);
-}
 
 export default function EditPetPage() {
   const params = useParams<{ id: string }>();
@@ -56,7 +45,7 @@ export default function EditPetPage() {
 
     setSaving(true);
     if (files.length) {
-      fotos = await Promise.all(files.map(uploadOrEncodePhoto));
+      fotos = await Promise.all(files.map((file) => uploadImage(file)));
       fotoPrincipal = fotos[0];
     }
 

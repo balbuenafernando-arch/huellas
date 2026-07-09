@@ -5,8 +5,7 @@ import { useState } from "react";
 import { MapPin, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createSighting, findPotentialDuplicateSightings } from "@/lib/pet-store";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { compressImage, fileToDataUrl } from "@/lib/image-utils";
+import { uploadImage } from "@/services/image-service";
 import type { Sighting } from "@/lib/demo-data";
 
 export function SightingForm({ petId, reportId, onCreated }: { petId: string; reportId?: string | null; onCreated: () => void }) {
@@ -34,21 +33,12 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     setSaving(true);
     const duplicates = await findPotentialDuplicateSightings({ petId: reportId ?? petId, ubicacion, vistoEn });
     if (duplicates.length && !warning) {
-      setWarning("Hay avistamientos similares recientes. Revisa si ya fue reportado; puedes publicar de todos modos.");
+      setWarning("Ya hay pistas parecidas cerca. Revisa si ayudan; si tu información agrega algo, envíala igual.");
       setSaving(false);
       return;
     }
     let fotoUrl: string | null = null;
-    if (foto) {
-      if (isSupabaseConfigured && supabase) {
-        const compressed = await compressImage(foto);
-        const path = `${crypto.randomUUID()}-${compressed.name.replace(/[^a-zA-Z0-9.-]/g, "-")}`;
-        const { error } = await supabase.storage.from("pets").upload(path, compressed);
-        if (!error) fotoUrl = supabase.storage.from("pets").getPublicUrl(path).data.publicUrl;
-      } else {
-        fotoUrl = await fileToDataUrl(foto);
-      }
-    }
+    if (foto) fotoUrl = await uploadImage(foto);
     await createSighting({
       pet_id: petId,
       report_id: reportId ?? null,
@@ -73,7 +63,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
 
   return (
     <form onSubmit={submit} className="form-card space-y-4">
-      <h2 className="font-bold">🐾 Reportar avistamiento</h2>
+      <h2 className="font-bold">🐾 Compartir pista</h2>
       {warning && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">{warning}</div>}
       <div>
         <label className="label">Ubicación</label>
@@ -114,7 +104,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         <input className="field" type="file" accept="image/*" onChange={(e) => setFoto(e.target.files?.[0] ?? null)} />
       </div>
       <div className="flex gap-2 rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]"><MapPin size={18} className="shrink-0" />Comparte una referencia clara para orientar la búsqueda.</div>
-      <Button type="submit" disabled={saving || !comentario.trim() || !ubicacion.trim() || !vistoEn}><Send size={18} />{saving ? "Guardando..." : "Reportar avistamiento"}</Button>
+      <Button type="submit" disabled={saving || !comentario.trim() || !ubicacion.trim() || !vistoEn}><Send size={18} />{saving ? "Enviando pista..." : "Enviar pista"}</Button>
     </form>
   );
 }

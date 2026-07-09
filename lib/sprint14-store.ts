@@ -3,6 +3,7 @@
 import type { Pet as LegacyPet, PetStatus } from "@/lib/demo-data";
 import { demoPets, demoSightings } from "@/lib/demo-data";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
+import { uploadImage } from "@/services/image-service";
 
 export type RegisteredPet = {
   id: string;
@@ -60,25 +61,21 @@ export type ReportHistoryItem = {
 const DEMO_USER_KEY = "huella:demo-user";
 const REGISTERED_PETS_KEY = "huella:v14:pets";
 const REPORTS_KEY = "huella:v14:reports";
+let sessionDemoUserId = "";
 
 function readLocal<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  return raw ? JSON.parse(raw) as T : fallback;
+  return fallback;
 }
 
 function writeLocal<T>(key: string, value: T) {
-  if (typeof window !== "undefined") window.localStorage.setItem(key, JSON.stringify(value));
+  void key;
+  void value;
 }
 
 export function getDemoUserId() {
   if (typeof window === "undefined") return "demo-user";
-  let id = window.localStorage.getItem(DEMO_USER_KEY);
-  if (!id) {
-    id = crypto.randomUUID();
-    window.localStorage.setItem(DEMO_USER_KEY, id);
-  }
-  return id;
+  if (!sessionDemoUserId) sessionDemoUserId = crypto.randomUUID();
+  return sessionDemoUserId;
 }
 
 export async function getCurrentUser() {
@@ -121,17 +118,7 @@ export async function signOut() {
 }
 
 export async function uploadMascotaImage(file: File, bucket = "mascotas") {
-  if (isSupabaseConfigured && supabase) {
-    const path = `${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "-")}`;
-    const { error } = await supabase.storage.from(bucket).upload(path, file);
-    if (!error) return supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
-  }
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
+  return uploadImage(file, bucket === "mascotas" ? "pet-photos" : bucket);
 }
 
 export async function listMyRegisteredPets() {

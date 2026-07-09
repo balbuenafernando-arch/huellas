@@ -42,7 +42,7 @@ export type Sighting = {
   estado?: "pendiente" | "confirmado" | "descartado";
   estado_avistamiento?: "pendiente" | "confirmado" | "descartado";
   estado_revision?: "por_revisar" | "posible_coincidencia" | "no_era" | "alerta_falsa" | "informacion_enganosa" | "encontrada";
-  situacion?: "solo_la_vi" | "sigue_en_la_zona" | "la_tengo_conmigo" | "veterinaria" | "refugio";
+  situacion?: "solo_la_vi" | "sigue_en_la_zona" | "la_tengo_conmigo" | "veterinaria" | "refugio" | "herida" | "siguiendo" | "otra_mascota";
   llevaba_placa?: "si" | "no" | "no_pude_verificar";
   nombre_observado?: string | null;
   feedback_reportero?: string | null;
@@ -54,7 +54,7 @@ export type Sighting = {
 export type Notification = {
   id: string;
   pet_id: string;
-  tipo: "nuevo_avistamiento" | "avistamiento_confirmado" | "reporte_actualizado" | "reporte_cerrado";
+  tipo: "nuevo_avistamiento" | "avistamiento_confirmado" | "reporte_actualizado" | "reporte_cerrado" | "coincidencia_alta" | "caso_cercano" | "cambio_trayectoria" | "zona_probable";
   mensaje: string;
   leido: boolean;
   creado_en: string;

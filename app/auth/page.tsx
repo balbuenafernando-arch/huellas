@@ -61,7 +61,7 @@ export default function AuthPage() {
   return (
     <main className="container py-6">
       <section className="form-card mx-auto max-w-md space-y-4">
-        <div><h1 className="font-serif text-4xl">Perfil</h1><p className="mt-2 text-sm text-[#6B6860]">Inicia sesión para asociar mascotas y reportes a tu perfil.</p></div>
+        <div><h1 className="font-serif text-4xl">Perfil</h1><p className="mt-2 text-sm text-[#6B6860]">Entra para cuidar tus casos, tus mascotas y las pistas que recibas.</p></div>
         {signedIn && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]">Sesión activa.</div>}
         <Button type="button" className="w-full" onClick={google} disabled={loading}>Continuar con Google</Button>
         <form className="space-y-3" onSubmit={submit}>
@@ -77,8 +77,8 @@ export default function AuthPage() {
       </section>
       <section className="form-card mx-auto mt-5 max-w-md space-y-3">
         <h2 className="font-bold">Ayuda</h2>
-        <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Preguntas frecuentes</summary><p className="mt-2 text-sm text-[#6B6860]">Puedes ver reportes y enviar avistamientos sin cuenta. La cuenta se usa para administrar tus mascotas y casos.</p></details>
-        <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Cómo funciona HUELLA</summary><p className="mt-2 text-sm text-[#6B6860]">Publicas un caso, otras personas reportan avistamientos y el dueño valida las pistas útiles.</p></details>
+        <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Preguntas frecuentes</summary><p className="mt-2 text-sm text-[#6B6860]">Puedes explorar casos y enviar pistas sin cuenta. La cuenta sirve para cuidar tus mascotas y dar seguimiento.</p></details>
+        <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Cómo funciona HUELLA</summary><p className="mt-2 text-sm text-[#6B6860]">Una búsqueda y un avistamiento pueden conectarse por zona, rasgos y momento.</p></details>
         <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Política de privacidad</summary><p className="mt-2 text-sm text-[#6B6860]">HUELLA evita mostrar teléfonos, correos e identificadores internos de forma pública.</p></details>
         <details className="rounded-xl border border-black/10 p-3"><summary className="font-semibold">Consejos de búsqueda</summary><p className="mt-2 text-sm text-[#6B6860]">Actualiza el caso, revisa coincidencias cercanas y prioriza zonas del último avistamiento confirmado.</p></details>
       </section>

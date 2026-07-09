@@ -8,6 +8,7 @@ export type MatchCriteria = {
   raza?: string;
   color?: string;
   tamano?: string;
+  sexo?: string;
   distrito?: string;
   rasgos?: string[];
   keywords?: string[];
@@ -16,8 +17,23 @@ export type MatchCriteria = {
   longitude?: number | null;
 };
 
+function normalizeValue(value?: string | null) {
+  return value?.toLowerCase().trim() ?? "";
+}
+
 function includesText(text: string, value?: string) {
-  return Boolean(value && text.includes(value.toLowerCase().trim()));
+  const normalized = normalizeValue(value);
+  return Boolean(normalized && text.includes(normalized));
+}
+
+function classifyMatch(percentage: number): CaseMatch["level"] {
+  if (percentage >= 72) return "alta";
+  if (percentage >= 45) return "media";
+  return "baja";
+}
+
+function addReason(reasons: string[], reason: string) {
+  if (!reasons.includes(reason)) reasons.push(reason);
 }
 
 export function scoreCaseMatch(caseRecord: CaseRecord, criteria: MatchCriteria): CaseMatch {
@@ -32,52 +48,64 @@ export function scoreCaseMatch(caseRecord: CaseRecord, criteria: MatchCriteria):
     criteria.keywords?.join(" "),
   ].filter(Boolean).join(" ").toLowerCase();
   let score = 0;
+  const maxScore = 18;
   const reasons: string[] = [];
 
   if (includesText(text, criteria.especie)) {
     score += 3;
-    reasons.push("Misma especie");
+    addReason(reasons, "Misma especie");
   }
   if (includesText(text, criteria.raza)) {
     score += 2;
-    reasons.push("Raza similar");
+    addReason(reasons, "Raza similar");
   }
   if (includesText(text, criteria.color)) {
     score += 2;
-    reasons.push("Mismo color");
+    addReason(reasons, "Mismo color");
   }
   if (includesText(text, criteria.tamano)) {
     score += 1;
-    reasons.push("Mismo tamaño");
+    addReason(reasons, "Mismo tamano");
+  }
+  if (criteria.sexo && includesText(text, criteria.sexo)) {
+    score += 1;
+    addReason(reasons, "Mismo sexo");
   }
   if (criteria.distrito && caseRecord.district === criteria.distrito) {
     score += 3;
-    reasons.push("Mismo distrito");
+    addReason(reasons, "Mismo distrito");
   }
   for (const trait of criteria.rasgos ?? []) {
     if (includesText(text, trait)) {
       score += 1;
-      reasons.push(`${trait} reportado`);
+      addReason(reasons, `${trait} reportado`);
     }
   }
   if (criteria.fecha) {
     const days = Math.abs(new Date(caseRecord.createdAt).getTime() - new Date(criteria.fecha).getTime()) / 86_400_000;
-    if (days <= 14) {
+    if (days <= 3) {
+      score += 2;
+      addReason(reasons, "Muy reciente");
+    } else if (days <= 14) {
       score += 1;
-      reasons.push("Fecha reciente");
+      addReason(reasons, "Fecha reciente");
     }
   }
 
   const distance = distanceKm(criteria.latitude, criteria.longitude, caseRecord.latitude, caseRecord.longitude);
-  if (distance !== null && distance <= 5) {
+  if (distance !== null && distance <= 1) {
+    score += 4;
+    addReason(reasons, "A menos de 1 km");
+  } else if (distance !== null && distance <= 5) {
     score += 3;
-    reasons.push("Muy cerca");
+    addReason(reasons, "Muy cerca");
   } else if (distance !== null && distance <= 12) {
     score += 1;
-    reasons.push("Zona cercana");
+    addReason(reasons, "Zona cercana");
   }
 
-  return { caseId: caseRecord.id, petId: caseRecord.petId, pet, score, distance, reasons };
+  const percentage = Math.min(100, Math.round((score / maxScore) * 100));
+  return { caseId: caseRecord.id, petId: caseRecord.petId, pet, score, percentage, level: classifyMatch(percentage), distance, reasons };
 }
 
 export async function findLostPetMatches(criteria: MatchCriteria) {
@@ -85,7 +113,7 @@ export async function findLostPetMatches(criteria: MatchCriteria) {
   return cases
     .filter((caseRecord) => caseRecord.pet.estado === "perdido" && caseRecord.status !== "reunido" && caseRecord.status !== "archivado")
     .map((caseRecord) => scoreCaseMatch(caseRecord, criteria))
-    .filter((item) => item.score >= 3)
-    .sort((a, b) => b.score - a.score || (a.distance ?? 999) - (b.distance ?? 999))
+    .filter((item) => item.percentage >= 25)
+    .sort((a, b) => b.percentage - a.percentage || (a.distance ?? 999) - (b.distance ?? 999))
     .slice(0, 5);
 }

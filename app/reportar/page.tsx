@@ -8,25 +8,13 @@ import { Button } from "@/components/ui/button";
 import { createPet, distinctiveFeatures, specialConditions } from "@/lib/pet-store";
 import { createReport, reportToLegacyPet } from "@/lib/sprint14-store";
 import { findPotentialDuplicateReports } from "@/lib/sprint14-store";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import type { Pet, PetStatus } from "@/lib/demo-data";
-import { compressImage, fileToDataUrl } from "@/lib/image-utils";
 import { PosterButton, ShareButton } from "@/components/report-actions";
+import { uploadImage } from "@/services/image-service";
 
 const districtCoords: Record<string, [number, number]> = {
   Miraflores: [-12.1211, -77.0297], "San Isidro": [-12.0975, -77.0366], Surco: [-12.1278, -76.9849], Barranco: [-12.1499, -77.0215], "San Borja": [-12.0969, -76.9996], Magdalena: [-12.0916, -77.0679], "Pueblo Libre": [-12.0763, -77.0611], "La Molina": [-12.0864, -76.9224], Lince: [-12.0846, -77.0348], "Jesús María": [-12.0706, -77.0432], Chorrillos: [-12.1823, -77.0301], Surquillo: [-12.1121, -77.0116]
 };
-
-async function uploadOrEncodePhoto(file: File) {
-  const compressed = await compressImage(file);
-  if (isSupabaseConfigured && supabase) {
-    const cleanName = compressed.name.replace(/[^a-zA-Z0-9.-]/g, "-");
-    const storagePath = `${crypto.randomUUID()}-${cleanName}`;
-    const { error } = await supabase.storage.from("pets").upload(storagePath, compressed);
-    if (!error) return supabase.storage.from("pets").getPublicUrl(storagePath).data.publicUrl;
-  }
-  return fileToDataUrl(compressed);
-}
 
 export default function ReportarPage() {
   const [saving, setSaving] = useState(false);
@@ -46,12 +34,12 @@ export default function ReportarPage() {
     setSaving(true);
     const duplicates = await findPotentialDuplicateReports({ distrito, especie: String(form.get("tipo")), fecha: new Date().toISOString(), latitude: latitud, longitude: longitud });
     if (duplicates.length && !duplicateWarning) {
-      setDuplicateWarning("Hay casos similares recientes en este distrito. Revisa si ya existe, o vuelve a publicar para continuar.");
+      setDuplicateWarning("Hay casos parecidos cerca. Revisa si ya existe una búsqueda relacionada; si no, continúa.");
       setSaving(false);
       return;
     }
     if (files.length) {
-      fotos = await Promise.all(files.map(uploadOrEncodePhoto));
+      fotos = await Promise.all(files.map((file) => uploadImage(file)));
       fotoPrincipal = fotos[0];
     }
 
@@ -105,7 +93,7 @@ export default function ReportarPage() {
   if (publishedPet) return (
     <main className="container py-6">
       <section className="form-card mx-auto max-w-xl space-y-4">
-        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Caso publicado</div>
+        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">La búsqueda ya está activa</div>
         <h1 className="font-serif text-4xl">{publishedPet.nombre}</h1>
         <img src={publishedPet.foto_principal} alt={publishedPet.nombre} className="max-h-80 w-full rounded-xl bg-[#F8F7F4] object-contain" />
         <div className="grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
@@ -120,7 +108,7 @@ export default function ReportarPage() {
 
   return (
     <main className="container py-6">
-      <div className="mb-5"><h1 className="font-serif text-4xl">Crear caso de mascota perdida</h1><p className="mt-2 text-[#6B6860]">Publica un caso simple para activar la búsqueda comunitaria.</p></div>
+      <div className="mb-5"><h1 className="font-serif text-4xl">Crear caso de mascota perdida</h1><p className="mt-2 text-[#6B6860]">Activa una búsqueda simple para que Huellas pueda conectar pistas.</p></div>
       <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           {duplicateWarning && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">{duplicateWarning}</div>}
@@ -142,7 +130,7 @@ export default function ReportarPage() {
           <div className="rounded-2xl border border-black/10 bg-[#C8EEE0] p-5 text-[#085041]"><MapPin className="mb-2" /><p className="font-semibold">Ubicación aproximada</p><p className="text-sm">Para el MVP, el mapa usa coordenadas reales aproximadas por distrito.</p></div>
           <div><label className="label">WhatsApp</label><input required className="field" name="whatsapp" placeholder="+51 987 654 321" /></div>
           <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa_monto" type="number" min="0" placeholder="Monto en soles" /></div>
-      <Button type="submit" size="lg" className="w-full" disabled={saving}><Send size={18} />{saving ? "Publicando..." : "Publicar caso"}</Button>
+      <Button type="submit" size="lg" className="w-full" disabled={saving}><Send size={18} />{saving ? "Activando..." : "Activar búsqueda"}</Button>
         </section>
       </form>
     </main>

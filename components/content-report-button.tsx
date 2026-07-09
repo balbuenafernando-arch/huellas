@@ -29,7 +29,7 @@ export function ContentReportButton({ targetType, targetId }: { targetType: "pet
 
   return (
     <div className="space-y-2">
-      <Button type="button" variant="outline" onClick={() => setOpen((value) => !value)}><Flag size={17} />Reportar publicación</Button>
+      <Button type="button" variant="outline" onClick={() => setOpen((value) => !value)}><Flag size={17} />Avisar problema</Button>
       {open && <div className="grid gap-2 rounded-xl border border-black/10 p-3">
         {reasons.map((reason) => <Button key={reason.value} type="button" variant="outline" disabled={saving} onClick={() => submit(reason.value)}>{reason.label}</Button>)}
       </div>}

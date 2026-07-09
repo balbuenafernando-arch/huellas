@@ -4,7 +4,7 @@ import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, Edit, MapPin, MessageCircle, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, Edit, MapPin, MessageCircle, Navigation, Radar, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PetMap } from "@/components/pet-map";
 import { PosterButton, ShareButton } from "@/components/report-actions";
@@ -15,8 +15,8 @@ import type { Pet, Sighting } from "@/lib/demo-data";
 import { deletePet, deleteSighting, getPet, getPets, getSightings, isOwnedPet, isOwnedSighting, markPetStatus, updateSighting, updateSightingStatus } from "@/lib/pet-store";
 import { getCurrentUser, getReport, incrementReportView, listReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { getCase, type CaseRecord } from "@/lib/cases";
-import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { compressImage, fileToDataUrl } from "@/lib/image-utils";
+import { estimateCaseMovement } from "@/lib/search-intelligence";
+import { uploadImage } from "@/services/image-service";
 import { formatDate, normalizeWhatsapp, timeAgo } from "@/lib/utils";
 
 const districtNeighbors: Record<string, string[]> = {
@@ -34,16 +34,6 @@ const districtNeighbors: Record<string, string[]> = {
   Surquillo: ["Miraflores", "San Borja", "Surco"],
 };
 
-async function uploadOrEncodePhoto(file: File) {
-  const compressed = await compressImage(file);
-  if (isSupabaseConfigured && supabase) {
-    const path = `${crypto.randomUUID()}-${compressed.name.replace(/[^a-zA-Z0-9.-]/g, "-")}`;
-    const { error } = await supabase.storage.from("pets").upload(path, compressed);
-    if (!error) return supabase.storage.from("pets").getPublicUrl(path).data.publicUrl;
-  }
-  return fileToDataUrl(compressed);
-}
-
 function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () => void }) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,7 +44,7 @@ function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () =
     const file = form.get("foto") as File | null;
     let foto = sighting.foto;
     setSaving(true);
-    if (file?.size) foto = await uploadOrEncodePhoto(file);
+    if (file?.size) foto = await uploadImage(file);
     await updateSighting(sighting.id, {
       comentario: String(form.get("comentario")),
       ubicacion: String(form.get("ubicacion")),
@@ -138,6 +128,7 @@ export default function PetDetailPage() {
       ...(pet.cerrado_en ? [{ date: pet.cerrado_en, label: "Mascota reunida" }] : []),
     ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [caseRecord, pet, sightings]);
+  const movement = useMemo(() => caseRecord ? estimateCaseMovement(caseRecord) : null, [caseRecord]);
 
   async function closeReport() {
     if (!pet) return;
@@ -183,10 +174,10 @@ export default function PetDetailPage() {
             {pet.alias?.length ? <p className="mt-2 text-sm text-[#6B6860]">También responde a: {pet.alias.join(", ")}</p> : null}
             {latestSighting && <p className="mt-2 text-sm font-semibold text-[#1D9E75]">Último avistamiento: {timeAgo(latestSighting.visto_en ?? latestSighting.creado_en)}</p>}
             {owned && report && <p className="mt-2 text-sm font-semibold text-[#6B6860]">{report.views_count ?? 0} visualizaciones</p>}
-            {pet.estado === "reunido" && <div className="mt-3 rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">🐾 {pet.nombre} volvió a casa {pet.cerrado_en ? `· ${formatDate(pet.cerrado_en)}` : ""}</div>}
+            {pet.estado === "reunido" && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">¡Qué buena noticia!</h2><p className="mt-1 font-semibold">Nos alegra saber que {pet.nombre} volvió a casa.</p><p className="mt-1 text-sm">Gracias por confiar en Huellas{pet.cerrado_en ? ` · ${formatDate(pet.cerrado_en)}` : ""}.</p><div className="mt-3"><ShareButton pet={pet} /></div></div>}
             <p className="mt-4 leading-7 text-[#4D4A43]">{pet.descripcion}</p>
             <div className="mt-4 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-              {signedIn && normalizeWhatsapp(pet.whatsapp) ? <Button asChild><a href={`https://wa.me/${normalizeWhatsapp(pet.whatsapp)}?text=${encodeURIComponent("Hola. Creo haber visto una mascota que coincide con tu aviso.")}`} target="_blank" rel="noreferrer"><MessageCircle size={18} />Contactar</a></Button> : <Button asChild variant="outline"><Link href="/auth"><MessageCircle size={18} />Inicia sesión para contactar</Link></Button>}
+              {signedIn && normalizeWhatsapp(pet.whatsapp) ? <Button asChild><a href={`https://wa.me/${normalizeWhatsapp(pet.whatsapp)}?text=${encodeURIComponent("Hola. Creo haber visto una mascota que coincide con tu caso en Huellas.")}`} target="_blank" rel="noreferrer"><MessageCircle size={18} />Contactar</a></Button> : <Button asChild variant="outline"><Link href="/auth"><MessageCircle size={18} />Inicia sesión para contactar</Link></Button>}
               <ShareButton pet={pet} />
               <PosterButton pet={pet} />
             </div>
@@ -223,6 +214,13 @@ export default function PetDetailPage() {
           {matches.length > 0 && <div className="form-card"><h2 className="mb-3 font-bold">Posibles coincidencias cercanas</h2><div className="space-y-3">{matches.map((match) => <Link key={match.id} href={`/pet/${match.id}`} className="flex gap-3 rounded-xl border border-black/10 p-2 hover:bg-[#F8F7F4]"><img src={match.foto_principal} alt={match.nombre} className="h-16 w-16 rounded-lg object-contain bg-[#F8F7F4]" /><div><div className="font-semibold">{match.nombre}</div><div className="text-sm text-[#7A7871]">{match.raza} · {match.distrito}</div></div></Link>)}</div></div>}
 
           <div className="form-card"><h2 className="mb-3 font-bold">Timeline del caso</h2><div className="space-y-3">{timeline.map((item) => <div key={`${item.date}-${item.label}`} className="flex gap-3"><div className="w-16 text-sm font-semibold text-[#1D9E75]">{formatDate(item.date).slice(0, 6)}</div><div className="border-l border-black/10 pl-3 text-sm">{item.label}</div></div>)}</div></div>
+
+          {movement?.probableZone && <div className="form-card space-y-3">
+            <h2 className="flex items-center gap-2 font-bold"><Radar size={18} />Zona probable estimada</h2>
+            <p className="text-sm leading-6 text-[#6B6860]">{movement.probableZone.label}. Radio aproximado: {movement.probableZone.radiusKm.toFixed(1)} km.</p>
+            {movement.direction && <p className="flex items-center gap-2 text-sm font-semibold text-[#085041]"><Navigation size={16} />Dirección estimada: {movement.direction}</p>}
+            <p className="text-xs text-[#7A7871]">Estimación basada en la última ubicación y avistamientos. No afirma que la mascota esté allí.</p>
+          </div>}
 
           <div className="space-y-3">
             <h2 className="text-xl font-bold">Avistamientos ({sightings.length})</h2>

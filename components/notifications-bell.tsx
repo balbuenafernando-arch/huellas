@@ -15,7 +15,7 @@ export function NotificationsBell() {
 
   async function openNotifications() {
     if (!notifications.length) {
-      alert("No hay notificaciones todavía.");
+      alert("Aún no hay novedades. Te avisaremos cuando llegue una pista.");
       return;
     }
     alert(notifications.slice(0, 5).map((item) => item.mensaje).join("\n"));

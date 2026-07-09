@@ -9,6 +9,7 @@ const NOTIFICATIONS_KEY = "huella:notifications";
 const OWNER_TOKEN_KEY = "huella:owner-token";
 const OWNED_PETS_KEY = "huella:owned-pets";
 const CONTENT_REPORTS_KEY = "huella:content-reports";
+let sessionOwnerToken = "";
 
 export type ContentReportReason = "spam" | "informacion_falsa" | "foto_incorrecta" | "broma";
 
@@ -48,23 +49,18 @@ export const specialConditions = [
 ];
 
 function readLocal<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  const raw = window.localStorage.getItem(key);
-  return raw ? JSON.parse(raw) as T : fallback;
+  return fallback;
 }
 
 function writeLocal<T>(key: string, value: T) {
-  if (typeof window !== "undefined") window.localStorage.setItem(key, JSON.stringify(value));
+  void key;
+  void value;
 }
 
 export function getOwnerToken() {
   if (typeof window === "undefined") return "";
-  let token = window.localStorage.getItem(OWNER_TOKEN_KEY);
-  if (!token) {
-    token = crypto.randomUUID();
-    window.localStorage.setItem(OWNER_TOKEN_KEY, token);
-  }
-  return token;
+  if (!sessionOwnerToken) sessionOwnerToken = crypto.randomUUID();
+  return sessionOwnerToken;
 }
 
 function rememberOwnedPet(id: string) {
@@ -168,7 +164,7 @@ export async function createPet(input: Omit<Pet, "id" | "creado_en" | "fecha_rep
   const pets = [pet, ...readLocal(PETS_KEY, demoPets)];
   writeLocal(PETS_KEY, pets);
   rememberOwnedPet(pet.id);
-  await createNotification({ pet_id: pet.id, tipo: "reporte_actualizado", mensaje: `Reporte creado para ${pet.nombre}` });
+  await createNotification({ pet_id: pet.id, tipo: "reporte_actualizado", mensaje: `Búsqueda activa para ${pet.nombre}` });
   return pet;
 }
 
@@ -178,7 +174,7 @@ export async function updatePet(id: string, input: Partial<Pet>) {
   }
   const pets = readLocal(PETS_KEY, demoPets).map((pet) => pet.id === id ? { ...pet, ...input } : pet);
   writeLocal(PETS_KEY, pets);
-  await createNotification({ pet_id: id, tipo: "reporte_actualizado", mensaje: "Reporte actualizado" });
+  await createNotification({ pet_id: id, tipo: "reporte_actualizado", mensaje: "Caso actualizado" });
 }
 
 export async function deletePet(id: string) {

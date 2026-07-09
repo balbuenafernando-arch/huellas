@@ -6,14 +6,14 @@ import { NotificationsBell } from "@/components/notifications-bell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Huella | Mascotas Perdidas",
-  description: "Plataforma comunitaria para encontrar mascotas perdidas en Perú.",
+  title: "Huellas | Reencuentro de mascotas",
+  description: "Conecta búsquedas y avistamientos para ayudar a reunir mascotas con sus familias.",
 };
 
 const nav = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/mis-mascotas", label: "Mis Mascotas", icon: Heart },
-  { href: "/mis-reportes", label: "Mis Reportes", icon: UserRound },
+  { href: "/mis-reportes", label: "Mis casos", icon: UserRound },
   { href: "/auth", label: "Perfil", icon: UserRound },
 ];
 

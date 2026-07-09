@@ -35,6 +35,8 @@ export type CaseMatch = {
   petId: string | null;
   pet: Pet;
   score: number;
+  percentage: number;
+  level: "alta" | "media" | "baja";
   distance: number | null;
   reasons: string[];
 };

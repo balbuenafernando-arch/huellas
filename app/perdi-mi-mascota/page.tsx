@@ -32,6 +32,7 @@ export default function EmergencyReportPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
+  const [locationConfirmed, setLocationConfirmed] = useState(false);
 
   useEffect(() => {
     if (navigator.geolocation) navigator.geolocation.getCurrentPosition((position) => setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
@@ -97,7 +98,7 @@ export default function EmergencyReportPage() {
       });
       setPublishedPet(reportToLegacyPet(report));
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "No se pudo publicar el reporte.");
+      setError(caught instanceof Error ? caught.message : "No pudimos activar la búsqueda. Revisa los datos e inténtalo otra vez.");
       setSaving(false);
     }
   }
@@ -105,7 +106,7 @@ export default function EmergencyReportPage() {
   if (publishedPet) return (
     <main className="container py-6">
       <section className="form-card mx-auto max-w-xl space-y-4">
-        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Aviso publicado</div>
+        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Tu búsqueda ya está activa</div>
         <h1 className="font-serif text-4xl">{publishedPet.nombre}</h1>
         <img src={publishedPet.foto_principal} alt={publishedPet.nombre} className="max-h-80 w-full rounded-xl bg-[#F8F7F4] object-contain" />
         <div className="grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
@@ -123,7 +124,8 @@ export default function EmergencyReportPage() {
       <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Inicio</Link>
       <form onSubmit={submit} className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
-          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Completa un solo formulario. HUELLA crea la mascota, abre el caso y publica el aviso.</p></div>
+          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 1 · Foto y nombre</div>
+          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Vamos paso a paso. Huellas abre la búsqueda y conecta posibles pistas por ti.</p></div>
           {error && <div className="rounded-xl bg-[#FAECE7] p-3 text-sm text-[#712B13]">{error} <Link href="/auth" className="font-semibold underline">Iniciar sesión</Link></div>}
           {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre} · {pet.especie}</option>)}<option value="">No está registrada</option></select></div>}
           {!selectedPetId && <>
@@ -136,15 +138,24 @@ export default function EmergencyReportPage() {
           </>}
         </section>
         <section className="form-card space-y-4">
+          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 2 · Última ubicación</div>
           <Camera className="text-[#1D9E75]" />
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha</label><input required className="field" name="fecha" type="date" /></div><div><label className="label">Hora</label><input required className="field" name="hora" type="time" /></div></div>
           <div><label className="label">Última ubicación</label><input required className="field" name="ultima_ubicacion" placeholder="Zona aproximada, parque o avenida" /></div>
           <div><label className="label">Distrito</label><select className="select" value={district} onChange={(event) => setDistrict(event.target.value)}>{Object.keys(districtCoords).map((item) => <option key={item}>{item}</option>)}</select></div>
           <Button type="button" variant="outline" className="w-full" onClick={useLocation}><MapPin size={18} />Usar mi ubicación actual</Button>
+          <div className="grid gap-2 rounded-xl bg-[#F8F7F4] p-3 text-sm">
+            <strong>¿Fue aquí?</strong>
+            <div className="grid gap-2 min-[390px]:grid-cols-2">
+              <Button type="button" variant={locationConfirmed ? "default" : "outline"} onClick={() => setLocationConfirmed(true)}>Sí, usar esta zona</Button>
+              <Button type="button" variant="outline" onClick={() => setLocationConfirmed(false)}>Cambiar ubicación</Button>
+            </div>
+          </div>
+          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 3 · Contacto</div>
           <div><label className="label">WhatsApp de contacto</label><input required className="field" name="whatsapp" placeholder="+51 987 654 321" /></div>
           <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa" placeholder="Monto o descripción" /></div>
           <div><label className="label">Observaciones</label><textarea required className="textarea min-h-24" name="observaciones" placeholder="Comportamiento, último momento visto, cuidados importantes" /></div>
-          <Button disabled={saving} className="w-full"><Send size={18} />{saving ? "Publicando..." : "Publicar aviso"}</Button>
+          <Button disabled={saving} className="w-full"><Send size={18} />{saving ? "Activando..." : "Empezar búsqueda"}</Button>
         </section>
       </form>
     </main>

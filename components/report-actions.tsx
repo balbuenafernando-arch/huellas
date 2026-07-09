@@ -75,19 +75,19 @@ export function PosterButton({ pet }: { pet: Pet }) {
     ctx.font = "500 36px Arial";
     ctx.fillText(`${pet.distrito} · zona aproximada`, 60, 918);
     ctx.font = "28px Arial";
-    ctx.fillText(`Reporte: ${formatDate(pet.fecha_reporte)}`, 60, 965);
+    ctx.fillText(`Caso iniciado: ${formatDate(pet.fecha_reporte)}`, 60, 965);
     const details = [...(pet.caracteristicas ?? []), ...(pet.condiciones_especiales ?? [])].slice(0, 4).join(" · ");
     if (details) ctx.fillText(details, 60, 1010, 900);
     ctx.font = "30px Arial";
     ctx.fillText(pet.descripcion.slice(0, 105), 60, 1060, 900);
     ctx.font = "700 42px Arial";
-    ctx.fillText("Contacto desde el reporte público", 60, 1130);
+    ctx.fillText("Contacto desde el caso público", 60, 1130);
     ctx.font = "24px Arial";
     ctx.fillText(url, 60, 1180, 640);
 
     drawPseudoQr(ctx, url, 745, 1010, 285);
     ctx.font = "26px Arial";
-    ctx.fillText("Escanea el reporte", 760, 1320);
+    ctx.fillText("Escanea el caso", 760, 1320);
 
     const link = document.createElement("a");
     link.download = `huella-${pet.nombre.toLowerCase()}-afiche.png`;
