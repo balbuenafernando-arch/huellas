@@ -112,6 +112,19 @@ async function currentUserId() {
   return data.user?.id ?? null;
 }
 
+async function ensureCurrentProfile() {
+  if (!isSupabaseConfigured || !supabase) return null;
+  const { data } = await supabase.auth.getUser();
+  const user = data.user;
+  if (!user) return null;
+  await supabase.from("profiles").upsert({
+    id: user.id,
+    display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? null,
+    updated_at: new Date().toISOString(),
+  });
+  return user.id;
+}
+
 function sightingStatusToLegacy(status?: string | null): NonNullable<Sighting["estado"]> {
   if (status === "confirmed") return "confirmado";
   if (status === "dismissed") return "descartado";
@@ -316,8 +329,9 @@ export async function getSighting(id: string): Promise<Sighting | undefined> {
 }
 
 export async function getNotifications(): Promise<Notification[]> {
-  if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
+  const userId = await currentUserId();
+  if (isSupabaseConfigured && supabase && userId) {
+    const { data, error } = await supabase.from("notifications").select("*").eq("user_id", userId).order("created_at", { ascending: false });
     if (!error && data) {
       return data.map((item) => ({
         id: String(item.id),
@@ -334,9 +348,10 @@ export async function getNotifications(): Promise<Notification[]> {
 
 export async function createNotification(input: Omit<Notification, "id" | "leido" | "creado_en">) {
   const notification: Notification = { ...input, id: crypto.randomUUID(), leido: false, creado_en: new Date().toISOString() };
-  if (isSupabaseConfigured && supabase && isUuid(input.pet_id)) {
+  const userId = await currentUserId();
+  if (isSupabaseConfigured && supabase && userId && isUuid(input.pet_id)) {
     const { data: report } = await supabase.from("lost_reports").select("id, owner_id").eq("pet_id", input.pet_id).maybeSingle();
-    if (report?.id && report?.owner_id) {
+    if (report?.id && report?.owner_id === userId) {
       await supabase.from("notifications").insert({
         user_id: report.owner_id,
         report_id: report.id,
@@ -350,8 +365,9 @@ export async function createNotification(input: Omit<Notification, "id" | "leido
 }
 
 export async function markNotificationsRead() {
-  if (isSupabaseConfigured && supabase) {
-    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).is("read_at", null);
+  const userId = await currentUserId();
+  if (isSupabaseConfigured && supabase && userId) {
+    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", userId).is("read_at", null);
   }
   writeLocal(NOTIFICATIONS_KEY, readLocal(NOTIFICATIONS_KEY, demoNotifications).map((item) => ({ ...item, leido: true })));
 }
@@ -360,7 +376,7 @@ export async function createContentReport(input: Omit<ContentReport, "id" | "cre
   const report: ContentReport = { ...input, id: crypto.randomUUID(), creado_en: new Date().toISOString() };
   if (isSupabaseConfigured && supabase && isUuid(input.target_id)) {
     await supabase.from("moderation_reports").insert({
-      reporter_id: await currentUserId(),
+      reporter_id: await ensureCurrentProfile(),
       target_type: input.target_type,
       target_id: input.target_id,
       reason: input.motivo,
@@ -381,7 +397,7 @@ export async function createPet(input: Omit<Pet, "id" | "creado_en" | "fecha_rep
     owner_token: getOwnerToken(),
   };
   if (isSupabaseConfigured && supabase) {
-    const userId = await currentUserId();
+    const userId = await ensureCurrentProfile();
     const { data, error } = await supabase.from("pets").insert(petToInsert(pet, userId)).select().single();
     if (!error && data) {
       rememberOwnedPet((data as PetRow).id);
@@ -397,7 +413,7 @@ export async function createPet(input: Omit<Pet, "id" | "creado_en" | "fecha_rep
 
 export async function updatePet(id: string, input: Partial<Pet>) {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase.from("pets").update(petPatch(input, await currentUserId())).eq("id", id);
+    await supabase.from("pets").update(petPatch(input, await ensureCurrentProfile())).eq("id", id);
   }
   const pets = readLocal(PETS_KEY, demoPets).map((pet) => pet.id === id ? { ...pet, ...input } : pet);
   writeLocal(PETS_KEY, pets);
@@ -416,7 +432,7 @@ export async function deletePet(id: string) {
 export async function createSighting(input: Omit<Sighting, "id" | "creado_en" | "estado" | "estado_revision">) {
   const sighting: Sighting = { ...input, estado: "pendiente", estado_avistamiento: "pendiente", estado_revision: "por_revisar", owner_token: getOwnerToken(), id: crypto.randomUUID(), creado_en: new Date().toISOString() };
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from("sightings").insert(sightingToInsert(sighting, await currentUserId())).select().single();
+    const { data, error } = await supabase.from("sightings").insert(sightingToInsert(sighting, await ensureCurrentProfile())).select().single();
     if (!error && data) {
       if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo avistamiento recibido" });
       return normalizeSighting(data as SightingRow);

@@ -4,6 +4,7 @@ import type { Pet as LegacyPet, PetStatus } from "@/lib/demo-data";
 import { demoPets, demoSightings } from "@/lib/demo-data";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { uploadImage } from "@/services/image-service";
+import type { User } from "@supabase/supabase-js";
 
 export type RegisteredPet = {
   id: string;
@@ -81,6 +82,10 @@ type LostReportRow = {
   private_contact?: { contact_whatsapp?: string | null; contact_phone?: string | null } | null;
 };
 
+type RegisteredPetRow = RegisteredPet & {
+  private_details?: Array<{ telefono?: string | null; rasgo_privado?: string | null }> | { telefono?: string | null; rasgo_privado?: string | null } | null;
+};
+
 const REGISTERED_PETS_KEY = "huella:v14:pets";
 const REPORTS_KEY = "huella:v14:reports";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -110,6 +115,42 @@ function legacyStatusToLost(status?: Report["estado"]) {
 
 function petPhoto(pet?: RegisteredPet | null) {
   return pet?.foto_principal ?? pet?.foto_url ?? pet?.fotos?.[0] ?? "";
+}
+
+async function ensureProfile(user: User) {
+  if (!isSupabaseConfigured || !supabase) return;
+  await supabase.from("profiles").upsert({
+    id: user.id,
+    display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? null,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+function normalizeRegisteredPet(row: RegisteredPetRow): RegisteredPet {
+  const privateDetails = Array.isArray(row.private_details) ? row.private_details[0] : row.private_details;
+  return {
+    ...row,
+    telefono: privateDetails?.telefono ?? row.telefono ?? null,
+    rasgo_privado: privateDetails?.rasgo_privado ?? row.rasgo_privado ?? null,
+  };
+}
+
+function registeredPetInsert(input: RegisteredPet) {
+  const { telefono, rasgo_privado, ...insertable } = input;
+  void telefono;
+  void rasgo_privado;
+  return insertable;
+}
+
+function registeredPetPatch(input: Partial<RegisteredPet>) {
+  const { telefono, rasgo_privado, id, user_id, owner_id, created_at, ...patch } = input;
+  void telefono;
+  void rasgo_privado;
+  void id;
+  void user_id;
+  void owner_id;
+  void created_at;
+  return { ...patch, updated_at: new Date().toISOString() };
 }
 
 function lostReportToReport(row: LostReportRow): Report {
@@ -223,10 +264,10 @@ export async function listMyRegisteredPets() {
   if (isSupabaseConfigured && supabase && user) {
     const { data, error } = await supabase
       .from("pets")
-      .select("*")
+      .select("*, private_details:pet_private_details(telefono, rasgo_privado)")
       .or(`user_id.eq.${user.id},owner_id.eq.${user.id}`)
       .order("created_at", { ascending: false });
-    if (!error && data) return data as RegisteredPet[];
+    if (!error && data) return (data as RegisteredPetRow[]).map(normalizeRegisteredPet);
   }
   return readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, []).filter((pet) => pet.user_id === user?.id);
 }
@@ -234,17 +275,19 @@ export async function listMyRegisteredPets() {
 export async function createRegisteredPet(input: Omit<RegisteredPet, "id" | "user_id" | "created_at">) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Necesitas iniciar sesión.");
+  await ensureProfile(user);
   const now = new Date().toISOString();
   const pet: RegisteredPet = { ...input, id: crypto.randomUUID(), user_id: user.id, owner_id: user.id, created_at: now };
   if (isSupabaseConfigured && supabase) {
-    const { rasgo_privado, ...insertable } = pet;
-    const { data, error } = await supabase.from("pets").insert(insertable).select().single();
+    const { data, error } = await supabase.from("pets").insert(registeredPetInsert(pet)).select().single();
     if (error) throw error;
-    if (rasgo_privado) {
+    if (input.telefono || input.rasgo_privado) {
       await supabase.from("pet_private_details").upsert({
         pet_id: data.id,
         owner_id: user.id,
-        rasgo_privado,
+        telefono: input.telefono ?? null,
+        rasgo_privado: input.rasgo_privado ?? null,
+        updated_at: new Date().toISOString(),
       });
     }
     return data as RegisteredPet;
@@ -256,10 +299,16 @@ export async function createRegisteredPet(input: Omit<RegisteredPet, "id" | "use
 export async function updateRegisteredPet(id: string, input: Partial<RegisteredPet>) {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
     const user = await getCurrentUser();
-    const { rasgo_privado, ...patch } = input;
-    await supabase.from("pets").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`);
-    if (rasgo_privado !== undefined && user) {
-      await supabase.from("pet_private_details").upsert({ pet_id: id, owner_id: user.id, rasgo_privado });
+    if (user) await ensureProfile(user);
+    await supabase.from("pets").update(registeredPetPatch(input)).eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`);
+    if ((input.telefono !== undefined || input.rasgo_privado !== undefined) && user) {
+      await supabase.from("pet_private_details").upsert({
+        pet_id: id,
+        owner_id: user.id,
+        telefono: input.telefono ?? null,
+        rasgo_privado: input.rasgo_privado ?? null,
+        updated_at: new Date().toISOString(),
+      });
     }
   }
   writeLocal(REGISTERED_PETS_KEY, readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, []).map((pet) => pet.id === id ? { ...pet, ...input } : pet));
@@ -329,6 +378,7 @@ export async function incrementReportView(id: string) {
 export async function createReport(input: Omit<Report, "id" | "user_id" | "created_at" | "updated_at" | "fecha_reporte">) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Necesitas iniciar sesión.");
+  await ensureProfile(user);
   const now = new Date().toISOString();
   const report: Report = { ...input, id: crypto.randomUUID(), user_id: user.id, created_at: now, updated_at: now, fecha_reporte: now };
   if (isSupabaseConfigured && supabase) {

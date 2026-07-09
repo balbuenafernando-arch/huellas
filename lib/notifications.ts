@@ -2,6 +2,7 @@
 
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { demoNotifications } from "@/lib/demo-data";
+import { getCurrentUser } from "@/lib/sprint14-store";
 
 export type AppNotification = {
   id: string;
@@ -53,8 +54,9 @@ function normalizeNotification(item: Record<string, unknown>): AppNotification {
 }
 
 export async function listNotifications(): Promise<AppNotification[]> {
-  if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from("notifications").select("*").order("created_at", { ascending: false });
+  const user = await getCurrentUser();
+  if (isSupabaseConfigured && supabase && user) {
+    const { data, error } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
     if (!error && data) return data.map((item) => normalizeNotification(item as Record<string, unknown>));
   }
   const local = readLocal();
@@ -62,8 +64,9 @@ export async function listNotifications(): Promise<AppNotification[]> {
 }
 
 export async function markAllNotificationsRead() {
-  if (isSupabaseConfigured && supabase) {
-    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).is("read_at", null);
+  const user = await getCurrentUser();
+  if (isSupabaseConfigured && supabase && user) {
+    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", user.id).is("read_at", null);
   }
   writeLocal(readLocal().map((item) => ({ ...item, read: true })));
 }
