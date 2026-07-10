@@ -56,7 +56,6 @@ function normalizeNotification(item: Record<string, unknown>): AppNotification {
 export async function listNotifications(): Promise<AppNotification[]> {
   const user = await getCurrentUser();
   if (isSupabaseConfigured && supabase && user) {
-    console.info("[HUELLA Supabase] select notifications", { user_id: user.id });
     const { data, error } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
     if (!error && data) return data.map((item) => normalizeNotification(item as Record<string, unknown>));
   }

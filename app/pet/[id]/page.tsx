@@ -24,21 +24,6 @@ import { listContactRequests, type ContactRequest } from "@/lib/contact-requests
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
 import { friendlyError, validateImageFile } from "@/lib/form-validation";
 
-const districtNeighbors: Record<string, string[]> = {
-  Miraflores: ["San Isidro", "Surquillo", "Barranco"],
-  "San Isidro": ["Miraflores", "Lince", "Jesús María"],
-  Surco: ["San Borja", "Chorrillos", "Surquillo"],
-  Barranco: ["Miraflores", "Chorrillos", "Surco"],
-  "San Borja": ["Surco", "Surquillo", "La Molina"],
-  Magdalena: ["Pueblo Libre", "San Isidro", "Jesús María"],
-  "Pueblo Libre": ["Magdalena", "Jesús María", "Lince"],
-  "La Molina": ["San Borja", "Surco"],
-  Lince: ["San Isidro", "Jesús María", "Pueblo Libre"],
-  "Jesús María": ["Lince", "Pueblo Libre", "Magdalena"],
-  Chorrillos: ["Barranco", "Surco"],
-  Surquillo: ["Miraflores", "San Borja", "Surco"],
-};
-
 const reviewLabels: Record<string, string> = {
   por_revisar: "Por revisar",
   posible_coincidencia: "Posible coincidencia",
@@ -166,9 +151,9 @@ export default function PetDetailPage() {
   }, [sightings]);
   const matches = useMemo(() => {
     if (!pet || pet.estado !== "perdido") return [];
-    const districts = new Set([pet.distrito, ...(districtNeighbors[pet.distrito] ?? [])]);
+    const caseZone = pet.distrito.trim().toLowerCase();
     const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 21;
-    return allPets.filter((item) => item.id !== pet.id && item.estado === "encontrado" && districts.has(item.distrito) && new Date(item.fecha_reporte).getTime() >= cutoff).slice(0, 5);
+    return allPets.filter((item) => item.id !== pet.id && item.estado === "encontrado" && item.distrito.trim().toLowerCase() === caseZone && new Date(item.fecha_reporte).getTime() >= cutoff).slice(0, 5);
   }, [allPets, pet]);
   const timeline = useMemo<TimelineItem[]>(() => {
     const base = caseRecord?.timeline?.map((item, index) => ({

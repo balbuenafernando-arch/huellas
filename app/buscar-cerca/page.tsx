@@ -8,21 +8,7 @@ import { Button } from "@/components/ui/button";
 import { listCases, type CaseRecord } from "@/lib/cases";
 import { publicCaseCode, searchState } from "@/lib/case-display";
 import { distanceKm, formatDistance, timeAgo } from "@/lib/utils";
-
-const districtCoords: Record<string, [number, number]> = {
-  Miraflores: [-12.1211, -77.0297],
-  "San Isidro": [-12.0975, -77.0366],
-  Surco: [-12.1278, -76.9849],
-  Barranco: [-12.1499, -77.0215],
-  "San Borja": [-12.0969, -76.9996],
-  Magdalena: [-12.0916, -77.0679],
-  "Pueblo Libre": [-12.0763, -77.0611],
-  "La Molina": [-12.0864, -76.9224],
-  Lince: [-12.0846, -77.0348],
-  "Jesús María": [-12.0706, -77.0432],
-  Chorrillos: [-12.1823, -77.0301],
-  Surquillo: [-12.1121, -77.0116],
-};
+import { getCurrentLocationDetails, searchPeruLocation } from "@/lib/location";
 
 type RadiusFilter = "0.5" | "1" | "2" | "5" | "district";
 type SpeciesFilter = "todos" | "perro" | "gato";
@@ -108,6 +94,7 @@ function FilterPanel({
   setDistrict,
   address,
   setAddress,
+  onSearchAddress,
 }: {
   species: SpeciesFilter;
   setSpecies: (value: SpeciesFilter) => void;
@@ -119,6 +106,7 @@ function FilterPanel({
   setDistrict: (value: string) => void;
   address: string;
   setAddress: (value: string) => void;
+  onSearchAddress: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-3 shadow-soft">
@@ -146,15 +134,14 @@ function FilterPanel({
         </div>
         <div className="grid gap-2">
           <label>
-            <span className="label">Distrito manual</span>
-            <select className="select" value={district} onChange={(event) => setDistrict(event.target.value)}>
-              {Object.keys(districtCoords).map((item) => <option key={item}>{item}</option>)}
-            </select>
+            <span className="label">Distrito o zona</span>
+            <input className="field" value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Distrito, provincia o ciudad" />
           </label>
           <label>
             <span className="label">Dirección o referencia</span>
             <input className="field" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Ej. parque, avenida o zona" />
           </label>
+          <Button type="button" variant="outline" onClick={onSearchAddress}>Buscar referencia</Button>
         </div>
       </div>
     </div>
@@ -166,7 +153,7 @@ export default function NearbySearchPage() {
   const [coords, setCoords] = useState<{ latitude: number | null; longitude: number | null }>({ latitude: null, longitude: null });
   const [geoDenied, setGeoDenied] = useState(false);
   const [query, setQuery] = useState("");
-  const [district, setDistrict] = useState("Miraflores");
+  const [district, setDistrict] = useState("");
   const [address, setAddress] = useState("");
   const [radius, setRadius] = useState<RadiusFilter>("2");
   const [species, setSpecies] = useState<SpeciesFilter>("todos");
@@ -178,20 +165,41 @@ export default function NearbySearchPage() {
   const [visibleCount, setVisibleCount] = useState(20);
   const [recenterSignal, setRecenterSignal] = useState(0);
 
+  async function requestLocation() {
+    try {
+      const details = await getCurrentLocationDetails();
+      setCoords({ latitude: details.latitude, longitude: details.longitude });
+      setDistrict(details.district || details.province || details.department);
+      setAddress(details.address);
+      setGeoDenied(false);
+      setRecenterSignal((value) => value + 1);
+    } catch {
+      setGeoDenied(true);
+    }
+  }
+
+  async function searchAddressLocation() {
+    const query = address.trim();
+    if (!query) return;
+    try {
+      const details = await searchPeruLocation(query);
+      if (!details) {
+        setGeoDenied(true);
+        return;
+      }
+      setCoords({ latitude: details.latitude, longitude: details.longitude });
+      setDistrict(details.district || details.province || details.department);
+      setAddress(details.address);
+      setGeoDenied(false);
+      setRecenterSignal((value) => value + 1);
+    } catch {
+      setGeoDenied(true);
+    }
+  }
+
   useEffect(() => {
     listCases(false).then((items) => setCases(items.filter(isActiveCase)));
-    if (!navigator.geolocation) {
-      setGeoDenied(true);
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-        setGeoDenied(false);
-      },
-      () => setGeoDenied(true),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 120000 },
-    );
+    requestLocation();
   }, []);
 
   useEffect(() => {
@@ -200,13 +208,14 @@ export default function NearbySearchPage() {
 
   const searchCoords = useMemo(() => {
     if (coords.latitude != null && coords.longitude != null) return coords;
-    const [latitude, longitude] = districtCoords[district] ?? districtCoords.Miraflores;
-    return { latitude, longitude };
-  }, [coords, district]);
+    return { latitude: null, longitude: null };
+  }, [coords]);
 
   const filteredCases = useMemo<CaseWithDistance[]>(() => {
     const normalizedQuery = normalize(query.trim());
     const radiusKm = radius === "district" ? null : Number(radius);
+    const hasSearchCoords = searchCoords.latitude != null && searchCoords.longitude != null;
+    const normalizedDistrict = normalize(district.trim());
 
     return cases
       .map((caseRecord) => ({
@@ -216,9 +225,9 @@ export default function NearbySearchPage() {
       .filter(({ caseRecord, distance }) => {
         if (species !== "todos" && !normalize(caseRecord.pet.tipo).includes(species)) return false;
         if (!stateMatches(caseRecord, stateFilter)) return false;
-        if (radius === "district" && caseRecord.district !== district) return false;
-        if (radiusKm != null && distance != null && distance > radiusKm) return false;
-        if (radiusKm != null && distance == null && caseRecord.district !== district) return false;
+        if (radius === "district" && normalizedDistrict && !normalize(caseRecord.district).includes(normalizedDistrict)) return false;
+        if (radiusKm != null && hasSearchCoords && distance != null && distance > radiusKm) return false;
+        if (radiusKm != null && hasSearchCoords && distance == null && normalizedDistrict && !normalize(caseRecord.district).includes(normalizedDistrict)) return false;
         if (!normalizedQuery) return true;
         const haystack = normalize(`${caseRecord.pet.nombre} ${caseRecord.pet.tipo} ${caseRecord.pet.raza} ${caseRecord.district} ${publicCaseCode(caseRecord.id)}`);
         return haystack.includes(normalizedQuery);
@@ -269,7 +278,7 @@ export default function NearbySearchPage() {
           {radiusOptions.map((option) => <button key={option.value} type="button" className={`filter-tab shrink-0 ${radius === option.value ? "active" : ""}`} onClick={() => setRadius(option.value)}>{option.label}</button>)}
         </div>
         {geoDenied && <p className="mt-2 text-xs text-[#6B6860]">No pudimos usar tu ubicación. Puedes explorar por distrito o referencia.</p>}
-        {showFilters && <div className="mt-3"><FilterPanel species={species} setSpecies={setSpecies} stateFilter={stateFilter} setStateFilter={setStateFilter} sort={sort} setSort={setSort} district={district} setDistrict={setDistrict} address={address} setAddress={setAddress} /></div>}
+        {showFilters && <div className="mt-3"><FilterPanel species={species} setSpecies={setSpecies} stateFilter={stateFilter} setStateFilter={setStateFilter} sort={sort} setSort={setSort} district={district} setDistrict={setDistrict} address={address} setAddress={setAddress} onSearchAddress={searchAddressLocation} /></div>}
       </section>
 
       <section className="container hidden h-[calc(100dvh-64px)] grid-cols-[420px_1fr] gap-4 py-4 md:grid">
@@ -285,10 +294,10 @@ export default function NearbySearchPage() {
           <div className="flex flex-wrap gap-2">
             {radiusOptions.map((option) => <button key={option.value} type="button" className={`filter-tab ${radius === option.value ? "active" : ""}`} onClick={() => setRadius(option.value)}>{option.label}</button>)}
           </div>
-          {showFilters && <FilterPanel species={species} setSpecies={setSpecies} stateFilter={stateFilter} setStateFilter={setStateFilter} sort={sort} setSort={setSort} district={district} setDistrict={setDistrict} address={address} setAddress={setAddress} />}
+          {showFilters && <FilterPanel species={species} setSpecies={setSpecies} stateFilter={stateFilter} setStateFilter={setStateFilter} sort={sort} setSort={setSort} district={district} setDistrict={setDistrict} address={address} setAddress={setAddress} onSearchAddress={searchAddressLocation} />}
           <div className="flex items-center justify-between gap-3 text-sm text-[#6B6860]">
             <span>{filteredCases.length} casos activos</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => setRecenterSignal((value) => value + 1)} disabled={coords.latitude == null}><LocateFixed size={16} />Ir a mi ubicación</Button>
+            <Button type="button" variant="outline" size="sm" onClick={requestLocation}><LocateFixed size={16} />Ir a mi ubicación</Button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">{listContent}</div>
         </aside>
@@ -307,7 +316,7 @@ export default function NearbySearchPage() {
             <div className="map-panel h-full min-h-full rounded-2xl">
               <SearchMap cases={mappedCases} selectedId={selectedId} userCoords={coords} referenceCoords={searchCoords} recenterSignal={recenterSignal} onSelect={setSelectedId} />
             </div>
-            <Button type="button" variant="outline" className="absolute right-3 top-3 z-[410] bg-white" onClick={() => setRecenterSignal((value) => value + 1)} disabled={coords.latitude == null}>
+            <Button type="button" variant="outline" className="absolute right-3 top-3 z-[410] bg-white" onClick={requestLocation}>
               <LocateFixed size={18} />
               <span className="sr-only">Ir a la ubicación</span>
             </Button>

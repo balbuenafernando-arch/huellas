@@ -12,24 +12,16 @@ import type { Pet } from "@/lib/demo-data";
 import { fileToDataUrl } from "@/lib/image-utils";
 import { FriendlyError } from "@/components/feedback";
 import { friendlyError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
-
-const districtCoords: Record<string, [number, number]> = {
-  Miraflores: [-12.1211, -77.0297],
-  "San Isidro": [-12.0975, -77.0366],
-  Surco: [-12.1278, -76.9849],
-  Barranco: [-12.1499, -77.0215],
-  "San Borja": [-12.0969, -76.9996],
-  Magdalena: [-12.0916, -77.0679],
-  "Pueblo Libre": [-12.0763, -77.0611],
-  "La Molina": [-12.0864, -76.9224],
-  Lince: [-12.0846, -77.0348],
-  "Jesús María": [-12.0706, -77.0432],
-  Chorrillos: [-12.1823, -77.0301],
-  Surquillo: [-12.1121, -77.0116],
-};
+import { defaultPeruCoords, getCurrentLocationDetails, searchPeruLocation } from "@/lib/location";
 
 export default function EmergencyReportPage() {
-  const [district, setDistrict] = useState("Miraflores");
+  const [district, setDistrict] = useState("");
+  const [province, setProvince] = useState("");
+  const [department, setDepartment] = useState("");
+  const [locationText, setLocationText] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [locationMessage, setLocationMessage] = useState("");
+  const [locating, setLocating] = useState(false);
   const [coords, setCoords] = useState<{ latitude: number | null; longitude: number | null }>({ latitude: null, longitude: null });
   const [registeredPets, setRegisteredPets] = useState<RegisteredPet[]>([]);
   const [selectedPetId, setSelectedPetId] = useState("");
@@ -42,27 +34,55 @@ export default function EmergencyReportPage() {
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
-    }
     listMyRegisteredPets().then((items) => {
       setRegisteredPets(items);
       setSelectedPetId(items[0]?.id ?? "");
     });
   }, []);
 
-  function useLocation() {
-    if (!navigator.geolocation) {
-      setError("Tu navegador no permite obtener ubicación. Puedes continuar con distrito y referencia.");
-      return;
+  function applyLocation(details: { latitude: number; longitude: number; address: string; district: string; province: string; department: string }) {
+    setCoords({ latitude: details.latitude, longitude: details.longitude });
+    setLocationText(details.address);
+    setDistrict(details.district);
+    setProvince(details.province);
+    setDepartment(details.department);
+    setLocationConfirmed(true);
+  }
+
+  async function useLocation() {
+    setLocating(true);
+    setError("");
+    setLocationMessage("");
+    try {
+      const details = await getCurrentLocationDetails();
+      applyLocation(details);
+      setLocationMessage("Ubicación actual detectada.");
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos tomar tu ubicación. Puedes escribir una referencia cercana."));
+    } finally {
+      setLocating(false);
     }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-        setError("");
-      },
-      () => setError("No pudimos tomar tu ubicación. Puedes cambiar la ubicación manualmente."),
-    );
+  }
+
+  async function searchLocation() {
+    const query = locationQuery.trim();
+    if (!query) return;
+    setLocating(true);
+    setError("");
+    setLocationMessage("");
+    try {
+      const details = await searchPeruLocation(query);
+      if (!details) {
+        setLocationMessage("No encontramos esa referencia. Prueba con una avenida, parque o ciudad.");
+        return;
+      }
+      applyLocation(details);
+      setLocationMessage("Ubicación encontrada.");
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos buscar esa ubicación. Intenta con otra referencia."));
+    } finally {
+      setLocating(false);
+    }
   }
 
   async function handleRecentPhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -91,12 +111,12 @@ export default function EmergencyReportPage() {
     event.preventDefault();
     if (saving) return;
     const form = new FormData(event.currentTarget);
-    const [fallbackLat, fallbackLng] = districtCoords[district] ?? districtCoords.Miraflores;
+    const fallback = defaultPeruCoords();
     const file = recentPhoto;
     const fecha = String(form.get("fecha") || new Date().toISOString().slice(0, 10));
     const hora = String(form.get("hora") || "");
     const validationMessage =
-      requiredText(form.get("ultima_ubicacion"), "La última ubicación", 240) ||
+      requiredText(locationText || form.get("ultima_ubicacion"), "La última ubicación", 240) ||
       requiredText(form.get("whatsapp"), "El WhatsApp de contacto", 40) ||
       requiredText(form.get("observaciones"), "Las observaciones", 1000) ||
       validateNotFuture(`${fecha}T${hora || "00:00"}`, "La fecha de pérdida") ||
@@ -139,12 +159,12 @@ export default function EmergencyReportPage() {
         pet_id: pet.id,
         tipo_reporte: "perdido",
         estado: "activo",
-        distrito: district,
-        descripcion: `${String(form.get("observaciones"))} Última ubicación: ${String(form.get("ultima_ubicacion"))}. Fecha: ${fecha}. Hora: ${hora}. Recompensa: ${recompensa || "no indicada"}.`,
+        distrito: district || province || department || "Perú",
+        descripcion: `${String(form.get("observaciones"))} Última ubicación: ${locationText || String(form.get("ultima_ubicacion"))}. Fecha: ${fecha}. Hora: ${hora}. Recompensa: ${recompensa || "no indicada"}.`,
         foto_url: file?.size ? foto_url : pet.foto_principal ?? pet.foto_url,
         whatsapp: String(form.get("whatsapp") || ""),
-        latitude: coords.latitude ?? fallbackLat,
-        longitude: coords.longitude ?? fallbackLng,
+        latitude: coords.latitude ?? fallback.latitude,
+        longitude: coords.longitude ?? fallback.longitude,
         pet,
       });
       setPublishedPet(reportToLegacyPet(report));
@@ -179,7 +199,7 @@ export default function EmergencyReportPage() {
           <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Vamos paso a paso. HUELLA abre la búsqueda y conecta posibles avistamientos por ti.</p></div>
           {error && <FriendlyError message={error} />}
           {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre} · {pet.especie}</option>)}<option value="">No está registrada</option></select></div>}
-          <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={handleRecentPhoto} />
+          <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handleRecentPhoto} />
           <button type="button" onClick={() => photoInputRef.current?.click()} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#1D9E75] bg-white p-4 text-center text-[#085041]">
             <Camera size={28} />
             <span className="font-bold">{recentPhotoPreview ? "Cambiar foto" : "Agregar foto reciente"}</span>
@@ -203,9 +223,18 @@ export default function EmergencyReportPage() {
             </div> : <p className="text-sm text-[#6B6860]">Cuando agregues una foto, aquí verás la vista previa antes de publicar.</p>}
           </div>
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha</label><input required className="field" name="fecha" type="date" /></div><div><label className="label">Hora</label><input required className="field" name="hora" type="time" /></div></div>
-          <div><label className="label">Última ubicación</label><input required maxLength={240} className="field" name="ultima_ubicacion" placeholder="Zona aproximada, parque o avenida" /></div>
-          <div><label className="label">Distrito</label><select className="select" value={district} onChange={(event) => setDistrict(event.target.value)}>{Object.keys(districtCoords).map((item) => <option key={item}>{item}</option>)}</select></div>
-          <Button type="button" variant="outline" className="w-full" onClick={useLocation}><MapPin size={18} />Usar mi ubicación actual</Button>
+          <div><label className="label">Última ubicación</label><input required maxLength={240} className="field" name="ultima_ubicacion" value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder="Zona aproximada, parque o avenida" /></div>
+          <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+            <input className="field" value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="Buscar dirección, parque o ciudad" />
+            <Button type="button" variant="outline" onClick={searchLocation} disabled={locating}>Buscar</Button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <div><label className="label">Distrito o zona</label><input maxLength={120} className="field" value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Ej. Wanchaq" /></div>
+            <div><label className="label">Provincia</label><input maxLength={120} className="field" value={province} onChange={(event) => setProvince(event.target.value)} placeholder="Ej. Cusco" /></div>
+            <div><label className="label">Departamento</label><input maxLength={120} className="field" value={department} onChange={(event) => setDepartment(event.target.value)} placeholder="Ej. Cusco" /></div>
+          </div>
+          <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={locating}><MapPin size={18} />{locating ? "Ubicando..." : "Usar mi ubicación actual"}</Button>
+          {locationMessage && <p className="text-xs font-semibold text-[#1D9E75]">{locationMessage}</p>}
           <div className="grid gap-2 rounded-xl bg-[#F8F7F4] p-3 text-sm">
             <strong>¿Fue aquí?</strong>
             <div className="grid gap-2 min-[390px]:grid-cols-2">

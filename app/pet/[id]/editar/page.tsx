@@ -13,10 +13,6 @@ import { uploadImage } from "@/services/image-service";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
 import { friendlyError, requiredText, validateImageFiles } from "@/lib/form-validation";
 
-const districtCoords: Record<string, [number, number]> = {
-  Miraflores: [-12.1211, -77.0297], "San Isidro": [-12.0975, -77.0366], Surco: [-12.1278, -76.9849], Barranco: [-12.1499, -77.0215], "San Borja": [-12.0969, -76.9996], Magdalena: [-12.0916, -77.0679], "Pueblo Libre": [-12.0763, -77.0611], "La Molina": [-12.0864, -76.9224], Lince: [-12.0846, -77.0348], "Jesús María": [-12.0706, -77.0432], Chorrillos: [-12.1823, -77.0301], Surquillo: [-12.1121, -77.0116]
-};
-
 export default function EditPetPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -43,8 +39,9 @@ export default function EditPetPage() {
     event.preventDefault();
     if (!pet || !allowed || saving) return;
     const form = new FormData(event.currentTarget);
-    const distrito = String(form.get("distrito"));
-    const [latitud, longitud] = districtCoords[distrito] ?? [pet.latitud, pet.longitud];
+    const distrito = String(form.get("distrito") || pet.distrito || "Perú");
+    const latitud = pet.latitud;
+    const longitud = pet.longitud;
     const recompensaMonto = Number(form.get("recompensa_monto") || 0);
     const files = form.getAll("fotos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 5);
     let fotoPrincipal = String(form.get("foto_principal") || pet.foto_principal);
@@ -147,9 +144,9 @@ export default function EditPetPage() {
         <section className="form-card space-y-4">
           <img src={pet.foto_principal} alt={pet.nombre} className="h-52 w-full rounded-xl object-cover" />
           <div className="grid grid-cols-3 gap-2 min-[390px]:grid-cols-5">{(pet.fotos?.length ? pet.fotos : [pet.foto_principal]).slice(0, 5).map((foto) => <img key={foto} src={foto} alt="Foto actual" className="h-16 w-full rounded-lg object-contain bg-[#F8F7F4]" />)}</div>
-          <div><label className="label">Reemplazar fotos (máximo 5)</label><input className="field" name="fotos" type="file" accept="image/*" multiple /></div>
+          <div><label className="label">Reemplazar fotos (máximo 5)</label><input className="field" name="fotos" type="file" accept="image/*" multiple onClick={(event) => { event.currentTarget.value = ""; }} /></div>
           <div><label className="label">URL de foto</label><input className="field" name="foto_principal" defaultValue={pet.foto_principal} /></div>
-          <div><label className="label">Distrito</label><select className="select" name="distrito" defaultValue={pet.distrito}>{Object.keys(districtCoords).map((d) => <option key={d}>{d}</option>)}</select></div>
+          <div><label className="label">Distrito o zona</label><input maxLength={120} className="field" name="distrito" defaultValue={pet.distrito} placeholder="Distrito, provincia o ciudad" /></div>
           <div><label className="label">Dirección</label><input required maxLength={240} className="field" name="direccion" defaultValue={pet.direccion} /></div>
           <div><label className="label">WhatsApp</label><input required maxLength={40} className="field" name="whatsapp" defaultValue={pet.whatsapp} /></div>
           <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa_monto" type="number" min="0" defaultValue={pet.recompensa_monto ?? ""} /></div>

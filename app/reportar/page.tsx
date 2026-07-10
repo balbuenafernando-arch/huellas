@@ -14,23 +14,64 @@ import { ProgressiveSigninCard } from "@/components/progressive-signin-card";
 import { uploadImage } from "@/services/image-service";
 import { FriendlyError } from "@/components/feedback";
 import { friendlyError, requiredText, validateImageFiles } from "@/lib/form-validation";
-
-const districtCoords: Record<string, [number, number]> = {
-  Miraflores: [-12.1211, -77.0297], "San Isidro": [-12.0975, -77.0366], Surco: [-12.1278, -76.9849], Barranco: [-12.1499, -77.0215], "San Borja": [-12.0969, -76.9996], Magdalena: [-12.0916, -77.0679], "Pueblo Libre": [-12.0763, -77.0611], "La Molina": [-12.0864, -76.9224], Lince: [-12.0846, -77.0348], "Jesús María": [-12.0706, -77.0432], Chorrillos: [-12.1823, -77.0301], Surquillo: [-12.1121, -77.0116]
-};
+import { defaultPeruCoords, getCurrentLocationDetails, searchPeruLocation } from "@/lib/location";
 
 export default function ReportarPage() {
   const [saving, setSaving] = useState(false);
   const [duplicateWarning, setDuplicateWarning] = useState("");
   const [error, setError] = useState("");
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
+  const [district, setDistrict] = useState("");
+  const [address, setAddress] = useState("");
+  const [locationQuery, setLocationQuery] = useState("");
+  const [coords, setCoords] = useState<{ latitude: number | null; longitude: number | null }>({ latitude: null, longitude: null });
+  const [locating, setLocating] = useState(false);
+
+  function applyLocation(details: { latitude: number; longitude: number; address: string; district: string; province: string; department: string }) {
+    setCoords({ latitude: details.latitude, longitude: details.longitude });
+    setDistrict(details.district || details.province || details.department);
+    setAddress(details.address);
+  }
+
+  async function useCurrentLocation() {
+    setLocating(true);
+    setError("");
+    try {
+      applyLocation(await getCurrentLocationDetails());
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos tomar tu ubicación. Puedes escribir una referencia cercana."));
+    } finally {
+      setLocating(false);
+    }
+  }
+
+  async function searchLocation() {
+    const query = locationQuery.trim();
+    if (!query) return;
+    setLocating(true);
+    setError("");
+    try {
+      const details = await searchPeruLocation(query);
+      if (!details) {
+        setError("No encontramos esa referencia. Prueba con una avenida, parque o ciudad.");
+        return;
+      }
+      applyLocation(details);
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos buscar esa ubicación. Intenta con otra referencia."));
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
     const form = new FormData(event.currentTarget);
-    const distrito = String(form.get("distrito"));
-    const [latitud, longitud] = districtCoords[distrito] ?? districtCoords.Miraflores;
+    const distrito = district || String(form.get("distrito")) || "Perú";
+    const fallback = defaultPeruCoords();
+    const latitud = coords.latitude ?? fallback.latitude;
+    const longitud = coords.longitude ?? fallback.longitude;
     const files = form.getAll("fotos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 5);
     const recompensaMonto = Number(form.get("recompensa_monto") || 0);
     let fotoPrincipal = String(form.get("foto_principal")) || "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
@@ -39,7 +80,7 @@ export default function ReportarPage() {
     const validationMessage =
       requiredText(form.get("nombre"), "El nombre", 120) ||
       requiredText(form.get("descripcion"), "La descripción", 1000) ||
-      requiredText(form.get("direccion"), "La dirección o referencia", 240) ||
+      requiredText(address || form.get("direccion"), "La dirección o referencia", 240) ||
       requiredText(form.get("whatsapp"), "El WhatsApp", 40) ||
       validateImageFiles(files);
     if (validationMessage) {
@@ -68,7 +109,7 @@ export default function ReportarPage() {
       descripcion: String(form.get("descripcion")),
       estado: String(form.get("estado")) as PetStatus,
       distrito,
-      direccion: String(form.get("direccion")),
+      direccion: address || String(form.get("direccion")),
       latitud,
       longitud,
       whatsapp: String(form.get("whatsapp")),
@@ -136,7 +177,7 @@ export default function ReportarPage() {
           {duplicateWarning && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">{duplicateWarning}</div>}
           {error && <FriendlyError message={error} />}
           <div className="upload-box"><Camera className="mx-auto mb-2 text-[#1D9E75]" /><p className="font-semibold">Foto principal</p><p className="text-sm text-[#7A7871]">Adjunta una imagen o pega una URL</p></div>
-          <div><label className="label">Subir fotos (máximo 5)</label><input className="field" name="fotos" type="file" accept="image/*" multiple /></div>
+          <div><label className="label">Subir fotos (máximo 5)</label><input className="field" name="fotos" type="file" accept="image/*" multiple onClick={(event) => { event.currentTarget.value = ""; }} /></div>
           <div><label className="label">URL de foto opcional</label><input className="field" name="foto_principal" placeholder="https://..." /></div>
           <input type="hidden" name="estado" value="perdido" />
           <div><label className="label">Nombre</label><input required maxLength={120} className="field" name="nombre" placeholder="Luna" /></div>
@@ -148,9 +189,14 @@ export default function ReportarPage() {
           <div><label className="label">Características personalizadas</label><input className="field" name="caracteristicas_personalizadas" placeholder="Ej. cicatriz pequeña, patita blanca" /></div>
         </section>
         <section className="form-card space-y-4">
-          <div><label className="label">Distrito</label><select className="select" name="distrito">{Object.keys(districtCoords).map((d) => <option key={d}>{d}</option>)}</select></div>
-          <div><label className="label">Dirección o referencia</label><input required maxLength={240} className="field" name="direccion" placeholder="Parque, avenida, último lugar visto" /></div>
-          <div className="rounded-2xl border border-black/10 bg-[#C8EEE0] p-5 text-[#085041]"><MapPin className="mb-2" /><p className="font-semibold">Ubicación aproximada</p><p className="text-sm">Para el MVP, el mapa usa coordenadas reales aproximadas por distrito.</p></div>
+          <div><label className="label">Distrito o zona</label><input maxLength={120} className="field" name="distrito" value={district} onChange={(event) => setDistrict(event.target.value)} placeholder="Distrito, provincia o ciudad" /></div>
+          <div><label className="label">Dirección o referencia</label><input required maxLength={240} className="field" name="direccion" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Parque, avenida, último lugar visto" /></div>
+          <div className="grid gap-2 md:grid-cols-[1fr_auto]">
+            <input className="field" value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="Buscar dirección, parque o ciudad" />
+            <Button type="button" variant="outline" onClick={searchLocation} disabled={locating}>Buscar</Button>
+          </div>
+          <Button type="button" variant="outline" className="w-full" onClick={useCurrentLocation} disabled={locating}><MapPin size={18} />{locating ? "Ubicando..." : "Usar mi ubicación actual"}</Button>
+          <div className="rounded-2xl border border-black/10 bg-[#C8EEE0] p-5 text-[#085041]"><MapPin className="mb-2" /><p className="font-semibold">Ubicación aproximada</p><p className="text-sm">La búsqueda usa la referencia escrita o tu ubicación actual.</p></div>
           <div><label className="label">WhatsApp</label><input required maxLength={40} className="field" name="whatsapp" placeholder="+51 987 654 321" /></div>
           <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa_monto" type="number" min="0" placeholder="Monto en soles" /></div>
       <Button type="submit" size="lg" className="w-full" disabled={saving}><Send size={18} />{saving ? "Activando..." : "Activar búsqueda"}</Button>

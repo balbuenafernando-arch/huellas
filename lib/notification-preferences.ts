@@ -37,11 +37,6 @@ export async function getNotificationPreferences() {
 export async function saveNotificationPreferences(preferences: NotificationPreferences) {
   const user = await getCurrentUser();
   if (isSupabaseConfigured && supabase && user) {
-    await supabase.from("profiles").upsert({
-      id: user.id,
-      display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? null,
-      updated_at: new Date().toISOString(),
-    });
     await supabase.from("user_settings").upsert({
       user_id: user.id,
       notify_by_email: preferences.notifyByEmail,

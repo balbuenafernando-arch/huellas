@@ -108,10 +108,8 @@ function isUuid(value?: string | null) {
 
 async function currentUserId() {
   if (!isSupabaseConfigured || !supabase) return null;
-  const { data: sessionData, error } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user.id ?? null;
-  console.info("[HUELLA auth] pet-store getSession", { hasSession: Boolean(sessionData.session), userId, error: error?.message ?? null });
-  return userId;
+  const { data: sessionData } = await supabase.auth.getSession();
+  return sessionData.session?.user.id ?? null;
 }
 
 async function ensureCurrentProfile() {
@@ -119,17 +117,6 @@ async function ensureCurrentProfile() {
   const { data } = await supabase.auth.getSession();
   const user = data.session?.user ?? null;
   if (!user) return null;
-  const payload = {
-    id: user.id,
-    display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? null,
-    updated_at: new Date().toISOString(),
-  };
-  console.info("[HUELLA Supabase] pet-store upsert profiles payload", { id: payload.id, authUserId: user.id });
-  const { error } = await supabase.from("profiles").upsert(payload);
-  if (error) {
-    console.error("[HUELLA Supabase] pet-store profiles upsert failed", { code: error.code, message: error.message, details: error.details });
-    throw error;
-  }
   return user.id;
 }
 
@@ -408,17 +395,12 @@ export async function createPet(input: Omit<Pet, "id" | "creado_en" | "fecha_rep
     const userId = await ensureCurrentProfile();
     if (!userId) throw new Error("La sesión no está lista. Cierra sesión e ingresa de nuevo.");
     const insertable = petToInsert(pet, userId);
-    console.info("[HUELLA Supabase] pet-store insert pets payload", {
-      owner_id: insertable.owner_id,
-      user_id: insertable.user_id,
-      authUserId: userId,
-      nombre: insertable.nombre,
-    });
     const { data, error } = await supabase.from("pets").insert(insertable).select().single();
     if (!error && data) {
       rememberOwnedPet((data as PetRow).id);
       return { ...pet, ...normalizePet(data as PetRow), estado: input.estado };
     }
+    if (error) throw error;
   }
   const pets = [pet, ...readLocal(PETS_KEY, demoPets)];
   writeLocal(PETS_KEY, pets);
@@ -453,6 +435,7 @@ export async function createSighting(input: Omit<Sighting, "id" | "creado_en" | 
       if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo avistamiento recibido" });
       return normalizeSighting(data as SightingRow);
     }
+    if (error) throw error;
   }
   const sightings = [sighting, ...readLocal(SIGHTINGS_KEY, demoSightings)];
   writeLocal(SIGHTINGS_KEY, sightings);
