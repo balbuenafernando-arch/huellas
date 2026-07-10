@@ -30,6 +30,7 @@ export default function MisMascotasPage() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
   const [cropFile, setCropFile] = useState<File | null>(null);
+  const [customTraitVisible, setCustomTraitVisible] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -59,6 +60,7 @@ export default function MisMascotasPage() {
     setError("");
     setSuccessMessage("");
     setFieldErrors({});
+    setCustomTraitVisible(Boolean(pet?.caracteristicas?.includes("Otro") || pet?.caracteristicas_personalizadas));
   }
 
   function closeForm() {
@@ -68,6 +70,7 @@ export default function MisMascotasPage() {
     setPhotoPreview("");
     setCropFile(null);
     setFieldErrors({});
+    setCustomTraitVisible(false);
   }
 
   function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
@@ -120,10 +123,11 @@ export default function MisMascotasPage() {
       const uploaded = files.length ? await Promise.all(files.map((file) => uploadMascotaImage(file))) : [];
       const existingFotos = editing?.fotos?.length ? editing.fotos : editing?.foto_url ? [editing.foto_url] : [];
       const fotos = uploaded.length ? uploaded : existingFotos;
-      const principal = String(form.get("foto_principal") || fotos[0] || editing?.foto_url || "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80");
+      const principal = String(fotos[0] || editing?.foto_url || "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80");
+      const selectedTraits = form.getAll("caracteristicas").map(String);
       const payload = {
         nombre: String(form.get("nombre")),
-        alias: String(form.get("alias") || ""),
+        alias: editing?.alias ?? "",
         especie: String(form.get("especie")),
         raza: String(form.get("raza") || "No indicada"),
         tamano: String(form.get("tamano")),
@@ -133,20 +137,21 @@ export default function MisMascotasPage() {
         salud: String(form.get("salud") || ""),
         esterilizado: form.get("esterilizado") === "on",
         placa_medalla: String(form.get("placa_medalla") || ""),
-        caracteristicas: form.getAll("caracteristicas").map(String),
+        caracteristicas: selectedTraits,
+        caracteristicas_personalizadas: selectedTraits.includes("Otro") ? String(form.get("caracteristicas_personalizadas") || "").trim() : "",
         telefono: String(form.get("telefono") || ""),
         contacto_preferido: String(form.get("contacto_preferido") || "whatsapp"),
         fotos,
         foto_principal: principal,
         foto_url: principal,
-        rasgo_privado: String(form.get("rasgo_privado") || ""),
+        rasgo_privado: editing?.rasgo_privado ?? "",
       };
       if (editing) await updateRegisteredPet(editing.id, payload);
       else await createRegisteredPet(payload);
       closeForm();
       formElement.reset();
       await load();
-      setSuccessMessage(wasEditing ? "Mascota actualizada correctamente." : "Mascota creada correctamente.");
+      setSuccessMessage(wasEditing ? "Mascota actualizada correctamente. Sus datos ya estan disponibles para futuras busquedas." : "Mascota creada correctamente. Ahora puedes activar una busqueda si algun dia la necesitas.");
     } catch (caught) {
       setError(friendlyError(caught, "No pudimos guardar la mascota. Revisa los datos e inténtalo otra vez."));
     } finally {
@@ -173,7 +178,7 @@ export default function MisMascotasPage() {
         <Button type="button" onClick={() => openForm()}><Plus size={18} />Registrar mascota</Button>
       </div>
       {error && <div className="mb-4"><FriendlyError message={error} onRetry={load} /></div>}
-      {successMessage && <div className="mb-4 rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{successMessage}</div>}
+      {successMessage && <div className="mb-4 rounded-xl bg-[#E1F5EE] p-4 text-sm font-semibold text-[#085041]"><strong className="block text-base">Operacion exitosa</strong>{successMessage}</div>}
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
         <section className="space-y-3">
           <h2 className="text-xl font-bold">Mascotas registradas</h2>
@@ -206,26 +211,23 @@ export default function MisMascotasPage() {
             <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
             <div className="grid gap-2 min-[390px]:grid-cols-2">
               <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
-              <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir de galeria</Button>
+              <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galeria</Button>
             </div>
             {photoPreview && <img src={photoPreview} alt="Vista previa" className="mt-3 max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
             {fieldErrors.fotos && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.fotos}</p>}
           </div>
           <div><label className="label">Nombre *</label><input className="field" name="nombre" required maxLength={120} defaultValue={editing?.nombre} />{fieldErrors.nombre && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.nombre}</p>}</div>
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie" defaultValue={editing?.especie ?? "Perro"}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select>{fieldErrors.especie && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.especie}</p>}</div><div><label className="label">Tamaño</label><select className="select" name="tamano" defaultValue={editing?.tamano ?? "Mediano"}><option>Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
-          <div><label className="label">Señas particulares</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="caracteristicas" value={trait} defaultChecked={editing?.caracteristicas?.includes(trait)} />{trait}</label>)}</div></div>
+          <div><label className="label">Señas particulares</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="caracteristicas" value={trait} defaultChecked={editing?.caracteristicas?.includes(trait)} onChange={trait === "Otro" ? (event) => setCustomTraitVisible(event.currentTarget.checked) : undefined} />{trait}</label>)}</div>{customTraitVisible && <div className="mt-3"><label className="label">Describe la seña particular</label><input className="field" name="caracteristicas_personalizadas" maxLength={240} defaultValue={editing?.caracteristicas_personalizadas ?? ""} placeholder="Ej. mancha, cicatriz o comportamiento especial" /></div>}</div>
           <details className="rounded-xl border border-black/10 p-3">
             <summary className="cursor-pointer text-sm font-bold text-[#1D9E75]">Agregar más datos</summary>
             <div className="mt-3 space-y-4">
-              <div><label className="label">Alias</label><input className="field" name="alias" maxLength={160} defaultValue={editing?.alias ?? ""} placeholder="Lunita, Lulú" /></div>
               <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Raza</label><input className="field" name="raza" defaultValue={editing?.raza} /></div><div><label className="label">Color</label><input className="field" name="color" defaultValue={editing?.color} /></div></div>
               <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Sexo</label><select className="select" name="sexo" defaultValue={editing?.sexo ?? ""}><option value="">No indicado</option><option>Hembra</option><option>Macho</option></select></div><div><label className="label">Edad</label><input className="field" name="edad" defaultValue={editing?.edad} /></div></div>
               <div><label className="label">Salud</label><input className="field" name="salud" defaultValue={editing?.salud ?? ""} placeholder="Medicación, condición, alergias" /></div>
               <label className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="esterilizado" defaultChecked={Boolean(editing?.esterilizado)} />Esterilizado</label>
               <div><label className="label">Placa/medalla</label><input className="field" name="placa_medalla" defaultValue={editing?.placa_medalla ?? ""} placeholder="Color o texto visible" /></div>
               <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Teléfono</label><input className="field" name="telefono" defaultValue={editing?.telefono ?? ""} /></div><div><label className="label">Contacto preferido</label><select className="select" name="contacto_preferido" defaultValue={editing?.contacto_preferido ?? "whatsapp"}><option value="whatsapp">WhatsApp</option><option value="telefono">Teléfono</option><option value="ambos">Ambos</option></select></div></div>
-              <div><label className="label">URL de foto principal opcional</label><input className="field" name="foto_principal" defaultValue={editing?.foto_principal ?? editing?.foto_url} /></div>
-              <div><label className="label">Dato de verificación</label><input className="field" name="rasgo_privado" defaultValue={editing?.rasgo_privado ?? ""} placeholder="Información no visible públicamente" /></div>
             </div>
           </details>
           <div className="grid gap-2 min-[390px]:flex">

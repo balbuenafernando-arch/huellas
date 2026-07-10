@@ -13,6 +13,8 @@ import { ImageCropper } from "@/components/image-cropper";
 import { LocationPicker } from "@/components/location-picker";
 import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 
+type FieldErrors = Record<string, string>;
+
 export function SightingForm({ petId, reportId, onCreated }: { petId: string; reportId?: string | null; onCreated: () => void }) {
   const [comentario, setComentario] = useState("");
   const [ubicacion, setUbicacion] = useState("");
@@ -27,8 +29,10 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
   const [saving, setSaving] = useState(false);
   const [usingGps, setUsingGps] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   async function useLocation() {
     if (usingGps || saving) return;
@@ -87,17 +91,38 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     }
   }
 
+  function showFieldErrors(errors: FieldErrors) {
+    setFieldErrors(errors);
+    const first = Object.keys(errors)[0];
+    if (!first) return false;
+    requestAnimationFrame(() => {
+      const field = formRef.current?.querySelector<HTMLElement>(`[name="${first}"]`);
+      field?.focus();
+      field?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    return true;
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (saving || !comentario.trim() || !ubicacion.trim() || !vistoEn) return;
+    if (saving) return;
+    const errors: FieldErrors = {};
+    if (!ubicacion.trim()) errors.ubicacion = "Indica la ubicacion del avistamiento.";
+    if (!vistoEn) errors.visto_en = "Indica fecha y hora del avistamiento.";
+    if (!comentario.trim()) errors.comentario = "Describe lo que viste.";
     const validationMessage = validateNotFuture(vistoEn, "La fecha del avistamiento") || validateImageFile(foto);
     if (validationMessage) {
-      setError(validationMessage);
+      if (validationMessage.includes("fecha") || validationMessage.includes("Fecha")) errors.visto_en = validationMessage;
+      else errors.foto = validationMessage;
+    }
+    if (showFieldErrors(errors)) {
+      setError("");
       return;
     }
     const form = new FormData(event.currentTarget);
     setSaving(true);
     setError("");
+    setFieldErrors({});
     try {
       const duplicates = await findPotentialDuplicateSightings({ petId: reportId ?? petId, ubicacion, vistoEn });
       if (duplicates.length && !warning) {
@@ -135,7 +160,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
   }
 
   return (
-    <form onSubmit={submit} className="form-card space-y-4">
+    <form id="compartir-avistamiento" ref={formRef} onSubmit={submit} className="form-card scroll-mt-24 space-y-4">
       {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onApply={(file, previewUrl) => {
         setFoto(file);
         setFotoPreview(previewUrl);
@@ -145,24 +170,27 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       {error && <FriendlyError message={error} />}
       {warning && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">{warning}</div>}
       <div>
-        <label className="label">Ubicación</label>
+        <label className="label">Ubicación *</label>
         <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">
-          <input required className="field" value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Parque, calle o referencia" />
+          <input required className="field" name="ubicacion" value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Parque, calle o referencia" />
           <Button type="button" variant="outline" onClick={searchAddress} disabled={searchingAddress || saving}><Search size={18} />{searchingAddress ? "Buscando..." : "Buscar"}</Button>
         </div>
+        {fieldErrors.ubicacion && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.ubicacion}</p>}
       </div>
       <div className="map-panel min-h-[280px] overflow-hidden rounded-2xl">
         <LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} />
       </div>
       <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. El pin manda sobre la dirección.</p>
-      <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={usingGps || saving}>Usar mi ubicación actual</Button>
+      <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={usingGps || saving}>{usingGps ? "Obteniendo ubicacion..." : "Usar mi ubicación actual"}</Button>
       <div>
-        <label className="label">Fecha y hora del avistamiento</label>
-        <input required className="field" type="datetime-local" value={vistoEn} onChange={(e) => setVistoEn(e.target.value)} />
+        <label className="label">Fecha y hora del avistamiento *</label>
+        <input required className="field" name="visto_en" type="datetime-local" value={vistoEn} onChange={(e) => setVistoEn(e.target.value)} />
+        {fieldErrors.visto_en && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.visto_en}</p>}
       </div>
       <div>
-        <label className="label">Descripción</label>
-        <textarea required maxLength={1000} className="textarea min-h-24" value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Cuenta dónde, cuándo y cómo viste a esta mascota" />
+        <label className="label">Descripción *</label>
+        <textarea required maxLength={1000} className="textarea min-h-24" name="comentario" value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Cuenta dónde, cuándo y cómo viste a esta mascota" />
+        {fieldErrors.comentario && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.comentario}</p>}
       </div>
       <fieldset>
         <legend className="label">Situación observada</legend>
@@ -191,12 +219,13 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
         <div className="grid gap-2 min-[390px]:grid-cols-2">
           <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
-          <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir de galeria</Button>
+          <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galeria</Button>
         </div>
         {fotoPreview && <img src={fotoPreview} alt="Foto recortada" className="mt-3 max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
+        {fieldErrors.foto && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.foto}</p>}
       </div>
       <div className="flex gap-2 rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]"><MapPin size={18} className="shrink-0" />Comparte una referencia clara para orientar la búsqueda.</div>
-      <Button type="submit" disabled={saving || !comentario.trim() || !ubicacion.trim() || !vistoEn}><Send size={18} />{saving ? "Enviando avistamiento..." : warning ? "Enviar de todos modos" : "Enviar avistamiento"}</Button>
+      <Button type="submit" disabled={saving}><Send size={18} />{saving ? "Registrando avistamiento..." : warning ? "Enviar de todos modos" : "Enviar avistamiento"}</Button>
     </form>
   );
 }

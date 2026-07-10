@@ -33,6 +33,11 @@ const reviewLabels: Record<string, string> = {
   encontrada: "Ayudó a encontrarla",
 };
 
+function touchDistance(touches: { [index: number]: { clientX: number; clientY: number } }) {
+  const [a, b] = [touches[0], touches[1]];
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
 type TimelineItem = {
   id: string;
   date: string;
@@ -121,7 +126,7 @@ export default function PetDetailPage() {
   const [pageError, setPageError] = useState("");
   const [reunionPhoto, setReunionPhoto] = useState<File | null>(null);
   const [reunionPreview, setReunionPreview] = useState<string | null>(null);
-  const viewerTouchRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number; time: number } | null>(null);
+  const viewerTouchRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number; time: number; distance?: number; zoom?: number } | null>(null);
 
   async function load() {
     try {
@@ -144,6 +149,14 @@ export default function PetDetailPage() {
 
   useEffect(() => { load(); }, [params.id]);
   useEffect(() => { incrementReportView(params.id); }, [params.id]);
+  useEffect(() => {
+    if (!photoViewerOpen) return;
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setPhotoViewerOpen(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [photoViewerOpen]);
 
   const photos = useMemo(() => pet ? Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? [])])).slice(0, 5) : [], [pet]);
   const confirmedLast = useMemo(() => sightings.find((item) => (item.estado_avistamiento ?? item.estado) === "confirmado"), [sightings]);
@@ -217,6 +230,12 @@ export default function PetDetailPage() {
   const closedDate = report?.reunited_at ?? pet?.cerrado_en ?? null;
   const helperCount = Math.max(1, new Set(sightings.map((item) => item.owner_token ?? item.id)).size + (owned ? 1 : 0));
   const pendingContactRequests = contactRequests.filter((request) => request.status === "pendiente").length;
+  const petDetails = [
+    pet?.edad ? ["Edad", pet.edad] : null,
+    pet?.esterilizado !== null && pet?.esterilizado !== undefined ? ["Esterilizado", pet.esterilizado ? "Si" : "No"] : null,
+    pet?.salud ? ["Condicion medica", pet.salud] : null,
+    pet?.observaciones ? ["A tener en cuenta sobre la mascota", pet.observaciones] : null,
+  ].filter(Boolean) as Array<[string, string]>;
 
   async function closeReport(story?: string) {
     if (!pet) return;
@@ -320,9 +339,10 @@ export default function PetDetailPage() {
             <p className="mt-2 text-sm text-[#6B6860]">Última actualización: {timeAgo(report?.updated_at ?? caseRecord?.updatedAt ?? pet.creado_en)}</p>
             {owned && pendingContactRequests > 0 && <div className="mt-3 rounded-2xl bg-[#FAEEDA] p-4 text-sm text-[#6B4A10]"><strong className="block">❤️ Tienes personas intentando ayudarte.</strong><p>{pendingContactRequests} solicitud{pendingContactRequests === 1 ? "" : "es"} pendiente{pendingContactRequests === 1 ? "" : "s"}.</p><a href="#solicitudes-contacto" className="mt-2 inline-block font-bold text-[#6B4A10]">Revisar solicitudes</a></div>}
             {owned && report && <p className="mt-2 text-sm font-semibold text-[#6B6860]">{report.views_count ?? 0} visualizaciones</p>}
-            {isClosed && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">{pet.nombre} volvió a casa</h2><p className="mt-1 font-semibold">Nos alegra saber que esta búsqueda terminó en reencuentro.</p><p className="mt-1 text-sm">Gracias por confiar en HUELLA{closedDate ? ` · ${formatDate(closedDate)}` : ""}.</p></div>}
+            {isClosed && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">Mascota reunida</h2><p className="mt-1 font-semibold">Caso cerrado. {pet.nombre} volvió a casa.</p><p className="mt-1 text-sm">Gracias por confiar en HUELLA{closedDate ? ` · ${formatDate(closedDate)}` : ""}.</p></div>}
             <p className="mt-4 leading-7 text-[#4D4A43]">{pet.descripcion}</p>
             <div className="mt-4 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
+              {!isClosed && <Button asChild><a href="#compartir-avistamiento">Compartir avistamiento</a></Button>}
               <ShareButton pet={pet} label={isClosed ? "Compartir historia" : "Compartir búsqueda"} />
               {!isClosed && <PosterButton pet={pet} />}
             </div>
@@ -363,8 +383,9 @@ export default function PetDetailPage() {
             </div>
           </form>}
 
-          {(pet.caracteristicas?.length || pet.condiciones_especiales?.length || pet.caracteristicas_personalizadas || pet.recompensa_ofrecida) && <div className="form-card space-y-3">
+          {(petDetails.length || pet.caracteristicas?.length || pet.condiciones_especiales?.length || pet.caracteristicas_personalizadas || pet.recompensa_ofrecida) && <div className="form-card space-y-3">
             {pet.recompensa_ofrecida && <div className="rounded-xl bg-[#FAEEDA] p-3 font-semibold text-[#6B4A10]">Recompensa ofrecida {pet.recompensa_monto ? `S/ ${pet.recompensa_monto}` : ""}</div>}
+            {petDetails.length > 0 && <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">{petDetails.map(([label, value]) => <div key={label} className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">{label}</strong>{value}</div>)}</div>}
             <h2 className="font-bold">Características distintivas</h2>
             <div className="flex flex-wrap gap-2">{pet.caracteristicas?.map((feature) => <span key={feature} className="rounded-full bg-[#F1EFE8] px-3 py-1 text-sm">{feature}</span>)}</div>
             {pet.condiciones_especiales?.length ? <><h3 className="text-sm font-bold">Condiciones especiales</h3><div className="flex flex-wrap gap-2">{pet.condiciones_especiales.map((condition) => <span key={condition} className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm text-[#085041]">{condition}</span>)}</div></> : null}
@@ -375,16 +396,23 @@ export default function PetDetailPage() {
 
       {photoViewerOpen && <div
         className="fixed inset-0 z-[1300] grid place-items-center overflow-hidden bg-black/85 p-3"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) setPhotoViewerOpen(false);
+        }}
         onWheel={(event) => setViewerZoom((value) => Math.min(4, Math.max(1, value + (event.deltaY < 0 ? 0.16 : -0.16))))}
         onDoubleClick={() => setViewerZoom((value) => value > 1 ? 1 : 2)}
         onTouchStart={(event) => {
           const touch = event.touches[0];
-          viewerTouchRef.current = { x: touch.clientX, y: touch.clientY, offsetX: viewerOffset.x, offsetY: viewerOffset.y, time: Date.now() };
+          viewerTouchRef.current = { x: touch.clientX, y: touch.clientY, offsetX: viewerOffset.x, offsetY: viewerOffset.y, time: Date.now(), distance: event.touches.length === 2 ? touchDistance(event.touches) : undefined, zoom: viewerZoom };
         }}
         onTouchMove={(event) => {
           const start = viewerTouchRef.current;
           const touch = event.touches[0];
           if (!start || !touch) return;
+          if (event.touches.length === 2 && start.distance && start.zoom) {
+            setViewerZoom(Math.min(4, Math.max(1, start.zoom * (touchDistance(event.touches) / start.distance))));
+            return;
+          }
           if (viewerZoom > 1) setViewerOffset({ x: start.offsetX + touch.clientX - start.x, y: start.offsetY + touch.clientY - start.y });
         }}
         onTouchEnd={(event) => {
@@ -398,12 +426,12 @@ export default function PetDetailPage() {
           viewerTouchRef.current = null;
         }}
       >
-        <div className="absolute right-3 top-3 flex gap-2">
+        <div className="absolute right-3 top-3 z-[2] flex gap-2">
           {owned && <Button type="button" variant="outline" asChild><a href={photos[selectedPhoto] ?? pet.foto_principal} download><Download size={18} />Descargar fotografía</a></Button>}
           <Button type="button" variant="outline" onClick={() => setPhotoViewerOpen(false)}><X size={18} />Cerrar</Button>
         </div>
         {photos.length > 1 && <div className="absolute inset-x-3 bottom-4 z-[1] flex justify-between gap-3"><Button type="button" variant="outline" onClick={() => moveViewer(-1)}>Anterior</Button><Button type="button" variant="outline" onClick={() => moveViewer(1)}>Siguiente</Button></div>}
-        <img src={photos[selectedPhoto] ?? pet.foto_principal} alt={pet.nombre} className="max-h-[88dvh] max-w-[96vw] touch-none select-none object-contain" draggable={false} style={{ transform: `translate(${viewerOffset.x}px, ${viewerOffset.y}px) scale(${viewerZoom})` }} />
+        <img src={photos[selectedPhoto] ?? pet.foto_principal} alt={pet.nombre} className="max-h-[88dvh] max-w-[96vw] touch-none select-none object-contain" draggable={false} onClick={(event) => event.stopPropagation()} style={{ transform: `translate(${viewerOffset.x}px, ${viewerOffset.y}px) scale(${viewerZoom})` }} />
       </div>}
 
       <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_.8fr]">

@@ -54,7 +54,7 @@ export default function EditPetPage() {
     const place = areaName || address || pet.distrito;
     const recompensaMonto = Number(form.get("recompensa_monto") || 0);
     const files = form.getAll("fotos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 5);
-    let fotoPrincipal = String(form.get("foto_principal") || pet.foto_principal);
+    let fotoPrincipal = pet.foto_principal;
     let fotos = pet.fotos?.length ? pet.fotos.slice(0, 5) : [fotoPrincipal];
 
     const validationMessage =
@@ -105,7 +105,7 @@ export default function EditPetPage() {
         foto_principal: fotoPrincipal,
         fotos: Array.from(new Set([fotoPrincipal, ...fotos])).slice(0, 5),
         condiciones_especiales: form.getAll("condiciones_especiales").map(String),
-        alias: String(form.get("alias") || "").split(",").map((item) => item.trim()).filter(Boolean),
+        alias: pet.alias ?? [],
         caracteristicas: form.getAll("caracteristicas").map(String),
         caracteristicas_personalizadas: String(form.get("caracteristicas_personalizadas") || ""),
         recompensa_ofrecida: recompensaMonto > 0,
@@ -171,7 +171,6 @@ export default function EditPetPage() {
           <div className="grid gap-4 sm:grid-cols-2"><div><label className="label">Tipo</label><select className="select" name="tipo" defaultValue={pet.tipo}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Estado</label><select className="select" name="estado" defaultValue={pet.estado}><option value="perdido">Perdido</option><option value="encontrado">Encontrado</option><option value="reunido">Reunido</option></select></div></div>
           <div><label className="label">Raza</label><input className="field" name="raza" defaultValue={pet.raza} /></div>
           <div><label className="label">Descripción</label><textarea required maxLength={1000} className="textarea min-h-28" name="descripcion" defaultValue={pet.descripcion} /></div>
-          <div><label className="label">Alias o nombres alternativos</label><input className="field" name="alias" defaultValue={pet.alias?.join(", ") ?? ""} /></div>
           <div><label className="label">Condiciones especiales</label><div className="grid gap-2 md:grid-cols-2">{specialConditions.map((condition) => <label key={condition} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="condiciones_especiales" value={condition} defaultChecked={pet.condiciones_especiales?.includes(condition)} />{condition}</label>)}</div></div>
           <div><label className="label">Características distintivas</label><div className="grid gap-2 md:grid-cols-2">{distinctiveFeatures.map((feature) => <label key={feature} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="caracteristicas" value={feature} defaultChecked={pet.caracteristicas?.includes(feature)} />{feature}</label>)}</div></div>
           <div><label className="label">Características personalizadas</label><input className="field" name="caracteristicas_personalizadas" defaultValue={pet.caracteristicas_personalizadas ?? ""} /></div>
@@ -180,7 +179,6 @@ export default function EditPetPage() {
           <img src={pet.foto_principal} alt={pet.nombre} className="h-52 w-full rounded-xl bg-[#F8F7F4] object-contain" />
           <div className="grid grid-cols-3 gap-2 min-[390px]:grid-cols-5">{(pet.fotos?.length ? pet.fotos : [pet.foto_principal]).slice(0, 5).map((foto) => <img key={foto} src={foto} alt="Foto actual" className="h-16 w-full rounded-lg object-contain bg-[#F8F7F4]" />)}</div>
           <div><label className="label">Reemplazar fotos (máximo 5)</label><input className="field" name="fotos" type="file" accept="image/*" multiple /></div>
-          <div><label className="label">URL de foto</label><input className="field" name="foto_principal" defaultValue={pet.foto_principal} /></div>
           <div>
             <label className="label">Dirección</label>
             <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">

@@ -244,7 +244,7 @@ export default function EmergencyReportPage() {
         <ProgressiveSigninCard continueHref={`/pet/${publishedPet.id}`} />
         <h1 className="font-serif text-4xl">{publishedPet.nombre}</h1>
         <img src={publishedPet.foto_principal} alt={publishedPet.nombre} className="max-h-80 w-full rounded-xl bg-[#F8F7F4] object-contain" />
-        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Busqueda creada correctamente.</div>
+        <div className="rounded-xl bg-[#E1F5EE] p-4 font-semibold text-[#085041]"><strong className="block text-lg">Busqueda creada correctamente.</strong>El caso ya esta activo. Ahora otras personas pueden reportar avistamientos y revisar coincidencias desde el centro de busqueda.</div>
         <div className="grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
           <ShareButton pet={publishedPet} label="Compartir busqueda" />
           <PosterButton pet={publishedPet} />
@@ -272,7 +272,7 @@ export default function EmergencyReportPage() {
           <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
           <div className="grid gap-2 min-[390px]:grid-cols-2">
             <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
-            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir de galeria</Button>
+            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galeria</Button>
           </div>
           {fieldErrors.foto && <p className="text-sm font-semibold text-[#B42318]">{fieldErrors.foto}</p>}
           {photoPreview ? <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-3">

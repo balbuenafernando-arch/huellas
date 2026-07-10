@@ -32,6 +32,7 @@ type SightingDraft = {
   vistoEn: string;
   comentario: string;
   rasgos: string[];
+  rasgoOtro: string;
   situacion: string;
   photoDataUrl: string | null;
 };
@@ -44,6 +45,7 @@ const defaultDraft: SightingDraft = {
   vistoEn: "",
   comentario: "",
   rasgos: [],
+  rasgoOtro: "",
   situacion: "solo_la_vi",
   photoDataUrl: null,
 };
@@ -206,7 +208,8 @@ export default function ReportSightingPage() {
     const especie = String(form.get("especie") || draft.especie);
     const tamano = String(form.get("tamano") || draft.tamano);
     const color = String(form.get("color") || draft.color);
-    const rasgos = form.getAll("rasgos").map(String);
+    const rawRasgos = form.getAll("rasgos").map(String);
+    const rasgos = rawRasgos.includes("Otro") ? [...rawRasgos.filter((trait) => trait !== "Otro"), draft.rasgoOtro.trim()].filter(Boolean) : rawRasgos;
     const seenAt = String(form.get("visto_en") || draft.vistoEn);
     const file = photoFile;
     const errors: FieldErrors = {};
@@ -333,7 +336,7 @@ export default function ReportSightingPage() {
       <main className="container py-6">
         <section className="form-card mx-auto max-w-xl space-y-4">
           <ProgressiveSigninCard context="sighting" />
-          <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Avistamiento recibido. Gracias por detenerte a ayudar.</div>
+          <div className="rounded-xl bg-[#E1F5EE] p-4 font-semibold text-[#085041]"><strong className="block text-lg">Avistamiento registrado correctamente.</strong>Quedo asociado al caso correspondiente o guardado como nuevo seguimiento para que el equipo y la familia puedan revisarlo.</div>
           <Button asChild><Link href="/">Volver al inicio</Link></Button>
         </section>
       </main>
@@ -356,7 +359,7 @@ export default function ReportSightingPage() {
           <input ref={galleryInputRef} className="sr-only" name="foto_galeria" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
           <div className="grid gap-2 min-[390px]:grid-cols-2">
             <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
-            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir de galeria</Button>
+            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galeria</Button>
           </div>
           {draft.photoDataUrl && <img src={draft.photoDataUrl} alt="Foto recortada" className="max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
           {fieldErrors.foto && <p className="text-sm font-semibold text-[#B42318]">{fieldErrors.foto}</p>}
@@ -385,9 +388,9 @@ export default function ReportSightingPage() {
           <div><label className="label">Fecha y hora *</label><input required className="field" type="datetime-local" name="visto_en" value={draft.vistoEn} onChange={(event) => updateDraft("vistoEn", event.target.value)} aria-invalid={Boolean(fieldErrors.visto_en)} />{fieldErrors.visto_en && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.visto_en}</p>}</div>
           <div><label className="label">Situacion observada</label><div className="grid gap-2 min-[390px]:grid-cols-2">{quickSituations.map(([value, label]) => <button key={value} type="button" onClick={() => updateDraft("situacion", value)} className={`min-h-11 rounded-xl border px-3 text-left text-sm font-semibold ${draft.situacion === value ? "border-[#1D9E75] bg-[#E1F5EE] text-[#085041]" : "border-black/10 bg-white text-[#4D4A43]"}`}>{label}</button>)}</div></div>
           <div><label className="label">Comentario *</label><textarea required maxLength={1000} className="textarea min-h-24" name="comentario" value={draft.comentario} onChange={(event) => updateDraft("comentario", event.target.value)} placeholder="Que hacia, como se veia, si parecia asustada..." aria-invalid={Boolean(fieldErrors.comentario)} />{fieldErrors.comentario && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.comentario}</p>}</div>
-          <div><label className="label">Rasgos distintivos</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="rasgos" value={trait} checked={draft.rasgos.includes(trait)} onChange={(event) => toggleTrait(trait, event.target.checked)} />{trait}</label>)}</div></div>
+          <div><label className="label">Rasgos distintivos</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="rasgos" value={trait} checked={draft.rasgos.includes(trait)} onChange={(event) => toggleTrait(trait, event.target.checked)} />{trait}</label>)}</div>{draft.rasgos.includes("Otro") && <div className="mt-3"><label className="label">Describe el rasgo</label><input className="field" value={draft.rasgoOtro} onChange={(event) => updateDraft("rasgoOtro", event.target.value)} maxLength={240} placeholder="Ej. cicatriz, collar especial, comportamiento" /></div>}</div>
           {associationMessage && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{associationMessage}</div>}
-          <Button disabled={saving}>{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? "Enviando avistamiento..." : matches.length && reviewedMatches ? selectedCaseId ? "Unir a este caso" : "Enviar avistamiento" : "Buscar coincidencias"}</Button>
+          <Button disabled={saving}>{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? "Registrando avistamiento..." : matches.length && reviewedMatches ? selectedCaseId ? "Unir a este caso" : "Enviar avistamiento" : "Buscar coincidencias"}</Button>
         </section>
         <aside className="space-y-3">
           <div className="form-card"><h2 className="font-bold">Coincidencias</h2><p className="mt-2 text-sm text-[#6B6860]">Se comparan especie, color, tamano, fecha, rasgos y distancia geografica.</p>{reviewedMatches && !selectedCaseId && <p className="mt-2 text-sm font-semibold text-[#6B4A10]">Si ninguna coincide, se creara un caso de seguimiento para centralizar futuros avistamientos.</p>}</div>

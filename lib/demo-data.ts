@@ -22,6 +22,10 @@ export type Pet = {
   caracteristicas_personalizadas?: string;
   condiciones_especiales?: string[];
   alias?: string[];
+  edad?: string | null;
+  salud?: string | null;
+  esterilizado?: boolean | null;
+  observaciones?: string | null;
   cerrado_en?: string | null;
   owner_token?: string | null;
 };
