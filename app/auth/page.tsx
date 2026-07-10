@@ -27,8 +27,8 @@ export default function AuthPage() {
       setLoading(false);
       return;
     }
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user);
+    supabase.auth.getSession().then(({ data }) => {
+      setUser(data.session?.user ?? null);
       setLoading(false);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {

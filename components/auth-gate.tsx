@@ -57,9 +57,9 @@ export function AuthGate({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
-      setUser(data.user);
+      setUser(data.session?.user ?? null);
       setLoading(false);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {

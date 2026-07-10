@@ -119,11 +119,23 @@ function petPhoto(pet?: RegisteredPet | null) {
 
 async function ensureProfile(user: User) {
   if (!isSupabaseConfigured || !supabase) return;
-  await supabase.from("profiles").upsert({
+  const { data: sessionData } = await supabase.auth.getSession();
+  const sessionUserId = sessionData.session?.user.id ?? null;
+  if (sessionUserId !== user.id) {
+    console.warn("[HUELLA Supabase] profiles upsert blocked: session/user mismatch", { sessionUserId, userId: user.id });
+    throw new Error("La sesión no está lista. Cierra sesión e ingresa de nuevo.");
+  }
+  const payload = {
     id: user.id,
     display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? null,
     updated_at: new Date().toISOString(),
-  });
+  };
+  console.info("[HUELLA Supabase] upsert profiles payload", { id: payload.id, authUserId: sessionUserId });
+  const { error } = await supabase.from("profiles").upsert(payload);
+  if (error) {
+    console.error("[HUELLA Supabase] profiles upsert failed", { code: error.code, message: error.message, details: error.details });
+    throw error;
+  }
 }
 
 function normalizeRegisteredPet(row: RegisteredPetRow): RegisteredPet {
@@ -214,8 +226,21 @@ export function getDemoUserId() {
 
 export async function getCurrentUser() {
   if (isSupabaseConfigured && supabase) {
-    const { data } = await supabase.auth.getUser();
-    return data.user;
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const sessionUser = sessionData.session?.user ?? null;
+    console.info("[HUELLA auth] getSession", {
+      hasSession: Boolean(sessionData.session),
+      sessionUserId: sessionUser?.id ?? null,
+      sessionError: sessionError?.message ?? null,
+    });
+    if (sessionUser) return sessionUser;
+
+    const { data, error } = await supabase.auth.getUser();
+    console.info("[HUELLA auth] getUser fallback", {
+      userId: data.user?.id ?? null,
+      error: error?.message ?? null,
+    });
+    return null;
   }
   return null;
 }
@@ -279,7 +304,16 @@ export async function createRegisteredPet(input: Omit<RegisteredPet, "id" | "use
   const now = new Date().toISOString();
   const pet: RegisteredPet = { ...input, id: crypto.randomUUID(), user_id: user.id, owner_id: user.id, created_at: now };
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from("pets").insert(registeredPetInsert(pet)).select().single();
+    const insertable = registeredPetInsert(pet);
+    console.info("[HUELLA Supabase] insert pets payload", {
+      owner_id: insertable.owner_id,
+      user_id: insertable.user_id,
+      authUserId: user.id,
+      nombre: insertable.nombre,
+      hasTelefonoColumn: "telefono" in insertable,
+      hasRasgoPrivadoColumn: "rasgo_privado" in insertable,
+    });
+    const { data, error } = await supabase.from("pets").insert(insertable).select().single();
     if (error) throw error;
     if (input.telefono || input.rasgo_privado) {
       await supabase.from("pet_private_details").upsert({

@@ -108,20 +108,28 @@ function isUuid(value?: string | null) {
 
 async function currentUserId() {
   if (!isSupabaseConfigured || !supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id ?? null;
+  const { data: sessionData, error } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id ?? null;
+  console.info("[HUELLA auth] pet-store getSession", { hasSession: Boolean(sessionData.session), userId, error: error?.message ?? null });
+  return userId;
 }
 
 async function ensureCurrentProfile() {
   if (!isSupabaseConfigured || !supabase) return null;
-  const { data } = await supabase.auth.getUser();
-  const user = data.user;
+  const { data } = await supabase.auth.getSession();
+  const user = data.session?.user ?? null;
   if (!user) return null;
-  await supabase.from("profiles").upsert({
+  const payload = {
     id: user.id,
     display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? null,
     updated_at: new Date().toISOString(),
-  });
+  };
+  console.info("[HUELLA Supabase] pet-store upsert profiles payload", { id: payload.id, authUserId: user.id });
+  const { error } = await supabase.from("profiles").upsert(payload);
+  if (error) {
+    console.error("[HUELLA Supabase] pet-store profiles upsert failed", { code: error.code, message: error.message, details: error.details });
+    throw error;
+  }
   return user.id;
 }
 
@@ -398,7 +406,15 @@ export async function createPet(input: Omit<Pet, "id" | "creado_en" | "fecha_rep
   };
   if (isSupabaseConfigured && supabase) {
     const userId = await ensureCurrentProfile();
-    const { data, error } = await supabase.from("pets").insert(petToInsert(pet, userId)).select().single();
+    if (!userId) throw new Error("La sesión no está lista. Cierra sesión e ingresa de nuevo.");
+    const insertable = petToInsert(pet, userId);
+    console.info("[HUELLA Supabase] pet-store insert pets payload", {
+      owner_id: insertable.owner_id,
+      user_id: insertable.user_id,
+      authUserId: userId,
+      nombre: insertable.nombre,
+    });
+    const { data, error } = await supabase.from("pets").insert(insertable).select().single();
     if (!error && data) {
       rememberOwnedPet((data as PetRow).id);
       return { ...pet, ...normalizePet(data as PetRow), estado: input.estado };
