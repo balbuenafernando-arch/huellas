@@ -4,7 +4,7 @@ import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, Edit, MapPin, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, Download, Edit, MapPin, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PetMap } from "@/components/pet-map";
 import { PosterButton, ShareButton } from "@/components/report-actions";
@@ -27,7 +27,7 @@ import { friendlyError, validateImageFile } from "@/lib/form-validation";
 const reviewLabels: Record<string, string> = {
   por_revisar: "Por revisar",
   posible_coincidencia: "Posible coincidencia",
-  no_era: "No era mi mascota",
+  no_era: "Descartado",
   alerta_falsa: "Alerta falsa",
   informacion_enganosa: "Información engañosa",
   encontrada: "Ayudó a encontrarla",
@@ -109,6 +109,7 @@ export default function PetDetailPage() {
   const [sightings, setSightings] = useState<Sighting[]>([]);
   const [owned, setOwned] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(0);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [report, setReport] = useState<Report | undefined>();
   const [caseRecord, setCaseRecord] = useState<CaseRecord | undefined>();
   const [signedIn, setSignedIn] = useState(false);
@@ -163,6 +164,7 @@ export default function PetDetailPage() {
       type: "Caso",
       icon: "●",
       location: caseRecord.district,
+      source: caseRecord.report?.reporter_name ? `Abierto por ${caseRecord.report.reporter_name}` : undefined,
     })) ?? (pet ? [{
       id: `pet-${pet.id}-created`,
       date: pet.creado_en,
@@ -170,6 +172,7 @@ export default function PetDetailPage() {
       type: "Caso",
       icon: "●",
       location: pet.distrito,
+      source: pet.owner_token ? undefined : "Abierto por usuario registrado",
     }] : []);
     const sightingEvents = sightings.map((item) => ({
       id: `sighting-${item.id}`,
@@ -179,7 +182,7 @@ export default function PetDetailPage() {
       icon: "●",
       location: item.ubicacion ?? item.distrito,
       sightingId: item.id,
-      source: "Reportado por un miembro de la comunidad",
+      source: item.reporter_name ? `${item.reporter_name}` : "Usuario anónimo",
     }));
     const contactEvents = contactRequests.map((item) => ({
       id: `contact-${item.id}-${item.status}`,
@@ -268,11 +271,20 @@ export default function PetDetailPage() {
     <main className="container py-5">
       <button type="button" onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))} className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Volver</button>
       {pageError && <div className="mb-4"><FriendlyError message={pageError} onRetry={load} /></div>}
+      {viewerOpen && <div className="fixed inset-0 z-[1200] grid place-items-center bg-black/75 p-3" onClick={() => setViewerOpen(false)}>
+        <section className="w-full max-w-4xl rounded-2xl bg-white p-3" onClick={(event) => event.stopPropagation()}>
+          <img src={photos[selectedPhoto] ?? pet.foto_principal} alt={pet.nombre} className="max-h-[78vh] w-full rounded-xl object-contain" />
+          <div className="mt-3 grid gap-2 min-[390px]:flex min-[390px]:justify-end">
+            {owned && <Button type="button" variant="outline" asChild><a href={photos[selectedPhoto] ?? pet.foto_principal} download={`${pet.nombre}-huella.jpg`} target="_blank" rel="noreferrer"><Download size={18} />Descargar foto</a></Button>}
+            <Button type="button" onClick={() => setViewerOpen(false)}>Cerrar preview</Button>
+          </div>
+        </section>
+      </div>}
       <div className="grid gap-5 lg:grid-cols-[.92fr_1.08fr]">
         <section className="space-y-3">
-          <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl bg-[#F8F7F4] shadow-soft">
+          <button type="button" onClick={() => setViewerOpen(true)} className="grid aspect-[4/3] w-full place-items-center overflow-hidden rounded-2xl bg-[#F8F7F4] shadow-soft">
             <img src={photos[selectedPhoto] ?? pet.foto_principal} alt={pet.nombre} className="h-full w-full object-contain" />
-          </div>
+          </button>
           <div className="grid grid-cols-3 gap-2 min-[390px]:grid-cols-5">
             {photos.map((foto, index) => <button key={foto} type="button" onClick={() => setSelectedPhoto(index)} className={`h-20 rounded-xl border ${index === selectedPhoto ? "border-[#1D9E75]" : "border-black/10"} bg-[#F8F7F4] p-1`}><img src={foto} alt="Miniatura" className="h-full w-full object-contain" /></button>)}
           </div>
@@ -290,6 +302,7 @@ export default function PetDetailPage() {
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#1D9E75]">{sightings.length}</strong>avistamientos registrados</div>
             </div>
             {pet.alias?.length ? <p className="mt-2 text-sm text-[#6B6860]">También responde a: {pet.alias.join(", ")}</p> : null}
+            {report?.reporter_name && <p className="mt-2 text-sm font-semibold text-[#6B6860]">Caso abierto por {report.reporter_name}</p>}
             {latestSighting && <p className="mt-2 text-sm font-semibold text-[#1D9E75]">Último avistamiento: {timeAgo(latestSighting.visto_en ?? latestSighting.creado_en)}</p>}
             <p className="mt-2 text-sm text-[#6B6860]">Última actualización: {timeAgo(report?.updated_at ?? caseRecord?.updatedAt ?? pet.creado_en)}</p>
             {owned && pendingContactRequests > 0 && <div className="mt-3 rounded-2xl bg-[#FAEEDA] p-4 text-sm text-[#6B4A10]"><strong className="block">❤️ Tienes personas intentando ayudarte.</strong><p>{pendingContactRequests} solicitud{pendingContactRequests === 1 ? "" : "es"} pendiente{pendingContactRequests === 1 ? "" : "s"}.</p><a href="#solicitudes-contacto" className="mt-2 inline-block font-bold text-[#6B4A10]">Revisar solicitudes</a></div>}
@@ -384,12 +397,13 @@ export default function PetDetailPage() {
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">{owned && <span className={`status-pill ${estado === "confirmado" ? "status-encontrado" : estado === "descartado" ? "status-reunido" : "status-perdido"}`}>{estado}</span>}<span className="text-sm text-[#7A7871]">{formatDate(s.visto_en ?? s.creado_en)}</span></div>
                 <Link href={`/avistamiento/${s.id}`} className="block rounded-xl hover:bg-[#F8F7F4]">
                   {s.foto && <img src={s.foto} alt="Foto de avistamiento" className="mb-3 max-h-64 w-full rounded-xl object-contain bg-[#F8F7F4]" />}
+                  <p className="text-sm font-bold text-[#085041]">{s.reporter_name ?? "Usuario anónimo"} · {new Date(s.visto_en ?? s.creado_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</p>
                   <p className="leading-6">{s.comentario}</p>
                   <p className="mt-2 flex items-center gap-2 text-sm text-[#7A7871]"><MapPin size={15} />{s.ubicacion}</p>
                 </Link>
                 {s.feedback_reportero && isOwnedSighting(s) && <div className="mt-3 rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{s.feedback_reportero}</div>}
                 {owned && <div className="mt-3 rounded-xl bg-[#F8F7F4] p-3 text-sm"><strong>Revisión:</strong> {reviewLabels[s.estado_revision ?? "por_revisar"] ?? "Por revisar"}</div>}
-                {owned && estado === "pendiente" && <div className="mt-3 grid gap-2 min-[390px]:flex"><Button size="sm" onClick={() => updateSightingStatus(s.id, pet.id, "confirmado").then(load)}>✓ Sí era mi mascota</Button><Button size="sm" variant="outline" onClick={() => updateSightingStatus(s.id, pet.id, "descartado").then(load)}>✗ No era mi mascota</Button></div>}
+                {owned && estado === "pendiente" && <div className="mt-3 grid gap-2 min-[390px]:flex"><Button size="sm" onClick={() => updateSightingStatus(s.id, pet.id, "confirmado").then(load)}>Confirmar avistamiento</Button><Button size="sm" variant="outline" onClick={() => updateSightingStatus(s.id, pet.id, "descartado").then(load)}>Descartar avistamiento</Button></div>}
                 {isOwnedSighting(s) && <SightingEditor sighting={s} onDone={load} />}
               </article>;
             })}

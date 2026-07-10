@@ -33,7 +33,7 @@ function readAddress(address: Record<string, unknown>, fallback: string) {
   };
 }
 
-async function reverseGeocode(latitude: number, longitude: number): Promise<Omit<LocationDetails, "latitude" | "longitude">> {
+export async function reverseGeocode(latitude: number, longitude: number): Promise<Omit<LocationDetails, "latitude" | "longitude">> {
   try {
     const url = new URL("https://nominatim.openstreetmap.org/reverse");
     url.searchParams.set("format", "jsonv2");
@@ -66,6 +66,11 @@ export async function getCurrentLocationDetails(): Promise<LocationDetails> {
   });
   const latitude = position.coords.latitude;
   const longitude = position.coords.longitude;
+  const details = await reverseGeocode(latitude, longitude);
+  return { latitude, longitude, ...details };
+}
+
+export async function locationDetailsFromCoords(latitude: number, longitude: number): Promise<LocationDetails> {
   const details = await reverseGeocode(latitude, longitude);
   return { latitude, longitude, ...details };
 }

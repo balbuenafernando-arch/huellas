@@ -99,6 +99,10 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .status-reunido { background: rgba(230,241,251,.94); color: #0C447C; }
 .map-panel { min-height: 320px; overflow: hidden; border-radius: 22px; border: 1px solid rgba(28,28,26,.08); box-shadow: 0 16px 40px rgba(28,28,26,.08); touch-action: pan-x pan-y; }
 .leaflet-container { min-height: inherit; width: 100%; font: inherit; }
+.map-panel .leaflet-pane { z-index: 10; }
+.map-panel .leaflet-top, .map-panel .leaflet-bottom { z-index: 35; }
+.map-panel .leaflet-control { margin: 10px; }
+.map-panel .leaflet-popup-pane { z-index: 45; }
 .leaflet-popup-content { max-width: min(220px, calc(100vw - 72px)); margin: 10px 12px; overflow-wrap: anywhere; }
 .stat { border: 1px solid rgba(28,28,26,.06); background: rgba(255,255,255,.9); border-radius: 20px; padding: 16px; box-shadow: 0 12px 30px rgba(28,28,26,.05); }
 .form-card { width: 100%; border: 1px solid rgba(28,28,26,.06); background: rgba(255,255,255,.92); border-radius: 24px; padding: 18px; box-shadow: 0 16px 44px rgba(28,28,26,.07); overflow-wrap: anywhere; animation: card-in .26s ease both; }

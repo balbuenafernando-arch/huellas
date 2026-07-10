@@ -49,6 +49,8 @@ type SightingRow = {
   report_id?: string | null;
   pet_id?: string | null;
   reporter_id?: string | null;
+  reporter_name?: string | null;
+  reporter_is_anonymous?: boolean | null;
   especie?: string | null;
   tamano?: string | null;
   color?: string | null;
@@ -117,6 +119,16 @@ async function ensureCurrentProfile() {
   const { data } = await supabase.auth.getSession();
   const user = data.session?.user ?? null;
   if (!user) return null;
+  const { data: existing, error: readError } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
+  if (readError) throw readError;
+  if (!existing) {
+    const { error } = await supabase.from("profiles").insert({
+      id: user.id,
+      display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? null,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+  }
   return user.id;
 }
 
@@ -180,8 +192,14 @@ function normalizeSighting(row: SightingRow): Sighting {
     situacion: row.situacion,
     visto_en: row.observed_at ?? row.created_at,
     owner_token: row.reporter_id ?? null,
+    reporter_name: row.reporter_is_anonymous ? "Usuario anónimo" : row.reporter_name ?? null,
+    reporter_is_anonymous: Boolean(row.reporter_is_anonymous),
     creado_en: row.created_at,
   };
+}
+
+function userDisplayName(user: { user_metadata?: Record<string, unknown>; email?: string | null }) {
+  return String(user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Usuario HUELLA");
 }
 
 function petToInsert(input: Pet, userId: string | null) {
@@ -231,6 +249,8 @@ function sightingToInsert(input: Sighting, reporterId: string | null) {
     report_id: isUuid(input.report_id) ? input.report_id : null,
     pet_id: isUuid(input.pet_id) ? input.pet_id : null,
     reporter_id: reporterId,
+    reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : input.reporter_name ?? null,
+    reporter_is_anonymous: Boolean(input.reporter_is_anonymous),
     especie: input.especie ?? null,
     tamano: input.tamano ?? null,
     color: input.color ?? null,
@@ -430,7 +450,15 @@ export async function deletePet(id: string) {
 export async function createSighting(input: Omit<Sighting, "id" | "creado_en" | "estado" | "estado_revision">) {
   const sighting: Sighting = { ...input, estado: "pendiente", estado_avistamiento: "pendiente", estado_revision: "por_revisar", owner_token: getOwnerToken(), id: crypto.randomUUID(), creado_en: new Date().toISOString() };
   if (isSupabaseConfigured && supabase) {
-    const { data, error } = await supabase.from("sightings").insert(sightingToInsert(sighting, await ensureCurrentProfile())).select().single();
+    const { data: sessionData } = await supabase.auth.getSession();
+    const reporterId = await ensureCurrentProfile();
+    const reporter = sessionData.session?.user;
+    const insertable = sightingToInsert({
+      ...sighting,
+      reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : reporter ? userDisplayName(reporter) : "Usuario anónimo",
+      reporter_is_anonymous: Boolean(input.reporter_is_anonymous || !reporter),
+    }, reporterId);
+    const { data, error } = await supabase.from("sightings").insert(insertable).select().single();
     if (!error && data) {
       if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo avistamiento recibido" });
       return normalizeSighting(data as SightingRow);

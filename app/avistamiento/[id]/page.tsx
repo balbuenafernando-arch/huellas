@@ -15,7 +15,7 @@ import { friendlyError } from "@/lib/form-validation";
 const reviewStates: Array<{ value: NonNullable<Sighting["estado_revision"]>; label: string }> = [
   { value: "por_revisar", label: "Por revisar" },
   { value: "posible_coincidencia", label: "Posible coincidencia" },
-  { value: "no_era", label: "No era mi mascota" },
+  { value: "no_era", label: "Descartar avistamiento" },
   { value: "alerta_falsa", label: "Alerta falsa" },
   { value: "informacion_enganosa", label: "Información engañosa" },
   { value: "encontrada", label: "Ayudó a encontrarla" },

@@ -8,11 +8,12 @@ import { Button } from "@/components/ui/button";
 import { createRegisteredPet, createReport, listMyRegisteredPets, reportToLegacyPet, type RegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
 import { PosterButton, ShareButton } from "@/components/report-actions";
 import { ProgressiveSigninCard } from "@/components/progressive-signin-card";
+import { ImageCropper } from "@/components/image-cropper";
 import type { Pet } from "@/lib/demo-data";
-import { fileToDataUrl } from "@/lib/image-utils";
 import { FriendlyError } from "@/components/feedback";
 import { friendlyError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
-import { defaultPeruCoords, getCurrentLocationDetails, searchPeruLocation } from "@/lib/location";
+import { LocationPicker } from "@/components/location-picker";
+import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 
 export default function EmergencyReportPage() {
   const [district, setDistrict] = useState("");
@@ -31,7 +32,9 @@ export default function EmergencyReportPage() {
   const [locationConfirmed, setLocationConfirmed] = useState(false);
   const [recentPhoto, setRecentPhoto] = useState<File | null>(null);
   const [recentPhotoPreview, setRecentPhotoPreview] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     listMyRegisteredPets().then((items) => {
@@ -85,6 +88,21 @@ export default function EmergencyReportPage() {
     }
   }
 
+  async function movePin(latitude: number, longitude: number) {
+    setCoords({ latitude, longitude });
+    try {
+      const details = await locationDetailsFromCoords(latitude, longitude);
+      setLocationText(details.address);
+      setDistrict(details.district);
+      setProvince(details.province);
+      setDepartment(details.department);
+      setLocationConfirmed(true);
+    } catch {
+      setLocationText(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+      setLocationConfirmed(true);
+    }
+  }
+
   async function handleRecentPhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     const validationError = validateImageFile(file);
@@ -92,19 +110,16 @@ export default function EmergencyReportPage() {
       setError(validationError);
       return;
     }
-    setRecentPhoto(file);
-    try {
-      setRecentPhotoPreview(file ? await fileToDataUrl(file) : null);
-      setError("");
-    } catch (caught) {
-      setError(friendlyError(caught, "No pudimos preparar la imagen. Intenta con otra foto."));
-    }
+    if (file) setCropFile(file);
+    else removeRecentPhoto();
+    setError("");
   }
 
   function removeRecentPhoto() {
     setRecentPhoto(null);
     setRecentPhotoPreview(null);
     if (photoInputRef.current) photoInputRef.current.value = "";
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -192,6 +207,11 @@ export default function EmergencyReportPage() {
 
   return (
     <main className="container py-6">
+      {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onApply={(file, previewUrl) => {
+        setRecentPhoto(file);
+        setRecentPhotoPreview(previewUrl);
+        setCropFile(null);
+      }} />}
       <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Inicio</Link>
       <form onSubmit={submit} className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
@@ -200,11 +220,19 @@ export default function EmergencyReportPage() {
           {error && <FriendlyError message={error} />}
           {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre} · {pet.especie}</option>)}<option value="">No está registrada</option></select></div>}
           <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handleRecentPhoto} />
-          <button type="button" onClick={() => photoInputRef.current?.click()} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#1D9E75] bg-white p-4 text-center text-[#085041]">
-            <Camera size={28} />
-            <span className="font-bold">{recentPhotoPreview ? "Cambiar foto" : "Agregar foto reciente"}</span>
-            <span className="text-sm text-[#6B6860]">Una foto clara ayuda a reconocer rasgos y compartir la búsqueda.</span>
-          </button>
+          <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handleRecentPhoto} />
+          <div className="grid gap-2 min-[390px]:grid-cols-2">
+            <button type="button" onClick={() => photoInputRef.current?.click()} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#1D9E75] bg-white p-4 text-center text-[#085041]">
+              <Camera size={28} />
+              <span className="font-bold">Tomar foto</span>
+              <span className="text-sm text-[#6B6860]">Abre la cámara del dispositivo.</span>
+            </button>
+            <button type="button" onClick={() => galleryInputRef.current?.click()} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#1D9E75] bg-white p-4 text-center text-[#085041]">
+              <Camera size={28} />
+              <span className="font-bold">{recentPhotoPreview ? "Cambiar foto" : "Elegir de galería"}</span>
+              <span className="text-sm text-[#6B6860]">Selecciona una imagen existente.</span>
+            </button>
+          </div>
           {!selectedPetId && <>
             <div><label className="label">Nombre</label><input required maxLength={120} className="field" name="nombre" placeholder="Luna" /></div>
             <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño</label><select className="select" name="tamano"><option>Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
@@ -217,12 +245,19 @@ export default function EmergencyReportPage() {
             {recentPhotoPreview ? <div className="space-y-3">
               <img src={recentPhotoPreview} alt="Foto reciente" className="max-h-64 w-full rounded-xl bg-white object-contain" />
               <div className="grid gap-2 min-[390px]:grid-cols-2">
-                <Button type="button" variant="outline" onClick={() => photoInputRef.current?.click()}><Camera size={18} />Reemplazar foto</Button>
+                <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()}><Camera size={18} />Reemplazar foto</Button>
                 <Button type="button" variant="outline" onClick={removeRecentPhoto}>Eliminar foto</Button>
               </div>
             </div> : <p className="text-sm text-[#6B6860]">Cuando agregues una foto, aquí verás la vista previa antes de publicar.</p>}
           </div>
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha</label><input required className="field" name="fecha" type="date" /></div><div><label className="label">Hora</label><input required className="field" name="hora" type="time" /></div></div>
+          <div className="map-panel min-h-[320px] overflow-hidden rounded-2xl">
+            <LocationPicker
+              value={{ latitude: coords.latitude ?? defaultPeruCoords().latitude, longitude: coords.longitude ?? defaultPeruCoords().longitude }}
+              onChange={(value) => { void movePin(value.latitude, value.longitude); }}
+            />
+          </div>
+          <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. Las coordenadas del pin son las que se guardan.</p>
           <div><label className="label">Última ubicación</label><input required maxLength={240} className="field" name="ultima_ubicacion" value={locationText} onChange={(event) => setLocationText(event.target.value)} placeholder="Zona aproximada, parque o avenida" /></div>
           <div className="grid gap-2 md:grid-cols-[1fr_auto]">
             <input className="field" value={locationQuery} onChange={(event) => setLocationQuery(event.target.value)} placeholder="Buscar dirección, parque o ciudad" />

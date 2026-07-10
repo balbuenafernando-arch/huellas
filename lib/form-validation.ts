@@ -11,28 +11,31 @@ export function friendlyError(error: unknown, fallback = "No pudimos completar l
   const message = error.message || "";
   const status = "status" in error ? String((error as { status?: unknown }).status ?? "") : "";
   const code = "code" in error ? String((error as { code?: unknown }).code ?? "") : "";
-  const details = `${message} ${status} ${code}`;
+  const hint = "hint" in error ? String((error as { hint?: unknown }).hint ?? "") : "";
+  const details = `${message} ${status} ${code} ${hint}`;
+  const technical = [code, status, message, hint].filter(Boolean).join(" · ");
+  const withTechnical = (text: string) => technical ? `${text} (${technical})` : text;
 
   if (/network|fetch|offline|failed to fetch|load failed|internet/i.test(details)) {
-    return "No pudimos conectar con el servidor. Revisa tu conexión e inténtalo otra vez.";
+    return withTechnical("No pudimos conectar con el servidor. Revisa tu conexión e inténtalo otra vez.");
   }
   if (/auth|login|sesion|session|jwt|token|not authenticated|unauthorized|401/i.test(details)) {
-    return "Tu sesión necesita validarse de nuevo. Inicia sesión e inténtalo otra vez.";
+    return withTechnical("Tu sesión necesita validarse de nuevo. Inicia sesión e inténtalo otra vez.");
   }
   if (/permission|rls|policy|forbidden|denied|403/i.test(details)) {
-    return "No tienes permisos para realizar esta acción.";
+    return withTechnical("No tienes permisos para realizar esta acción.");
   }
   if (/validation|required|invalid|constraint|check|23502|23514|23503|22P02/i.test(details)) {
-    return "Hay datos incompletos o con un formato incorrecto. Revisa el formulario.";
+    return withTechnical("Hay datos incompletos o con un formato incorrecto. Revisa el formulario.");
   }
   if (/storage|bucket|upload|imagen|image|mime|formato/i.test(details)) {
-    return message || "No pudimos procesar la imagen. Intenta con otra foto.";
+    return withTechnical(message || "No pudimos procesar la imagen. Intenta con otra foto.");
   }
-  if (/supabase|postgrest|database|duplicate|23505/i.test(details)) {
-    return "No pudimos guardar la información en este momento. Inténtalo otra vez.";
+  if (/supabase|postgrest|database|duplicate|23505|PGRST/i.test(details)) {
+    return withTechnical("No pudimos guardar la información en este momento. Inténtalo otra vez.");
   }
 
-  return fallback;
+  return withTechnical(fallback);
 }
 
 export function validateImageFile(file?: File | null) {

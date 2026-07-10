@@ -42,12 +42,14 @@ export type Sighting = {
   estado?: "pendiente" | "confirmado" | "descartado";
   estado_avistamiento?: "pendiente" | "confirmado" | "descartado";
   estado_revision?: "por_revisar" | "posible_coincidencia" | "no_era" | "alerta_falsa" | "informacion_enganosa" | "encontrada";
-  situacion?: "solo_la_vi" | "sigue_en_la_zona" | "la_tengo_conmigo" | "veterinaria" | "refugio" | "herida" | "siguiendo" | "otra_mascota";
+  situacion?: "solo_la_vi" | "sigue_en_la_zona" | "la_tengo_conmigo" | "veterinaria" | "refugio" | "herida" | "siguiendo";
   llevaba_placa?: "si" | "no" | "no_pude_verificar";
   nombre_observado?: string | null;
   feedback_reportero?: string | null;
   visto_en?: string;
   owner_token?: string | null;
+  reporter_name?: string | null;
+  reporter_is_anonymous?: boolean;
   creado_en: string;
 };
 

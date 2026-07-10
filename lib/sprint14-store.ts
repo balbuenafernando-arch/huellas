@@ -45,6 +45,8 @@ export type Report = {
   latitude: number | null;
   longitude: number | null;
   views_count?: number;
+  reporter_name?: string | null;
+  reporter_is_anonymous?: boolean;
   reunited_at?: string | null;
   created_at: string;
   updated_at: string;
@@ -76,6 +78,8 @@ type LostReportRow = {
   reunited_at: string | null;
   views_count: number;
   is_public: boolean;
+  reporter_name?: string | null;
+  reporter_is_anonymous?: boolean | null;
   created_at: string;
   updated_at: string;
   pet?: RegisteredPet | null;
@@ -126,6 +130,20 @@ async function ensureProfile(user: User) {
   }
 }
 
+async function ensureProfileRow(user: User) {
+  await ensureProfile(user);
+  if (!isSupabaseConfigured || !supabase) return;
+  const { data: existing, error: readError } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
+  if (readError) throw readError;
+  if (existing) return;
+  const { error } = await supabase.from("profiles").insert({
+    id: user.id,
+    display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? null,
+    updated_at: new Date().toISOString(),
+  });
+  if (error) throw error;
+}
+
 function normalizeRegisteredPet(row: RegisteredPetRow): RegisteredPet {
   const privateDetails = Array.isArray(row.private_details) ? row.private_details[0] : row.private_details;
   return {
@@ -167,6 +185,8 @@ function lostReportToReport(row: LostReportRow): Report {
     latitude: row.latitude,
     longitude: row.longitude,
     views_count: row.views_count,
+    reporter_name: row.reporter_is_anonymous ? "Usuario anónimo" : row.reporter_name ?? null,
+    reporter_is_anonymous: Boolean(row.reporter_is_anonymous),
     reunited_at: row.reunited_at,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -188,7 +208,13 @@ function reportToLostInsert(report: Report, ownerId: string) {
     lost_at: report.fecha_reporte,
     reunited_at: report.reunited_at ?? null,
     is_public: true,
+    reporter_name: report.reporter_is_anonymous ? "Usuario anónimo" : report.reporter_name ?? null,
+    reporter_is_anonymous: Boolean(report.reporter_is_anonymous),
   };
+}
+
+function authDisplayName(user: User) {
+  return String(user.user_metadata?.full_name ?? user.user_metadata?.name ?? user.email?.split("@")[0] ?? "Usuario HUELLA");
 }
 
 function reportToLostPatch(input: Partial<Report>) {
@@ -238,7 +264,7 @@ export async function signUpWithEmail(email: string, password: string) {
 
 export async function signInWithGoogle() {
   if (isSupabaseConfigured && supabase) {
-    const redirectTo = typeof window !== "undefined" ? `${window.location.origin}/auth` : undefined;
+    const redirectTo = typeof window !== "undefined" ? window.location.origin : undefined;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
@@ -279,7 +305,7 @@ export async function listMyRegisteredPets() {
 export async function createRegisteredPet(input: Omit<RegisteredPet, "id" | "user_id" | "created_at">) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Necesitas iniciar sesión.");
-  await ensureProfile(user);
+  await ensureProfileRow(user);
   const now = new Date().toISOString();
   const pet: RegisteredPet = { ...input, id: crypto.randomUUID(), user_id: user.id, owner_id: user.id, created_at: now };
   if (isSupabaseConfigured && supabase) {
@@ -287,13 +313,14 @@ export async function createRegisteredPet(input: Omit<RegisteredPet, "id" | "use
     const { data, error } = await supabase.from("pets").insert(insertable).select().single();
     if (error) throw error;
     if (input.telefono || input.rasgo_privado) {
-      await supabase.from("pet_private_details").upsert({
+      const { error: privateError } = await supabase.from("pet_private_details").upsert({
         pet_id: data.id,
         owner_id: user.id,
         telefono: input.telefono ?? null,
         rasgo_privado: input.rasgo_privado ?? null,
         updated_at: new Date().toISOString(),
       });
+      if (privateError) throw privateError;
     }
     return data as RegisteredPet;
   }
@@ -383,23 +410,34 @@ export async function incrementReportView(id: string) {
 export async function createReport(input: Omit<Report, "id" | "user_id" | "created_at" | "updated_at" | "fecha_reporte">) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Necesitas iniciar sesión.");
-  await ensureProfile(user);
+  await ensureProfileRow(user);
   const now = new Date().toISOString();
-  const report: Report = { ...input, id: crypto.randomUUID(), user_id: user.id, created_at: now, updated_at: now, fecha_reporte: now };
+  const report: Report = { ...input, id: crypto.randomUUID(), user_id: user.id, created_at: now, updated_at: now, fecha_reporte: now, reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : authDisplayName(user), reporter_is_anonymous: Boolean(input.reporter_is_anonymous) };
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
       .from("lost_reports")
       .insert(reportToLostInsert(report, user.id))
-      .select("*, pet:pets(*), private_contact:report_private_contacts(contact_whatsapp, contact_phone)")
+      .select("*")
       .single();
     if (error) throw error;
-    const saved = lostReportToReport(data as unknown as LostReportRow);
+    const row = data as LostReportRow;
+    const saved: Report = {
+      ...report,
+      id: row.id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      fecha_reporte: row.lost_at ?? row.created_at,
+      views_count: row.views_count,
+      reunited_at: row.reunited_at,
+      pet: input.pet ?? null,
+    };
     if (input.whatsapp) {
-      await supabase.from("report_private_contacts").upsert({
+      const { error: contactError } = await supabase.from("report_private_contacts").upsert({
         report_id: saved.id,
         owner_id: user.id,
         contact_whatsapp: input.whatsapp,
       });
+      if (contactError) throw contactError;
     }
     return saved;
   }
