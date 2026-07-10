@@ -41,7 +41,7 @@ export type Sighting = {
   ubicacion?: string | null;
   estado?: "pendiente" | "confirmado" | "descartado";
   estado_avistamiento?: "pendiente" | "confirmado" | "descartado";
-  estado_revision?: "por_revisar" | "posible_coincidencia" | "no_era" | "alerta_falsa" | "informacion_enganosa" | "encontrada";
+  estado_revision?: "por_revisar" | "posible_coincidencia" | "descartado" | "alerta_falsa" | "informacion_enganosa" | "encontrada";
   situacion?: "solo_la_vi" | "sigue_en_la_zona" | "la_tengo_conmigo" | "veterinaria" | "refugio" | "herida" | "siguiendo";
   llevaba_placa?: "si" | "no" | "no_pude_verificar";
   nombre_observado?: string | null;

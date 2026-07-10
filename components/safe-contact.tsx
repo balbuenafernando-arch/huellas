@@ -5,7 +5,7 @@ import { MessageCircle, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createContactRequest, contactReasonLabels, listContactRequests, updateContactRequestStatus, type ContactReason, type ContactRequest } from "@/lib/contact-requests";
 import { getCurrentUser } from "@/lib/sprint14-store";
-import { normalizeWhatsapp } from "@/lib/utils";
+import { normalizePeruWhatsapp, peruWhatsappUrl } from "@/lib/whatsapp";
 
 const reasons: ContactReason[] = ["vista", "resguardada", "siguiendo", "fotografias", "informacion"];
 
@@ -32,7 +32,7 @@ export function SafeContact({
   const [statusMessage, setStatusMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const phone = normalizeWhatsapp(whatsapp);
+  const phone = normalizePeruWhatsapp(whatsapp);
 
   async function load() {
     const [user, items] = await Promise.all([getCurrentUser(), listContactRequests(reportId)]);
@@ -104,7 +104,7 @@ export function SafeContact({
   if (authorizedRequest && phone) {
     return (
       <Button asChild>
-        <a href={`https://wa.me/${phone}?text=${encodeURIComponent(`Hola. Creo tener información sobre ${petName} en HUELLA.`)}`} target="_blank" rel="noreferrer">
+        <a href={peruWhatsappUrl(phone, `Hola. Creo tener información sobre ${petName} en HUELLA.`)} target="_blank" rel="noreferrer">
           <MessageCircle size={18} />Abrir conversación por WhatsApp
         </a>
       </Button>

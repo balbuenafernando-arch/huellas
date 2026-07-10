@@ -15,7 +15,7 @@ import { friendlyError } from "@/lib/form-validation";
 const reviewStates: Array<{ value: NonNullable<Sighting["estado_revision"]>; label: string }> = [
   { value: "por_revisar", label: "Por revisar" },
   { value: "posible_coincidencia", label: "Posible coincidencia" },
-  { value: "no_era", label: "No era mi mascota" },
+  { value: "descartado", label: "Descartado" },
   { value: "alerta_falsa", label: "Alerta falsa" },
   { value: "informacion_enganosa", label: "Información engañosa" },
   { value: "encontrada", label: "Ayudó a encontrarla" },
@@ -96,7 +96,7 @@ export default function SightingDetailPage() {
         {sighting.foto && <img src={sighting.foto} alt="Foto del avistamiento" className="max-h-[420px] w-full rounded-xl bg-[#F8F7F4] object-contain" />}
         <div>
           <h1 className="font-serif text-4xl">Avistamiento</h1>
-          <p className="mt-2 text-sm text-[#6B6860]">Reportado por un miembro de la comunidad</p>
+          <p className="mt-2 text-sm text-[#6B6860]">{`Reportado por ${sighting.reporter_name || "Usuario anónimo"}`}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-[#F8F7F4] p-3"><h2 className="font-bold">Fecha</h2><p className="mt-1 text-[#6B6860]">{formatDate(date)}</p></div>

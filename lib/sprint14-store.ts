@@ -28,6 +28,8 @@ export type RegisteredPet = {
   foto_principal?: string | null;
   foto_url: string;
   caracteristicas?: string[] | null;
+  caracteristicas_personalizadas?: string | null;
+  condiciones_especiales?: string[] | null;
   rasgo_privado?: string | null;
   created_at: string;
 };
@@ -154,21 +156,59 @@ function normalizeRegisteredPet(row: RegisteredPetRow): RegisteredPet {
 }
 
 function registeredPetInsert(input: RegisteredPet) {
-  const { telefono, rasgo_privado, ...insertable } = input;
-  void telefono;
-  void rasgo_privado;
-  return insertable;
+  return {
+    id: input.id,
+    owner_id: input.owner_id,
+    user_id: input.user_id,
+    nombre: input.nombre,
+    alias: input.alias ?? null,
+    especie: input.especie,
+    tipo: input.tipo ?? input.especie,
+    raza: input.raza,
+    tamano: input.tamano ?? null,
+    color: input.color,
+    sexo: input.sexo,
+    edad: input.edad,
+    salud: input.salud ?? null,
+    esterilizado: Boolean(input.esterilizado),
+    placa_medalla: input.placa_medalla ?? null,
+    contacto_preferido: input.contacto_preferido ?? "whatsapp",
+    fotos: input.fotos ?? [],
+    foto_principal: input.foto_principal ?? input.foto_url ?? input.fotos?.[0] ?? null,
+    foto_url: input.foto_url ?? input.foto_principal ?? input.fotos?.[0] ?? null,
+    caracteristicas: input.caracteristicas ?? [],
+    caracteristicas_personalizadas: input.caracteristicas_personalizadas ?? null,
+    condiciones_especiales: input.condiciones_especiales ?? [],
+    is_public: true,
+    created_at: input.created_at,
+  };
 }
 
 function registeredPetPatch(input: Partial<RegisteredPet>) {
-  const { telefono, rasgo_privado, id, user_id, owner_id, created_at, ...patch } = input;
-  void telefono;
-  void rasgo_privado;
-  void id;
-  void user_id;
-  void owner_id;
-  void created_at;
-  return { ...patch, updated_at: new Date().toISOString() };
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.nombre !== undefined) patch.nombre = input.nombre;
+  if (input.alias !== undefined) patch.alias = input.alias;
+  if (input.especie !== undefined) {
+    patch.especie = input.especie;
+    patch.tipo = input.tipo ?? input.especie;
+  }
+  if (input.tipo !== undefined) patch.tipo = input.tipo;
+  if (input.raza !== undefined) patch.raza = input.raza;
+  if (input.tamano !== undefined) patch.tamano = input.tamano;
+  if (input.color !== undefined) patch.color = input.color;
+  if (input.sexo !== undefined) patch.sexo = input.sexo;
+  if (input.edad !== undefined) patch.edad = input.edad;
+  if (input.salud !== undefined) patch.salud = input.salud;
+  if (input.esterilizado !== undefined) patch.esterilizado = input.esterilizado;
+  if (input.placa_medalla !== undefined) patch.placa_medalla = input.placa_medalla;
+  if (input.contacto_preferido !== undefined) patch.contacto_preferido = input.contacto_preferido;
+  if (input.fotos !== undefined) patch.fotos = input.fotos;
+  if (input.foto_principal !== undefined) patch.foto_principal = input.foto_principal;
+  if (input.foto_url !== undefined) patch.foto_url = input.foto_url;
+  if (input.caracteristicas !== undefined) patch.caracteristicas = input.caracteristicas;
+  if (input.caracteristicas_personalizadas !== undefined) patch.caracteristicas_personalizadas = input.caracteristicas_personalizadas;
+  if (input.condiciones_especiales !== undefined) patch.condiciones_especiales = input.condiciones_especiales;
+  return patch;
 }
 
 function lostReportToReport(row: LostReportRow): Report {
@@ -244,8 +284,8 @@ export async function getCurrentUser() {
     const sessionUser = sessionData.session?.user ?? null;
     if (sessionUser) return sessionUser;
 
-    await supabase.auth.getUser();
-    return null;
+    const { data } = await supabase.auth.getUser();
+    return data.user ?? null;
   }
   return null;
 }

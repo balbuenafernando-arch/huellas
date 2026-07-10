@@ -117,7 +117,7 @@ async function currentUserId() {
 async function ensureCurrentProfile() {
   if (!isSupabaseConfigured || !supabase) return null;
   const { data } = await supabase.auth.getSession();
-  const user = data.session?.user ?? null;
+  const user = data.session?.user ?? (await supabase.auth.getUser()).data.user ?? null;
   if (!user) return null;
   const { data: existing, error: readError } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
   if (readError) throw readError;
@@ -365,14 +365,18 @@ export async function createNotification(input: Omit<Notification, "id" | "leido
   const notification: Notification = { ...input, id: crypto.randomUUID(), leido: false, creado_en: new Date().toISOString() };
   const userId = await currentUserId();
   if (isSupabaseConfigured && supabase && userId && isUuid(input.pet_id)) {
-    const { data: report } = await supabase.from("lost_reports").select("id, owner_id").eq("pet_id", input.pet_id).maybeSingle();
-    if (report?.id && report?.owner_id === userId) {
-      await supabase.from("notifications").insert({
-        user_id: report.owner_id,
-        report_id: report.id,
-        type: input.tipo,
-        message: input.mensaje,
-      });
+    try {
+      const { data: report } = await supabase.from("lost_reports").select("id, owner_id").or(`pet_id.eq.${input.pet_id},id.eq.${input.pet_id}`).maybeSingle();
+      if (report?.id && report?.owner_id === userId) {
+        await supabase.from("notifications").insert({
+          user_id: report.owner_id,
+          report_id: report.id,
+          type: input.tipo,
+          message: input.mensaje,
+        });
+      }
+    } catch (error) {
+      console.warn("[HUELLA] No se pudo crear la notificacion secundaria.", error);
     }
   }
   writeLocal(NOTIFICATIONS_KEY, [notification, ...readLocal(NOTIFICATIONS_KEY, demoNotifications)]);
@@ -452,7 +456,7 @@ export async function createSighting(input: Omit<Sighting, "id" | "creado_en" | 
   if (isSupabaseConfigured && supabase) {
     const { data: sessionData } = await supabase.auth.getSession();
     const reporterId = await ensureCurrentProfile();
-    const reporter = sessionData.session?.user;
+    const reporter = sessionData.session?.user ?? (await supabase.auth.getUser()).data.user ?? null;
     const insertable = sightingToInsert({
       ...sighting,
       reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : reporter ? userDisplayName(reporter) : "Usuario anónimo",

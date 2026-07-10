@@ -1,15 +1,18 @@
 "use client";
 
-import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
-import { Edit, Plus, Trash2 } from "lucide-react";
+import type { ChangeEvent, FormEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Camera, Edit, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ImageCropper } from "@/components/image-cropper";
 import { FriendlyError, PageSkeleton } from "@/components/feedback";
 import type { Sighting } from "@/lib/demo-data";
 import { getSightings } from "@/lib/pet-store";
 import { listMyCases, type CaseRecord } from "@/lib/cases";
 import { createRegisteredPet, deleteRegisteredPet, listMyRegisteredPets, type RegisteredPet, updateRegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
 import { friendlyError, requiredText, validateImageFiles } from "@/lib/form-validation";
+
+type FieldErrors = Record<string, string>;
 
 const traits = ["Collar", "Placa", "Pañuelo", "Mancha blanca", "Oreja doblada", "Cola corta", "Cojera", "Herida visible", "Ojo de color distinto", "Otro"];
 
@@ -22,6 +25,14 @@ export default function MisMascotasPage() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   async function load() {
     try {
@@ -39,23 +50,73 @@ export default function MisMascotasPage() {
 
   useEffect(() => { load(); }, []);
 
+  function openForm(pet?: RegisteredPet) {
+    setEditing(pet ?? null);
+    setShowForm(true);
+    setPhotoFile(null);
+    setPhotoPreview(pet?.foto_principal ?? pet?.foto_url ?? "");
+    setCropFile(null);
+    setError("");
+    setSuccessMessage("");
+    setFieldErrors({});
+  }
+
+  function closeForm() {
+    setEditing(null);
+    setShowForm(false);
+    setPhotoFile(null);
+    setPhotoPreview("");
+    setCropFile(null);
+    setFieldErrors({});
+  }
+
+  function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    const validationMessage = validateImageFiles(file ? [file] : []);
+    if (validationMessage) {
+      setError(validationMessage);
+      return;
+    }
+    if (file) {
+      setCropFile(file);
+      setError("");
+    }
+  }
+
+  function showFieldErrors(errors: FieldErrors) {
+    setFieldErrors(errors);
+    const first = Object.keys(errors)[0];
+    if (!first) return false;
+    requestAnimationFrame(() => {
+      const field = formRef.current?.querySelector<HTMLElement>(`[name="${first}"]`);
+      field?.focus();
+      field?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    return true;
+  }
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
-    const files = form.getAll("fotos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 5);
-    const validationMessage =
-      requiredText(form.get("nombre"), "El nombre", 120) ||
-      requiredText(form.get("especie"), "La especie", 60) ||
-      validateImageFiles(files);
-    if (validationMessage) {
-      setError(validationMessage);
+    const files = photoFile ? [photoFile] : [];
+    const errors: FieldErrors = {};
+    const nombreError = requiredText(form.get("nombre"), "El nombre", 120);
+    if (nombreError) errors.nombre = nombreError;
+    const especieError = requiredText(form.get("especie"), "La especie", 60);
+    if (especieError) errors.especie = especieError;
+    const imageError = validateImageFiles(files);
+    if (imageError) errors.fotos = imageError;
+    if (showFieldErrors(errors)) {
+      setError("");
       return;
     }
     setSaving(true);
     setError("");
+    setSuccessMessage("");
     try {
+      const wasEditing = Boolean(editing);
       const uploaded = files.length ? await Promise.all(files.map((file) => uploadMascotaImage(file))) : [];
       const existingFotos = editing?.fotos?.length ? editing.fotos : editing?.foto_url ? [editing.foto_url] : [];
       const fotos = uploaded.length ? uploaded : existingFotos;
@@ -82,10 +143,10 @@ export default function MisMascotasPage() {
       };
       if (editing) await updateRegisteredPet(editing.id, payload);
       else await createRegisteredPet(payload);
-      setEditing(null);
-      setShowForm(false);
+      closeForm();
       formElement.reset();
       await load();
+      setSuccessMessage(wasEditing ? "Mascota actualizada correctamente." : "Mascota creada correctamente.");
     } catch (caught) {
       setError(friendlyError(caught, "No pudimos guardar la mascota. Revisa los datos e inténtalo otra vez."));
     } finally {
@@ -109,33 +170,49 @@ export default function MisMascotasPage() {
     <main className="container py-6">
       <div className="mb-5 flex flex-col gap-3 min-[390px]:flex-row min-[390px]:items-end min-[390px]:justify-between">
         <div><h1 className="font-serif text-4xl">Mis mascotas</h1><p className="mt-2 text-[#6B6860]">Registra información útil para activar una búsqueda rápidamente si algún día la necesitas.</p></div>
-        <Button type="button" onClick={() => { setEditing(null); setShowForm(true); }}><Plus size={18} />Registrar mascota</Button>
+        <Button type="button" onClick={() => openForm()}><Plus size={18} />Registrar mascota</Button>
       </div>
       {error && <div className="mb-4"><FriendlyError message={error} onRetry={load} /></div>}
+      {successMessage && <div className="mb-4 rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{successMessage}</div>}
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
         <section className="space-y-3">
           <h2 className="text-xl font-bold">Mascotas registradas</h2>
           {pets.length === 0 && <div className="form-card empty-state text-sm"><strong>Aún no hay mascotas guardadas.</strong><span>Agrega fotos y señas claras para ahorrar minutos importantes si algún día las necesitas.</span></div>}
           {pets.map((pet) => <article key={pet.id} className="form-card flex flex-col gap-3 min-[390px]:flex-row">
-            <img src={pet.foto_principal ?? pet.foto_url} alt={pet.nombre} className="h-40 w-full rounded-xl bg-[#F8F7F4] object-cover min-[390px]:h-24 min-[390px]:w-24" loading="lazy" />
+            <img src={pet.foto_principal ?? pet.foto_url} alt={pet.nombre} className="h-40 w-full rounded-xl bg-[#F8F7F4] object-contain min-[390px]:h-24 min-[390px]:w-24" loading="lazy" />
             <div className="flex-1">
               <h3 className="font-bold">{pet.nombre}</h3>
               <p className="text-sm text-[#7A7871]">{[pet.especie, pet.tamano, pet.color].filter(Boolean).join(" - ")}</p>
               <p className="text-sm text-[#7A7871]">{pet.alias ? `También responde a ${pet.alias}` : pet.edad}</p>
               <div className="mt-3 grid gap-2 min-[390px]:flex">
-                <Button size="sm" variant="outline" onClick={() => { setEditing(pet); setShowForm(true); }}><Edit size={16} />Editar</Button>
+                <Button size="sm" variant="outline" onClick={() => openForm(pet)}><Edit size={16} />Editar</Button>
                 <Button size="sm" variant="outline" onClick={() => remove(pet.id)}><Trash2 size={16} />Eliminar</Button>
               </div>
             </div>
           </article>)}
         </section>
 
-        {showForm ? <form onSubmit={submit} className="form-card space-y-4">
+        {showForm ? <form ref={formRef} onSubmit={submit} className="form-card space-y-4">
+          {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onApply={(file, previewUrl) => {
+            setPhotoFile(file);
+            setPhotoPreview(previewUrl);
+            setCropFile(null);
+          }} />}
           <h2 className="font-bold">{editing ? "Editar mascota" : "Registrar mascota"}</h2>
           <p className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">Incluye fotos y rasgos distintivos: manchas, collar, cicatrices o comportamiento. Eso ayuda a encontrar coincidencias.</p>
-          <div><label className="label">Foto</label><input className="field" type="file" name="fotos" accept="image/*" multiple /></div>
-          <div><label className="label">Nombre</label><input className="field" name="nombre" required maxLength={120} defaultValue={editing?.nombre} /></div>
-          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie" defaultValue={editing?.especie ?? "Perro"}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño</label><select className="select" name="tamano" defaultValue={editing?.tamano ?? "Mediano"}><option>Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
+          <div>
+            <label className="label">Foto</label>
+            <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
+            <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
+            <div className="grid gap-2 min-[390px]:grid-cols-2">
+              <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
+              <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir de galeria</Button>
+            </div>
+            {photoPreview && <img src={photoPreview} alt="Vista previa" className="mt-3 max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
+            {fieldErrors.fotos && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.fotos}</p>}
+          </div>
+          <div><label className="label">Nombre *</label><input className="field" name="nombre" required maxLength={120} defaultValue={editing?.nombre} />{fieldErrors.nombre && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.nombre}</p>}</div>
+          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie" defaultValue={editing?.especie ?? "Perro"}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select>{fieldErrors.especie && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.especie}</p>}</div><div><label className="label">Tamaño</label><select className="select" name="tamano" defaultValue={editing?.tamano ?? "Mediano"}><option>Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
           <div><label className="label">Señas particulares</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="caracteristicas" value={trait} defaultChecked={editing?.caracteristicas?.includes(trait)} />{trait}</label>)}</div></div>
           <details className="rounded-xl border border-black/10 p-3">
             <summary className="cursor-pointer text-sm font-bold text-[#1D9E75]">Agregar más datos</summary>
@@ -152,8 +229,8 @@ export default function MisMascotasPage() {
             </div>
           </details>
           <div className="grid gap-2 min-[390px]:flex">
-            <Button disabled={saving}><Plus size={18} />{saving ? "Guardando..." : "Guardar mascota"}</Button>
-            <Button type="button" variant="outline" onClick={() => { setEditing(null); setShowForm(false); }}>Cancelar</Button>
+            <Button disabled={saving}><Plus size={18} className={saving ? "animate-spin" : ""} />{saving ? "Guardando mascota..." : "Guardar mascota"}</Button>
+            <Button type="button" variant="outline" onClick={closeForm}>Cancelar</Button>
           </div>
         </form> : <aside className="space-y-4">
           <div className="form-card text-sm text-[#6B6860]">Una ficha clara ahora puede hacer más rápida una búsqueda después.</div>

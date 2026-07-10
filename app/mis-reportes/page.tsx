@@ -18,7 +18,7 @@ function ReportRow({ report, sightingCount, onChanged }: { report: Report; sight
   return (
     <article className="form-card">
       <div className="flex flex-col gap-4 min-[390px]:flex-row">
-        <img src={report.foto_url} alt={report.pet?.nombre ?? "Mascota perdida"} className="h-40 w-full rounded-xl bg-[#F8F7F4] object-cover min-[390px]:h-24 min-[390px]:w-24" loading="lazy" />
+        <img src={report.foto_url} alt={report.pet?.nombre ?? "Mascota perdida"} className="h-40 w-full rounded-xl bg-[#F8F7F4] object-contain min-[390px]:h-24 min-[390px]:w-24" loading="lazy" />
         <div className="flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="font-bold">{report.pet?.nombre ?? "Mascota perdida"}</h3>

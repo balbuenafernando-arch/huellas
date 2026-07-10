@@ -1,10 +1,10 @@
 ﻿"use client";
 
 import type { ChangeEvent, FormEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft, CheckCircle, Edit, MapPin, Trash2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, Download, Edit, MapPin, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PetMap } from "@/components/pet-map";
 import { PosterButton, ShareButton } from "@/components/report-actions";
@@ -17,32 +17,17 @@ import { deletePet, deleteSighting, getPet, getPets, getSightings, isOwnedPet, i
 import { getCurrentUser, getReport, incrementReportView, listReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { getCase, type CaseRecord } from "@/lib/cases";
 import { uploadImage } from "@/services/image-service";
-import { formatDate, timeAgo } from "@/lib/utils";
+import { distanceKm, formatDate, timeAgo } from "@/lib/utils";
 import { publicCaseCode, searchState } from "@/lib/case-display";
 import { saveReunionStory } from "@/lib/reunion-stories";
 import { listContactRequests, type ContactRequest } from "@/lib/contact-requests";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
 import { friendlyError, validateImageFile } from "@/lib/form-validation";
 
-const districtNeighbors: Record<string, string[]> = {
-  Miraflores: ["San Isidro", "Surquillo", "Barranco"],
-  "San Isidro": ["Miraflores", "Lince", "Jesús María"],
-  Surco: ["San Borja", "Chorrillos", "Surquillo"],
-  Barranco: ["Miraflores", "Chorrillos", "Surco"],
-  "San Borja": ["Surco", "Surquillo", "La Molina"],
-  Magdalena: ["Pueblo Libre", "San Isidro", "Jesús María"],
-  "Pueblo Libre": ["Magdalena", "Jesús María", "Lince"],
-  "La Molina": ["San Borja", "Surco"],
-  Lince: ["San Isidro", "Jesús María", "Pueblo Libre"],
-  "Jesús María": ["Lince", "Pueblo Libre", "Magdalena"],
-  Chorrillos: ["Barranco", "Surco"],
-  Surquillo: ["Miraflores", "San Borja", "Surco"],
-};
-
 const reviewLabels: Record<string, string> = {
   por_revisar: "Por revisar",
   posible_coincidencia: "Posible coincidencia",
-  no_era: "No era mi mascota",
+  descartado: "Descartado",
   alerta_falsa: "Alerta falsa",
   informacion_enganosa: "Información engañosa",
   encontrada: "Ayudó a encontrarla",
@@ -124,6 +109,9 @@ export default function PetDetailPage() {
   const [sightings, setSightings] = useState<Sighting[]>([]);
   const [owned, setOwned] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(0);
+  const [photoViewerOpen, setPhotoViewerOpen] = useState(false);
+  const [viewerZoom, setViewerZoom] = useState(1);
+  const [viewerOffset, setViewerOffset] = useState({ x: 0, y: 0 });
   const [report, setReport] = useState<Report | undefined>();
   const [caseRecord, setCaseRecord] = useState<CaseRecord | undefined>();
   const [signedIn, setSignedIn] = useState(false);
@@ -133,6 +121,7 @@ export default function PetDetailPage() {
   const [pageError, setPageError] = useState("");
   const [reunionPhoto, setReunionPhoto] = useState<File | null>(null);
   const [reunionPreview, setReunionPreview] = useState<string | null>(null);
+  const viewerTouchRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number; time: number } | null>(null);
 
   async function load() {
     try {
@@ -166,11 +155,16 @@ export default function PetDetailPage() {
   }, [sightings]);
   const matches = useMemo(() => {
     if (!pet || pet.estado !== "perdido") return [];
-    const districts = new Set([pet.distrito, ...(districtNeighbors[pet.distrito] ?? [])]);
     const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 21;
-    return allPets.filter((item) => item.id !== pet.id && item.estado === "encontrado" && districts.has(item.distrito) && new Date(item.fecha_reporte).getTime() >= cutoff).slice(0, 5);
+    return allPets
+      .map((item) => ({ item, distance: distanceKm(pet.latitud, pet.longitud, item.latitud, item.longitud) }))
+      .filter(({ item, distance }) => item.id !== pet.id && item.estado === "encontrado" && distance !== null && distance <= 12 && new Date(item.fecha_reporte).getTime() >= cutoff)
+      .sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999))
+      .map(({ item }) => item)
+      .slice(0, 5);
   }, [allPets, pet]);
   const timeline = useMemo<TimelineItem[]>(() => {
+    const creator = report ? `Abierto por ${report.reporter_name || "Usuario anónimo"}` : undefined;
     const base = caseRecord?.timeline?.map((item, index) => ({
       id: `case-${caseRecord.id}-${index}-${item.date}`,
       date: item.date,
@@ -178,6 +172,7 @@ export default function PetDetailPage() {
       type: "Caso",
       icon: "●",
       location: caseRecord.district,
+      source: item.kind === "caso_creado" ? creator : undefined,
     })) ?? (pet ? [{
       id: `pet-${pet.id}-created`,
       date: pet.creado_en,
@@ -185,6 +180,7 @@ export default function PetDetailPage() {
       type: "Caso",
       icon: "●",
       location: pet.distrito,
+      source: creator,
     }] : []);
     const sightingEvents = sightings.map((item) => ({
       id: `sighting-${item.id}`,
@@ -194,7 +190,7 @@ export default function PetDetailPage() {
       icon: "●",
       location: item.ubicacion ?? item.distrito,
       sightingId: item.id,
-      source: "Reportado por un miembro de la comunidad",
+      source: `Reportado por ${item.reporter_name || "Usuario anónimo"}`,
     }));
     const contactEvents = contactRequests.map((item) => ({
       id: `contact-${item.id}-${item.status}`,
@@ -269,6 +265,19 @@ export default function PetDetailPage() {
     await load();
   }
 
+  function openViewer(index = selectedPhoto) {
+    setSelectedPhoto(index);
+    setViewerZoom(1);
+    setViewerOffset({ x: 0, y: 0 });
+    setPhotoViewerOpen(true);
+  }
+
+  function moveViewer(delta: number) {
+    setSelectedPhoto((index) => (photos.length ? (index + delta + photos.length) % photos.length : index));
+    setViewerZoom(1);
+    setViewerOffset({ x: 0, y: 0 });
+  }
+
   async function removeReport() {
     if (!pet) return;
     if (!confirm("¿Estás seguro?\n\nEsta acción no se puede deshacer.")) return;
@@ -286,10 +295,12 @@ export default function PetDetailPage() {
       <div className="grid gap-5 lg:grid-cols-[.92fr_1.08fr]">
         <section className="space-y-3">
           <div className="grid aspect-[4/3] place-items-center overflow-hidden rounded-2xl bg-[#F8F7F4] shadow-soft">
-            <img src={photos[selectedPhoto] ?? pet.foto_principal} alt={pet.nombre} className="h-full w-full object-contain" />
+            <button type="button" className="h-full w-full" onClick={() => openViewer()}>
+              <img src={photos[selectedPhoto] ?? pet.foto_principal} alt={pet.nombre} className="h-full w-full object-contain" />
+            </button>
           </div>
           <div className="grid grid-cols-3 gap-2 min-[390px]:grid-cols-5">
-            {photos.map((foto, index) => <button key={foto} type="button" onClick={() => setSelectedPhoto(index)} className={`h-20 rounded-xl border ${index === selectedPhoto ? "border-[#1D9E75]" : "border-black/10"} bg-[#F8F7F4] p-1`}><img src={foto} alt="Miniatura" className="h-full w-full object-contain" /></button>)}
+            {photos.map((foto, index) => <button key={foto} type="button" onClick={() => setSelectedPhoto(index)} onDoubleClick={() => openViewer(index)} className={`h-20 rounded-xl border ${index === selectedPhoto ? "border-[#1D9E75]" : "border-black/10"} bg-[#F8F7F4] p-1`}><img src={foto} alt="Miniatura" className="h-full w-full object-contain" /></button>)}
           </div>
         </section>
 
@@ -362,6 +373,39 @@ export default function PetDetailPage() {
         </section>
       </div>
 
+      {photoViewerOpen && <div
+        className="fixed inset-0 z-[1300] grid place-items-center overflow-hidden bg-black/85 p-3"
+        onWheel={(event) => setViewerZoom((value) => Math.min(4, Math.max(1, value + (event.deltaY < 0 ? 0.16 : -0.16))))}
+        onDoubleClick={() => setViewerZoom((value) => value > 1 ? 1 : 2)}
+        onTouchStart={(event) => {
+          const touch = event.touches[0];
+          viewerTouchRef.current = { x: touch.clientX, y: touch.clientY, offsetX: viewerOffset.x, offsetY: viewerOffset.y, time: Date.now() };
+        }}
+        onTouchMove={(event) => {
+          const start = viewerTouchRef.current;
+          const touch = event.touches[0];
+          if (!start || !touch) return;
+          if (viewerZoom > 1) setViewerOffset({ x: start.offsetX + touch.clientX - start.x, y: start.offsetY + touch.clientY - start.y });
+        }}
+        onTouchEnd={(event) => {
+          const start = viewerTouchRef.current;
+          if (!start) return;
+          const changed = event.changedTouches[0];
+          const dx = changed.clientX - start.x;
+          const dy = changed.clientY - start.y;
+          if (viewerZoom === 1 && Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy)) moveViewer(dx < 0 ? 1 : -1);
+          if (Date.now() - start.time < 240 && Math.abs(dx) < 8 && Math.abs(dy) < 8) setViewerZoom((value) => value > 1 ? 1 : 2);
+          viewerTouchRef.current = null;
+        }}
+      >
+        <div className="absolute right-3 top-3 flex gap-2">
+          {owned && <Button type="button" variant="outline" asChild><a href={photos[selectedPhoto] ?? pet.foto_principal} download><Download size={18} />Descargar fotografía</a></Button>}
+          <Button type="button" variant="outline" onClick={() => setPhotoViewerOpen(false)}><X size={18} />Cerrar</Button>
+        </div>
+        {photos.length > 1 && <div className="absolute inset-x-3 bottom-4 z-[1] flex justify-between gap-3"><Button type="button" variant="outline" onClick={() => moveViewer(-1)}>Anterior</Button><Button type="button" variant="outline" onClick={() => moveViewer(1)}>Siguiente</Button></div>}
+        <img src={photos[selectedPhoto] ?? pet.foto_principal} alt={pet.nombre} className="max-h-[88dvh] max-w-[96vw] touch-none select-none object-contain" draggable={false} style={{ transform: `translate(${viewerOffset.x}px, ${viewerOffset.y}px) scale(${viewerZoom})` }} />
+      </div>}
+
       <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <div className="space-y-4">
           {confirmedLast && <article className="form-card border-[#9FE1CB] bg-[#FAFDFB]">
@@ -404,7 +448,7 @@ export default function PetDetailPage() {
                 </Link>
                 {s.feedback_reportero && isOwnedSighting(s) && <div className="mt-3 rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{s.feedback_reportero}</div>}
                 {owned && <div className="mt-3 rounded-xl bg-[#F8F7F4] p-3 text-sm"><strong>Revisión:</strong> {reviewLabels[s.estado_revision ?? "por_revisar"] ?? "Por revisar"}</div>}
-                {owned && estado === "pendiente" && <div className="mt-3 grid gap-2 min-[390px]:flex"><Button size="sm" onClick={() => updateSightingStatus(s.id, pet.id, "confirmado").then(load)}>✓ Sí era mi mascota</Button><Button size="sm" variant="outline" onClick={() => updateSightingStatus(s.id, pet.id, "descartado").then(load)}>✗ No era mi mascota</Button></div>}
+                {owned && estado === "pendiente" && <div className="mt-3 grid gap-2 min-[390px]:flex"><Button size="sm" onClick={() => updateSightingStatus(s.id, pet.id, "confirmado").then(load)}>Confirmar avistamiento</Button><Button size="sm" variant="outline" onClick={() => updateSightingStatus(s.id, pet.id, "descartado").then(load)}>Descartar avistamiento</Button></div>}
                 {isOwnedSighting(s) && <SightingEditor sighting={s} onDone={load} />}
               </article>;
             })}

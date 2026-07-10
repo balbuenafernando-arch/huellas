@@ -6,16 +6,14 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LocationPicker } from "@/components/location-picker";
 import type { Pet } from "@/lib/demo-data";
 import { deletePet, distinctiveFeatures, getPet, isOwnedPet, specialConditions, updatePet } from "@/lib/pet-store";
 import { getCurrentUser, getReport, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
+import { locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 import { uploadImage } from "@/services/image-service";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
 import { friendlyError, requiredText, validateImageFiles } from "@/lib/form-validation";
-
-const districtCoords: Record<string, [number, number]> = {
-  Miraflores: [-12.1211, -77.0297], "San Isidro": [-12.0975, -77.0366], Surco: [-12.1278, -76.9849], Barranco: [-12.1499, -77.0215], "San Borja": [-12.0969, -76.9996], Magdalena: [-12.0916, -77.0679], "Pueblo Libre": [-12.0763, -77.0611], "La Molina": [-12.0864, -76.9224], Lince: [-12.0846, -77.0348], "Jesús María": [-12.0706, -77.0432], Chorrillos: [-12.1823, -77.0301], Surquillo: [-12.1121, -77.0116]
-};
 
 export default function EditPetPage() {
   const params = useParams<{ id: string }>();
@@ -24,6 +22,9 @@ export default function EditPetPage() {
   const [report, setReport] = useState<Report | undefined>();
   const [allowed, setAllowed] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [coords, setCoords] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [address, setAddress] = useState("");
+  const [areaName, setAreaName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -33,6 +34,11 @@ export default function EditPetPage() {
         const normalized = foundReport ? reportToLegacyPet(foundReport) : foundPet;
         setReport(foundReport);
         setPet(normalized);
+        if (normalized) {
+          setCoords({ latitude: normalized.latitud, longitude: normalized.longitud });
+          setAddress(normalized.direccion);
+          setAreaName(normalized.distrito);
+        }
         setAllowed((foundReport && user ? foundReport.user_id === user.id : false) || isOwnedPet(normalized));
       })
       .catch((caught) => setError(friendlyError(caught, "No pudimos cargar el caso. Inténtalo otra vez.")))
@@ -43,8 +49,9 @@ export default function EditPetPage() {
     event.preventDefault();
     if (!pet || !allowed || saving) return;
     const form = new FormData(event.currentTarget);
-    const distrito = String(form.get("distrito"));
-    const [latitud, longitud] = districtCoords[distrito] ?? [pet.latitud, pet.longitud];
+    const latitude = coords?.latitude ?? pet.latitud;
+    const longitude = coords?.longitude ?? pet.longitud;
+    const place = areaName || address || pet.distrito;
     const recompensaMonto = Number(form.get("recompensa_monto") || 0);
     const files = form.getAll("fotos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 5);
     let fotoPrincipal = String(form.get("foto_principal") || pet.foto_principal);
@@ -53,7 +60,7 @@ export default function EditPetPage() {
     const validationMessage =
       requiredText(form.get("nombre"), "El nombre", 120) ||
       requiredText(form.get("descripcion"), "La descripción", 1000) ||
-      requiredText(form.get("direccion"), "La dirección", 240) ||
+      requiredText(address, "La dirección", 240) ||
       requiredText(form.get("whatsapp"), "El WhatsApp", 40) ||
       validateImageFiles(files);
     if (validationMessage) {
@@ -74,11 +81,11 @@ export default function EditPetPage() {
         await updateReport(report.id, {
           tipo_reporte: estado === "encontrado" ? "encontrado" : report.tipo_reporte,
           estado: estado === "reunido" ? "reunido" : "activo",
-          distrito,
+          distrito: place,
           descripcion: String(form.get("descripcion")),
           foto_url: fotoPrincipal,
-          latitude: latitud,
-          longitude: longitud,
+          latitude,
+          longitude,
         });
         router.push(`/pet/${report.id}`);
         return;
@@ -90,10 +97,10 @@ export default function EditPetPage() {
         raza: String(form.get("raza")),
         descripcion: String(form.get("descripcion")),
         estado,
-        distrito,
-        direccion: String(form.get("direccion")),
-        latitud,
-        longitud,
+        distrito: place,
+        direccion: address,
+        latitud: latitude,
+        longitud: longitude,
         whatsapp: String(form.get("whatsapp")),
         foto_principal: fotoPrincipal,
         fotos: Array.from(new Set([fotoPrincipal, ...fotos])).slice(0, 5),
@@ -124,6 +131,31 @@ export default function EditPetPage() {
     }
   }
 
+  async function searchAddress() {
+    if (!address.trim()) return;
+    try {
+      const details = await searchPeruLocation(address);
+      if (!details) return;
+      setCoords({ latitude: details.latitude, longitude: details.longitude });
+      setAddress(details.address);
+      setAreaName(details.district || details.province || details.department || details.address);
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos buscar esa dirección."));
+    }
+  }
+
+  async function movePin(latitude: number, longitude: number) {
+    setCoords({ latitude, longitude });
+    try {
+      const details = await locationDetailsFromCoords(latitude, longitude);
+      setAddress(details.address);
+      setAreaName(details.district || details.province || details.department || details.address);
+    } catch {
+      setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+      setAreaName("Ubicación exacta");
+    }
+  }
+
   if (loading) return <DetailSkeleton />;
   if (!pet) return <main className="container py-10"><FriendlyError message={error || "No encontramos este caso."} /></main>;
   if (!allowed) return <main className="container py-10"><Link href={`/pet/${pet.id}`} className="text-[#1D9E75]">Volver</Link><p className="mt-4">Solo el navegador que creó este caso puede editarlo.</p></main>;
@@ -145,12 +177,18 @@ export default function EditPetPage() {
           <div><label className="label">Características personalizadas</label><input className="field" name="caracteristicas_personalizadas" defaultValue={pet.caracteristicas_personalizadas ?? ""} /></div>
         </section>
         <section className="form-card space-y-4">
-          <img src={pet.foto_principal} alt={pet.nombre} className="h-52 w-full rounded-xl object-cover" />
+          <img src={pet.foto_principal} alt={pet.nombre} className="h-52 w-full rounded-xl bg-[#F8F7F4] object-contain" />
           <div className="grid grid-cols-3 gap-2 min-[390px]:grid-cols-5">{(pet.fotos?.length ? pet.fotos : [pet.foto_principal]).slice(0, 5).map((foto) => <img key={foto} src={foto} alt="Foto actual" className="h-16 w-full rounded-lg object-contain bg-[#F8F7F4]" />)}</div>
           <div><label className="label">Reemplazar fotos (máximo 5)</label><input className="field" name="fotos" type="file" accept="image/*" multiple /></div>
           <div><label className="label">URL de foto</label><input className="field" name="foto_principal" defaultValue={pet.foto_principal} /></div>
-          <div><label className="label">Distrito</label><select className="select" name="distrito" defaultValue={pet.distrito}>{Object.keys(districtCoords).map((d) => <option key={d}>{d}</option>)}</select></div>
-          <div><label className="label">Dirección</label><input required maxLength={240} className="field" name="direccion" defaultValue={pet.direccion} /></div>
+          <div>
+            <label className="label">Dirección</label>
+            <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">
+              <input required maxLength={240} className="field" value={address} onChange={(event) => setAddress(event.target.value)} />
+              <Button type="button" variant="outline" onClick={searchAddress}>Buscar</Button>
+            </div>
+          </div>
+          {coords && <div className="map-panel min-h-[300px] overflow-hidden rounded-2xl"><LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} /></div>}
           <div><label className="label">WhatsApp</label><input required maxLength={40} className="field" name="whatsapp" defaultValue={pet.whatsapp} /></div>
           <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa_monto" type="number" min="0" defaultValue={pet.recompensa_monto ?? ""} /></div>
           <div className="flex flex-wrap gap-2"><Button type="submit" disabled={saving}><Save size={18} />{saving ? "Guardando..." : "Guardar cambios"}</Button><Button type="button" variant="outline" onClick={remove}><Trash2 size={18} />Eliminar caso</Button></div>

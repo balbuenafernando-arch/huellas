@@ -2,7 +2,7 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useRef, useState } from "react";
-import { Camera, MapPin, Send } from "lucide-react";
+import { Camera, Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createSighting, findPotentialDuplicateSightings } from "@/lib/pet-store";
 import { uploadImage } from "@/services/image-service";
@@ -11,7 +11,7 @@ import { FriendlyError } from "@/components/feedback";
 import { friendlyError, validateImageFile, validateNotFuture } from "@/lib/form-validation";
 import { ImageCropper } from "@/components/image-cropper";
 import { LocationPicker } from "@/components/location-picker";
-import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords } from "@/lib/location";
+import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 
 export function SightingForm({ petId, reportId, onCreated }: { petId: string; reportId?: string | null; onCreated: () => void }) {
   const [comentario, setComentario] = useState("");
@@ -25,10 +25,14 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
   const [warning, setWarning] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [usingGps, setUsingGps] = useState(false);
+  const [searchingAddress, setSearchingAddress] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   async function useLocation() {
+    if (usingGps || saving) return;
+    setUsingGps(true);
     setError("");
     try {
       const details = await getCurrentLocationDetails();
@@ -36,6 +40,8 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       setUbicacion(details.address);
     } catch (caught) {
       setError(friendlyError(caught, "No pudimos tomar tu ubicación. Escribe una referencia cercana."));
+    } finally {
+      setUsingGps(false);
     }
   }
 
@@ -46,6 +52,25 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       setUbicacion(details.address);
     } catch {
       setUbicacion(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+    }
+  }
+
+  async function searchAddress() {
+    if (!ubicacion.trim() || searchingAddress) return;
+    setSearchingAddress(true);
+    setError("");
+    try {
+      const details = await searchPeruLocation(ubicacion);
+      if (!details) {
+        setError("No encontramos esa dirección. Prueba con una referencia más específica.");
+        return;
+      }
+      setCoords({ latitude: details.latitude, longitude: details.longitude });
+      setUbicacion(details.address);
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos buscar esa dirección. Prueba con otra referencia."));
+    } finally {
+      setSearchingAddress(false);
     }
   }
 
@@ -121,13 +146,16 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       {warning && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">{warning}</div>}
       <div>
         <label className="label">Ubicación</label>
-        <input required className="field" value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Parque, calle o referencia" />
+        <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">
+          <input required className="field" value={ubicacion} onChange={(e) => setUbicacion(e.target.value)} placeholder="Parque, calle o referencia" />
+          <Button type="button" variant="outline" onClick={searchAddress} disabled={searchingAddress || saving}><Search size={18} />{searchingAddress ? "Buscando..." : "Buscar"}</Button>
+        </div>
       </div>
       <div className="map-panel min-h-[280px] overflow-hidden rounded-2xl">
         <LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} />
       </div>
       <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. El pin manda sobre la dirección.</p>
-      <Button type="button" variant="outline" className="w-full" onClick={useLocation}>Usar mi ubicación actual</Button>
+      <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={usingGps || saving}>Usar mi ubicación actual</Button>
       <div>
         <label className="label">Fecha y hora del avistamiento</label>
         <input required className="field" type="datetime-local" value={vistoEn} onChange={(e) => setVistoEn(e.target.value)} />
@@ -162,8 +190,8 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
         <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
         <div className="grid gap-2 min-[390px]:grid-cols-2">
-          <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()}><Camera size={18} />Tomar foto</Button>
-          <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()}><Camera size={18} />Elegir de galería</Button>
+          <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
+          <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir de galeria</Button>
         </div>
         {fotoPreview && <img src={fotoPreview} alt="Foto recortada" className="mt-3 max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
       </div>

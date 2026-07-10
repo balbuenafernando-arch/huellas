@@ -66,7 +66,7 @@ export default function LeafletPetMap({ pets, selectedId, sightings = [] }: { pe
             <div className="w-48 space-y-2">
               {cluster.pets.slice(0, 4).map((pet) => (
                 <div key={pet.id} className="border-b border-black/10 pb-2 last:border-0 last:pb-0">
-                  <img src={pet.foto_principal} alt={pet.nombre} className="mb-2 h-20 w-full rounded-lg object-cover" loading="lazy" />
+                  <img src={pet.foto_principal} alt={pet.nombre} className="mb-2 h-20 w-full rounded-lg bg-[#F8F7F4] object-contain" loading="lazy" />
                   <strong>{pet.nombre}</strong>
                   <p className="text-xs text-[#6B6860]">{pet.raza} · {pet.distrito}</p>
                   <Link href={`/pet/${pet.id}`} className="mt-1 block text-sm font-semibold text-[#1D9E75]">Abrir centro de búsqueda</Link>

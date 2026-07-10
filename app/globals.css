@@ -92,7 +92,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .action-card:hover .action-arrow { transform: translateX(3px); }
 .pet-card { overflow: hidden; border-radius: 22px; border: 1px solid rgba(28,28,26,.06); background: rgba(255,255,255,.92); box-shadow: 0 14px 36px rgba(28,28,26,.07); transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease; }
 .pet-card:hover { transform: translateY(-3px); border-color: rgba(28,28,26,.09); box-shadow: 0 22px 52px rgba(28,28,26,.10); }
-.pet-photo { aspect-ratio: 16/9; width: 100%; object-fit: cover; background: var(--paper); }
+.pet-photo { aspect-ratio: 16/9; width: 100%; object-fit: contain; background: var(--paper); }
 .status-pill { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 800; letter-spacing: .01em; text-transform: none; overflow-wrap: anywhere; backdrop-filter: blur(8px); }
 .status-perdido { background: rgba(250,236,231,.9); color: #712B13; }
 .status-encontrado { background: rgba(225,245,238,.92); color: #085041; }
@@ -100,6 +100,11 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .map-panel { min-height: 320px; overflow: hidden; border-radius: 22px; border: 1px solid rgba(28,28,26,.08); box-shadow: 0 16px 40px rgba(28,28,26,.08); touch-action: pan-x pan-y; }
 .leaflet-container { min-height: inherit; width: 100%; font: inherit; }
 .leaflet-popup-content { max-width: min(220px, calc(100vw - 72px)); margin: 10px 12px; overflow-wrap: anywhere; }
+.map-panel .leaflet-pane,
+.map-panel .leaflet-top,
+.map-panel .leaflet-bottom { z-index: 20; }
+.map-panel .leaflet-control { margin: 12px; }
+.map-panel .leaflet-bottom { bottom: calc(10px + env(safe-area-inset-bottom)); }
 .stat { border: 1px solid rgba(28,28,26,.06); background: rgba(255,255,255,.9); border-radius: 20px; padding: 16px; box-shadow: 0 12px 30px rgba(28,28,26,.05); }
 .form-card { width: 100%; border: 1px solid rgba(28,28,26,.06); background: rgba(255,255,255,.92); border-radius: 24px; padding: 18px; box-shadow: 0 16px 44px rgba(28,28,26,.07); overflow-wrap: anywhere; animation: card-in .26s ease both; }
 .label { display: block; margin-bottom: 7px; color: #7A7871; font-size: 11px; font-weight: 800; letter-spacing: .02em; }
@@ -121,6 +126,8 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .brand-mark { width: 34px; height: 34px; }
   .hero-title { font-size: 2.25rem; line-height: 1.05; }
   .map-panel { min-height: 300px; border-radius: 14px; }
+  .map-panel .leaflet-top { top: 8px; }
+  .map-panel .leaflet-bottom { bottom: calc(72px + env(safe-area-inset-bottom)); }
   .stat { padding: 11px 8px; }
   .topbar .container { width: min(100% - 16px, 1120px); }
   .bottom-nav .container { width: 100%; }
@@ -143,7 +150,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .map-panel { min-height: 360px; }
   .search-box input, .field, .textarea, .select { font-size: 14px; }
   .pet-photo { aspect-ratio: 4/3; }
-  .bottom-nav { display: none; }
+  .map-panel .leaflet-bottom { bottom: 12px; }
   .action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
 }
 
@@ -152,6 +159,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .topbar .nav-desktop { display: flex !important; }
   .topbar .header-icon-btn[aria-controls="mobile-menu"] { display: none !important; }
   .topbar .more-menu { display: block !important; }
+  .bottom-nav { display: none; }
 }
 
 

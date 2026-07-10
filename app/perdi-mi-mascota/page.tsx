@@ -3,116 +3,199 @@
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Camera, MapPin, Send } from "lucide-react";
+import { ArrowLeft, Camera, Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { LocationPicker } from "@/components/location-picker";
+import { ImageCropper } from "@/components/image-cropper";
 import { createRegisteredPet, createReport, listMyRegisteredPets, reportToLegacyPet, type RegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
 import { PosterButton, ShareButton } from "@/components/report-actions";
 import { ProgressiveSigninCard } from "@/components/progressive-signin-card";
 import type { Pet } from "@/lib/demo-data";
-import { fileToDataUrl } from "@/lib/image-utils";
+import { findLostPetMatches } from "@/lib/matching";
+import type { CaseMatch } from "@/lib/cases";
+import { formatDistance } from "@/lib/utils";
+import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation, type LocationDetails } from "@/lib/location";
 import { FriendlyError } from "@/components/feedback";
 import { friendlyError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
+import { isValidPeruWhatsapp, normalizePeruWhatsapp } from "@/lib/whatsapp";
 
-const districtCoords: Record<string, [number, number]> = {
-  Miraflores: [-12.1211, -77.0297],
-  "San Isidro": [-12.0975, -77.0366],
-  Surco: [-12.1278, -76.9849],
-  Barranco: [-12.1499, -77.0215],
-  "San Borja": [-12.0969, -76.9996],
-  Magdalena: [-12.0916, -77.0679],
-  "Pueblo Libre": [-12.0763, -77.0611],
-  "La Molina": [-12.0864, -76.9224],
-  Lince: [-12.0846, -77.0348],
-  "Jesús María": [-12.0706, -77.0432],
-  Chorrillos: [-12.1823, -77.0301],
-  Surquillo: [-12.1121, -77.0116],
-};
+const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
+type FieldErrors = Record<string, string>;
+
+function locationLabel(details: LocationDetails | null, address: string) {
+  return details?.district || details?.province || details?.department || address || "Ubicacion exacta";
+}
 
 export default function EmergencyReportPage() {
-  const [district, setDistrict] = useState("Miraflores");
-  const [coords, setCoords] = useState<{ latitude: number | null; longitude: number | null }>({ latitude: null, longitude: null });
+  const [coords, setCoords] = useState(defaultPeruCoords());
+  const [address, setAddress] = useState("");
+  const [locationDetails, setLocationDetails] = useState<LocationDetails | null>(null);
   const [registeredPets, setRegisteredPets] = useState<RegisteredPet[]>([]);
   const [selectedPetId, setSelectedPetId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [usingGps, setUsingGps] = useState(false);
+  const [searchingAddress, setSearchingAddress] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
-  const [locationConfirmed, setLocationConfirmed] = useState(false);
-  const [recentPhoto, setRecentPhoto] = useState<File | null>(null);
-  const [recentPhotoPreview, setRecentPhotoPreview] = useState<string | null>(null);
-  const photoInputRef = useRef<HTMLInputElement>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [matches, setMatches] = useState<CaseMatch[]>([]);
+  const [reviewedMatches, setReviewedMatches] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const addressInputRef = useRef<HTMLInputElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition((position) => setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
-    }
     listMyRegisteredPets().then((items) => {
       setRegisteredPets(items);
       setSelectedPetId(items[0]?.id ?? "");
     });
   }, []);
 
-  function useLocation() {
-    if (!navigator.geolocation) {
-      setError("Tu navegador no permite obtener ubicación. Puedes continuar con distrito y referencia.");
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-        setError("");
-      },
-      () => setError("No pudimos tomar tu ubicación. Puedes cambiar la ubicación manualmente."),
-    );
+  function resetMatchReview() {
+    setReviewedMatches(false);
+    setMatches([]);
   }
 
-  async function handleRecentPhoto(event: ChangeEvent<HTMLInputElement>) {
+  async function useLocation() {
+    if (usingGps) return;
+    setUsingGps(true);
+    setError("");
+    try {
+      const details = await getCurrentLocationDetails();
+      setCoords({ latitude: details.latitude, longitude: details.longitude });
+      setLocationDetails(details);
+      setAddress(details.address);
+      resetMatchReview();
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos tomar tu ubicacion. Escribe una referencia cercana."));
+    } finally {
+      setUsingGps(false);
+    }
+  }
+
+  async function searchAddress() {
+    if (!address.trim() || searchingAddress) return;
+    setSearchingAddress(true);
+    setError("");
+    try {
+      const details = await searchPeruLocation(address);
+      if (!details) {
+        setError("No encontramos esa direccion. Prueba con una referencia mas especifica.");
+        return;
+      }
+      setCoords({ latitude: details.latitude, longitude: details.longitude });
+      setLocationDetails(details);
+      setAddress(details.address);
+      resetMatchReview();
+    } catch (caught) {
+      setError(friendlyError(caught, "No pudimos buscar esa direccion. Prueba con otra referencia."));
+    } finally {
+      setSearchingAddress(false);
+    }
+  }
+
+  async function movePin(latitude: number, longitude: number) {
+    setCoords({ latitude, longitude });
+    resetMatchReview();
+    try {
+      const details = await locationDetailsFromCoords(latitude, longitude);
+      setLocationDetails(details);
+      setAddress(details.address);
+    } catch {
+      setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
+    }
+  }
+
+  async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     const validationError = validateImageFile(file);
     if (validationError) {
       setError(validationError);
       return;
     }
-    setRecentPhoto(file);
-    try {
-      setRecentPhotoPreview(file ? await fileToDataUrl(file) : null);
+    if (file) {
+      setCropFile(file);
       setError("");
-    } catch (caught) {
-      setError(friendlyError(caught, "No pudimos preparar la imagen. Intenta con otra foto."));
     }
   }
 
-  function removeRecentPhoto() {
-    setRecentPhoto(null);
-    setRecentPhotoPreview(null);
-    if (photoInputRef.current) photoInputRef.current.value = "";
+  function removePhoto() {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (galleryInputRef.current) galleryInputRef.current.value = "";
+  }
+
+  function showFieldErrors(errors: FieldErrors) {
+    setFieldErrors(errors);
+    const first = Object.keys(errors)[0];
+    if (!first) return false;
+    requestAnimationFrame(() => {
+      const field = formRef.current?.querySelector<HTMLElement>(`[name="${first}"],[data-field="${first}"]`);
+      field?.focus();
+      field?.scrollIntoView({ block: "center", behavior: "smooth" });
+    });
+    return true;
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
     const form = new FormData(event.currentTarget);
-    const [fallbackLat, fallbackLng] = districtCoords[district] ?? districtCoords.Miraflores;
-    const file = recentPhoto;
+    const file = photoFile;
     const fecha = String(form.get("fecha") || new Date().toISOString().slice(0, 10));
     const hora = String(form.get("hora") || "");
-    const validationMessage =
-      requiredText(form.get("ultima_ubicacion"), "La última ubicación", 240) ||
-      requiredText(form.get("whatsapp"), "El WhatsApp de contacto", 40) ||
-      requiredText(form.get("observaciones"), "Las observaciones", 1000) ||
-      validateNotFuture(`${fecha}T${hora || "00:00"}`, "La fecha de pérdida") ||
-      validateImageFile(file);
-    if (validationMessage) {
-      setError(validationMessage);
+    const errors: FieldErrors = {};
+    if (!selectedPetId) {
+      const nombreError = requiredText(form.get("nombre"), "El nombre", 120);
+      if (nombreError) errors.nombre = nombreError;
+      const colorError = requiredText(form.get("color"), "El color", 120);
+      if (colorError) errors.color = colorError;
+    }
+    const addressError = requiredText(address, "La ubicacion", 240);
+    if (addressError) errors.ubicacion = addressError;
+    const whatsapp = String(form.get("whatsapp") || "");
+    const whatsappError = requiredText(whatsapp, "El WhatsApp de contacto", 40) || (!isValidPeruWhatsapp(whatsapp) ? "Ingresa un WhatsApp peruano valido." : null);
+    if (whatsappError) errors.whatsapp = whatsappError;
+    const notesError = requiredText(form.get("observaciones"), "A tener en cuenta sobre la mascota", 1000);
+    if (notesError) errors.observaciones = notesError;
+    const dateError = validateNotFuture(`${fecha}T${hora || "00:00"}`, "La fecha de perdida");
+    if (dateError) errors.fecha = dateError;
+    const imageError = validateImageFile(file);
+    if (imageError) errors.foto = imageError;
+    if (showFieldErrors(errors)) {
+      setError("");
       return;
     }
 
-    let foto_url = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
     setSaving(true);
     setError("");
     try {
+      if (!reviewedMatches) {
+        const found = await findLostPetMatches({
+          especie: String(form.get("especie") || ""),
+          raza: String(form.get("raza") || ""),
+          color: String(form.get("color") || ""),
+          tamano: String(form.get("tamano") || ""),
+          distrito: locationLabel(locationDetails, address),
+          fecha: `${fecha}T${hora || "00:00"}`,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+        setMatches(found);
+        setReviewedMatches(true);
+        setSaving(false);
+        if (found.length) return;
+      }
+
+      let fotoUrl = fallbackPhoto;
       const selectedPet = registeredPets.find((item) => item.id === selectedPetId);
       let pet = selectedPet;
-      if (file?.size) foto_url = await uploadMascotaImage(file, "mascotas");
+      if (file?.size) fotoUrl = await uploadMascotaImage(file, "mascotas");
       if (!pet) {
         pet = await createRegisteredPet({
           nombre: String(form.get("nombre")),
@@ -127,11 +210,11 @@ export default function EmergencyReportPage() {
           esterilizado: false,
           placa_medalla: "",
           caracteristicas: form.getAll("caracteristicas").map(String),
-          telefono: String(form.get("whatsapp") || ""),
+          telefono: normalizePeruWhatsapp(whatsapp),
           contacto_preferido: "whatsapp",
-          fotos: [foto_url],
-          foto_principal: foto_url,
-          foto_url,
+          fotos: [fotoUrl],
+          foto_principal: fotoUrl,
+          foto_url: fotoUrl,
         });
       }
       const recompensa = String(form.get("recompensa") || "");
@@ -139,17 +222,17 @@ export default function EmergencyReportPage() {
         pet_id: pet.id,
         tipo_reporte: "perdido",
         estado: "activo",
-        distrito: district,
-        descripcion: `${String(form.get("observaciones"))} Última ubicación: ${String(form.get("ultima_ubicacion"))}. Fecha: ${fecha}. Hora: ${hora}. Recompensa: ${recompensa || "no indicada"}.`,
-        foto_url: file?.size ? foto_url : pet.foto_principal ?? pet.foto_url,
-        whatsapp: String(form.get("whatsapp") || ""),
-        latitude: coords.latitude ?? fallbackLat,
-        longitude: coords.longitude ?? fallbackLng,
+        distrito: locationLabel(locationDetails, address),
+        descripcion: `${String(form.get("observaciones"))} Ultima ubicacion: ${address}. Fecha: ${fecha}. Hora: ${hora}. Recompensa: ${recompensa || "no indicada"}.`,
+        foto_url: file?.size ? fotoUrl : pet.foto_principal ?? pet.foto_url,
+        whatsapp: normalizePeruWhatsapp(whatsapp),
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         pet,
       });
       setPublishedPet(reportToLegacyPet(report));
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos activar la búsqueda. Revisa los datos e inténtalo otra vez."));
+      setError(friendlyError(caught, "No pudimos activar la busqueda. Revisa los datos e intentalo otra vez."));
     } finally {
       setSaving(false);
     }
@@ -161,10 +244,11 @@ export default function EmergencyReportPage() {
         <ProgressiveSigninCard continueHref={`/pet/${publishedPet.id}`} />
         <h1 className="font-serif text-4xl">{publishedPet.nombre}</h1>
         <img src={publishedPet.foto_principal} alt={publishedPet.nombre} className="max-h-80 w-full rounded-xl bg-[#F8F7F4] object-contain" />
+        <div className="rounded-xl bg-[#E1F5EE] p-3 font-semibold text-[#085041]">Busqueda creada correctamente.</div>
         <div className="grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-          <ShareButton pet={publishedPet} label="Compartir búsqueda" />
+          <ShareButton pet={publishedPet} label="Compartir busqueda" />
           <PosterButton pet={publishedPet} />
-          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver centro de búsqueda</Link></Button>
+          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver centro de busqueda</Link></Button>
         </div>
       </section>
     </main>
@@ -172,53 +256,74 @@ export default function EmergencyReportPage() {
 
   return (
     <main className="container py-6">
+      {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onApply={(file, previewUrl) => {
+        setPhotoFile(file);
+        setPhotoPreview(previewUrl);
+        setCropFile(null);
+      }} />}
       <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Inicio</Link>
-      <form onSubmit={submit} className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-[1fr_.8fr]">
+      <form ref={formRef} onSubmit={submit} className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
-          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 1 · Foto y nombre</div>
-          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Vamos paso a paso. HUELLA abre la búsqueda y conecta posibles avistamientos por ti.</p></div>
+          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 1 - Foto y nombre</div>
+          <div><h1 className="font-serif text-4xl">Perdi mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Primero revisamos coincidencias cercanas. La busqueda se guarda recien cuando confirmas.</p></div>
           {error && <FriendlyError message={error} />}
-          {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre} · {pet.especie}</option>)}<option value="">No está registrada</option></select></div>}
-          <input ref={photoInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onChange={handleRecentPhoto} />
-          <button type="button" onClick={() => photoInputRef.current?.click()} className="flex min-h-24 w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-[#1D9E75] bg-white p-4 text-center text-[#085041]">
-            <Camera size={28} />
-            <span className="font-bold">{recentPhotoPreview ? "Cambiar foto" : "Agregar foto reciente"}</span>
-            <span className="text-sm text-[#6B6860]">Una foto clara ayuda a reconocer rasgos y compartir la búsqueda.</span>
-          </button>
+          {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre} - {pet.especie}</option>)}<option value="">No esta registrada</option></select></div>}
+          <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
+          <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
+          <div className="grid gap-2 min-[390px]:grid-cols-2">
+            <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
+            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir de galeria</Button>
+          </div>
+          {fieldErrors.foto && <p className="text-sm font-semibold text-[#B42318]">{fieldErrors.foto}</p>}
+          {photoPreview ? <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-3">
+            <img src={photoPreview} alt="Foto recortada" className="max-h-64 w-full rounded-xl bg-white object-contain" />
+            <Button type="button" variant="outline" className="mt-3 w-full" onClick={removePhoto}>Eliminar foto</Button>
+          </div> : <p className="rounded-xl bg-[#F8F7F4] p-3 text-sm text-[#6B6860]">La foto se podra recortar antes de guardar.</p>}
           {!selectedPetId && <>
-            <div><label className="label">Nombre</label><input required maxLength={120} className="field" name="nombre" placeholder="Luna" /></div>
-            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño</label><select className="select" name="tamano"><option>Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
-            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Color</label><input required maxLength={120} className="field" name="color" placeholder="Marrón, blanco..." /></div><div><label className="label">Raza aproximada</label><input maxLength={120} className="field" name="raza" placeholder="Mestizo, labrador..." /></div></div>
+            <div><label className="label">Nombre *</label><input required maxLength={120} className="field" name="nombre" placeholder="Luna" aria-invalid={Boolean(fieldErrors.nombre)} />{fieldErrors.nombre && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.nombre}</p>}</div>
+            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamano *</label><select className="select" name="tamano"><option>Pequeno</option><option>Mediano</option><option>Grande</option></select></div></div>
+            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Color *</label><input required maxLength={120} className="field" name="color" placeholder="Marron, blanco..." aria-invalid={Boolean(fieldErrors.color)} />{fieldErrors.color && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.color}</p>}</div><div><label className="label">Raza aproximada</label><input maxLength={120} className="field" name="raza" placeholder="Mestizo, labrador..." /></div></div>
           </>}
         </section>
         <section className="form-card space-y-4">
-          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 2 · Última ubicación</div>
-          <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-3">
-            {recentPhotoPreview ? <div className="space-y-3">
-              <img src={recentPhotoPreview} alt="Foto reciente" className="max-h-64 w-full rounded-xl bg-white object-contain" />
-              <div className="grid gap-2 min-[390px]:grid-cols-2">
-                <Button type="button" variant="outline" onClick={() => photoInputRef.current?.click()}><Camera size={18} />Reemplazar foto</Button>
-                <Button type="button" variant="outline" onClick={removeRecentPhoto}>Eliminar foto</Button>
-              </div>
-            </div> : <p className="text-sm text-[#6B6860]">Cuando agregues una foto, aquí verás la vista previa antes de publicar.</p>}
-          </div>
-          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha</label><input required className="field" name="fecha" type="date" /></div><div><label className="label">Hora</label><input required className="field" name="hora" type="time" /></div></div>
-          <div><label className="label">Última ubicación</label><input required maxLength={240} className="field" name="ultima_ubicacion" placeholder="Zona aproximada, parque o avenida" /></div>
-          <div><label className="label">Distrito</label><select className="select" value={district} onChange={(event) => setDistrict(event.target.value)}>{Object.keys(districtCoords).map((item) => <option key={item}>{item}</option>)}</select></div>
-          <Button type="button" variant="outline" className="w-full" onClick={useLocation}><MapPin size={18} />Usar mi ubicación actual</Button>
-          <div className="grid gap-2 rounded-xl bg-[#F8F7F4] p-3 text-sm">
-            <strong>¿Fue aquí?</strong>
-            <div className="grid gap-2 min-[390px]:grid-cols-2">
-              <Button type="button" variant={locationConfirmed ? "default" : "outline"} onClick={() => setLocationConfirmed(true)}>Sí, usar esta zona</Button>
-              <Button type="button" variant="outline" onClick={() => setLocationConfirmed(false)}>Cambiar ubicación</Button>
+          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 2 - Ubicacion exacta</div>
+          <div>
+            <label className="label">Direccion o referencia *</label>
+            <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">
+              <input ref={addressInputRef} required maxLength={240} className="field" name="ubicacion" value={address} onChange={(event) => { setAddress(event.target.value); resetMatchReview(); }} placeholder="Av La Paz, Jiron Castilla, parque..." aria-invalid={Boolean(fieldErrors.ubicacion)} />
+              <Button type="button" variant="outline" onClick={searchAddress} disabled={searchingAddress || saving}><Search size={18} />{searchingAddress ? "Buscando..." : "Buscar"}</Button>
             </div>
+            {fieldErrors.ubicacion && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.ubicacion}</p>}
           </div>
-          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 3 · Contacto</div>
-          <div><label className="label">WhatsApp de contacto</label><input required maxLength={40} className="field" name="whatsapp" placeholder="+51 987 654 321" /></div>
-          <div><label className="label">Recompensa opcional</label><input maxLength={160} className="field" name="recompensa" placeholder="Monto o descripción" /></div>
-          <div><label className="label">Observaciones</label><textarea required maxLength={1000} className="textarea min-h-24" name="observaciones" placeholder="Comportamiento, último momento visto, cuidados importantes" /></div>
-          <Button disabled={saving} className="w-full"><Send size={18} />{saving ? "Activando búsqueda..." : "Empezar búsqueda"}</Button>
+          <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={usingGps || saving}><MapPin size={18} />{usingGps ? "Obteniendo ubicacion..." : "Usar mi ubicacion actual"}</Button>
+          <div className="map-panel min-h-[320px] overflow-hidden rounded-2xl">
+            <LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} />
+          </div>
+          <div className="grid gap-2 min-[390px]:grid-cols-2">
+            <Button type="button" variant="outline" onClick={() => setError("")} disabled={saving}>Usar esta zona</Button>
+            <Button type="button" variant="outline" onClick={() => addressInputRef.current?.focus()} disabled={saving}>Cambiar ubicacion</Button>
+          </div>
+          <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. Las coordenadas del pin son la fuente principal.</p>
+          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha *</label><input required className="field" name="fecha" type="date" aria-invalid={Boolean(fieldErrors.fecha)} />{fieldErrors.fecha && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.fecha}</p>}</div><div><label className="label">Hora *</label><input required className="field" name="hora" type="time" /></div></div>
+          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 3 - Contacto</div>
+          <div><label className="label">WhatsApp de contacto *</label><input required maxLength={40} className="field" name="whatsapp" placeholder="+51 987 654 321" aria-invalid={Boolean(fieldErrors.whatsapp)} />{fieldErrors.whatsapp && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.whatsapp}</p>}</div>
+          <div><label className="label">Recompensa opcional</label><input maxLength={160} className="field" name="recompensa" placeholder="Monto o descripcion" /></div>
+          <div><label className="label">A tener en cuenta sobre la mascota *</label><textarea required maxLength={1000} className="textarea min-h-24" name="observaciones" placeholder="Comportamiento, ultimo momento visto, cuidados importantes" aria-invalid={Boolean(fieldErrors.observaciones)} />{fieldErrors.observaciones && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.observaciones}</p>}</div>
+          {reviewedMatches && matches.length > 0 && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]"><strong>Coincidencias encontradas.</strong><span className="block">Revisa los casos antes de crear la busqueda. Si ninguna corresponde, puedes continuar.</span></div>}
+          <Button disabled={saving} className="w-full">{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? reviewedMatches ? "Creando reporte..." : "Buscando coincidencias..." : reviewedMatches ? "Crear busqueda" : "Buscar coincidencias"}</Button>
         </section>
+        {matches.length > 0 && <aside className="space-y-3 lg:col-span-2">
+          <h2 className="font-bold">Posibles coincidencias</h2>
+          <div className="grid gap-3 md:grid-cols-2">
+            {matches.map((match) => <article key={match.caseId} className="form-card">
+              <div className="flex gap-3">
+                <img src={match.pet.foto_principal} alt={match.pet.nombre} className="h-16 w-16 rounded-lg bg-[#F8F7F4] object-contain" />
+                <div><strong>{match.pet.nombre}</strong><p className="text-sm text-[#6B6860]">Coincidencia {match.level} - {match.percentage}%</p>{match.distance !== null && <p className="text-sm font-semibold text-[#1D9E75]">{formatDistance(match.distance)}</p>}</div>
+              </div>
+              <Button type="button" size="sm" variant="outline" className="mt-3" asChild><Link href={`/pet/${match.caseId}`}>Ver caso</Link></Button>
+            </article>)}
+          </div>
+        </aside>}
       </form>
     </main>
   );

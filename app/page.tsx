@@ -83,7 +83,7 @@ export default function HomePage() {
       {activeCase && <section className="mt-6">
         <h2 className="mb-3 flex items-center gap-2 text-xl font-bold"><Heart size={19} fill="currentColor" className="text-[#D85A30]" />Estado de tu búsqueda</h2>
         <article className="form-card grid gap-4 min-[520px]:grid-cols-[150px_1fr]">
-          <img src={activeCase.pet.foto_principal} alt={activeCase.pet.nombre} className="h-44 w-full rounded-xl bg-[#F8F7F4] object-cover min-[520px]:h-full" loading="lazy" />
+          <img src={activeCase.pet.foto_principal} alt={activeCase.pet.nombre} className="h-44 w-full rounded-xl bg-[#F8F7F4] object-contain min-[520px]:h-full" loading="lazy" />
           <div className="space-y-3">
             <div>
               <h3 className="font-serif text-3xl">{activeCase.pet.nombre}</h3>

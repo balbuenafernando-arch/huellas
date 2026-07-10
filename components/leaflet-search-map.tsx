@@ -89,7 +89,7 @@ export default function LeafletSearchMap({ cases, selectedId, userCoords, refere
           >
             <Popup>
               <div className="w-52 space-y-2">
-                <img src={caseRecord.pet.foto_principal} alt={caseRecord.pet.nombre} className="h-24 w-full rounded-lg bg-[#F8F7F4] object-cover" loading="lazy" />
+                <img src={caseRecord.pet.foto_principal} alt={caseRecord.pet.nombre} className="h-24 w-full rounded-lg bg-[#F8F7F4] object-contain" loading="lazy" />
                 <div>
                   <strong className="block">{caseRecord.pet.nombre}</strong>
                   <p className="text-xs text-[#6B6860]">{distanceLabel ?? `${caseRecord.district} · zona aproximada`}</p>
