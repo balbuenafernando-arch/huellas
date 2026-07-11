@@ -51,7 +51,7 @@ export default function SightingDetailPage() {
       setOwned(Boolean(foundReport && user && foundReport.user_id === user.id) || isOwnedPet(legacyPet));
       setError("");
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos cargar el avistamiento. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo cargar el avistamiento. Inténtalo otra vez."));
     } finally {
       setLoading(false);
     }
@@ -68,7 +68,7 @@ export default function SightingDetailPage() {
       if (value === "encontrada" && report) await updateReport(report.id, { estado: "reunido" });
       await load();
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos actualizar el estado. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo actualizar el estado. Inténtalo otra vez."));
     } finally {
       setSaving(false);
     }

@@ -314,7 +314,7 @@ export async function signInWithGoogle() {
     });
     if (error) throw error;
   } else {
-    throw new Error("No pudimos iniciar con Google.");
+    throw new Error("No se pudo iniciar con Google.");
   }
 }
 

@@ -131,7 +131,7 @@ export default function ReportSightingPage() {
       setLocationDetails(details);
       updateDraft("ubicacion", details.address);
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos tomar tu ubicacion. Puedes seguir con una referencia cercana."));
+      setError(friendlyError(caught, "No se pudo obtener tu ubicacion. Puedes seguir con una referencia cercana."));
     } finally {
       setUsingGps(false);
     }
@@ -144,14 +144,14 @@ export default function ReportSightingPage() {
     try {
       const details = await searchPeruLocation(draft.ubicacion);
       if (!details) {
-        setError("No encontramos esa direccion. Prueba con una referencia mas especifica.");
+        setError("No se encontro esa direccion. Prueba con una referencia mas especifica.");
         return;
       }
       setCoords({ latitude: details.latitude, longitude: details.longitude });
       setLocationDetails(details);
       updateDraft("ubicacion", details.address);
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos buscar esa direccion. Prueba con otra referencia."));
+      setError(friendlyError(caught, "No se pudo buscar esa direccion. Prueba con otra referencia."));
     } finally {
       setSearchingAddress(false);
     }
@@ -244,7 +244,7 @@ export default function ReportSightingPage() {
       user = await getCurrentUser();
       foundMatches = await findLostPetMatches({ especie, tamano, color, distrito: locationLabel(locationDetails, draft.ubicacion), rasgos, fecha: seenAt, latitude: coords.latitude, longitude: coords.longitude });
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos revisar coincidencias. Intenta nuevamente."));
+      setError(friendlyError(caught, "No se pudo revisar coincidencias. Intenta nuevamente."));
       setSaving(false);
       return;
     }
@@ -411,7 +411,6 @@ export default function ReportSightingPage() {
             <LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} />
           </div>
           <div className="grid gap-2 min-[390px]:grid-cols-2">
-            <Button type="button" variant="outline" onClick={() => setError("")} disabled={saving}>Usar esta zona</Button>
             <Button type="button" variant="outline" onClick={() => addressInputRef.current?.focus()} disabled={saving}>Cambiar ubicacion</Button>
           </div>
           <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. El pin manda sobre la direccion.</p>

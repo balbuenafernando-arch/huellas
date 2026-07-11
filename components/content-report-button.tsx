@@ -29,7 +29,7 @@ export function ContentReportButton({ targetType, targetId }: { targetType: "pet
       setSent(true);
       setOpen(false);
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos enviar el aviso. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo enviar el aviso. Inténtalo otra vez."));
     } finally {
       setSaving(false);
     }

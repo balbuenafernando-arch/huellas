@@ -43,7 +43,7 @@ export default function MisMascotasPage() {
       setSightings(allSightings);
       setError("");
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos cargar tus mascotas. Revisa tu conexión e inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudieron cargar tus mascotas. Revisa tu conexión e inténtalo otra vez."));
     } finally {
       setLoading(false);
     }
@@ -153,7 +153,7 @@ export default function MisMascotasPage() {
       await load();
       setSuccessMessage(wasEditing ? "Mascota actualizada correctamente. Sus datos ya estan disponibles para futuras busquedas." : "Mascota creada correctamente. Ahora puedes activar una busqueda si algun dia la necesitas.");
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos guardar la mascota. Revisa los datos e inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo guardar la mascota. Revisa los datos e inténtalo otra vez."));
     } finally {
       setSaving(false);
     }
@@ -165,7 +165,7 @@ export default function MisMascotasPage() {
       await deleteRegisteredPet(id);
       await load();
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos eliminar la mascota. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo eliminar la mascota. Inténtalo otra vez."));
     }
   }
 

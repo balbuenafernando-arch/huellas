@@ -15,6 +15,13 @@ function daysBetween(start?: string | null, end?: string | null) {
   return days === 1 ? "1 día" : `${days} días`;
 }
 
+async function shareStory(name: string, id: string) {
+  const url = `${window.location.origin}/pet/${id}`;
+  const text = `${name} volvió a casa gracias a la comunidad HUELLA.`;
+  if (navigator.share) await navigator.share({ title: "Reencuentro en HUELLA", text, url });
+  else await navigator.clipboard.writeText(`${text} ${url}`);
+}
+
 export default function SuccessStoriesPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [stories, setStories] = useState<Record<string, ReunionStory>>({});
@@ -42,8 +49,9 @@ export default function SuccessStoriesPage() {
                 <p className="text-sm text-[#7A7871]">{report.distrito}</p>
                 <p className="text-sm font-semibold text-[#1D9E75]">Volvió en {story?.searchDurationDays ? `${story.searchDurationDays} días` : daysBetween(report.created_at, report.reunited_at)}</p>
                 <p className="text-xs text-[#7A7871]">{report.reunited_at ? formatDate(report.reunited_at) : "Fecha de reencuentro no registrada"}</p>
-                {story?.story && <p className="line-clamp-3 text-sm text-[#4D4A43]">{story.story}</p>}
+                <p className="line-clamp-3 text-sm text-[#4D4A43]">{story?.story || "La familia cerró el caso y confirmó el reencuentro."}</p>
                 <Button size="sm" className="w-full" asChild><Link href={`/pet/${report.id}`}>Ver historia</Link></Button>
+                <Button size="sm" variant="outline" className="w-full" onClick={() => shareStory(report.pet?.nombre ?? "Mascota reunida", report.id)}>Compartir</Button>
               </div>
             </article>
           );
@@ -58,7 +66,9 @@ export default function SuccessStoriesPage() {
               <p className="text-sm text-[#7A7871]">{pet.distrito}</p>
               <p className="text-sm font-semibold text-[#1D9E75]">Volvió en {daysBetween(pet.fecha_reporte, pet.cerrado_en ?? pet.creado_en)}</p>
               <p className="text-xs text-[#7A7871]">{formatDate(pet.cerrado_en ?? pet.creado_en)}</p>
+              <p className="line-clamp-3 text-sm text-[#4D4A43]">La familia cerró el caso y confirmó el reencuentro.</p>
               <Button size="sm" className="w-full" asChild><Link href={`/pet/${pet.id}`}>Ver historia</Link></Button>
+              <Button size="sm" variant="outline" className="w-full" onClick={() => shareStory(pet.nombre, pet.id)}>Compartir</Button>
             </div>
           </article>
         ))}

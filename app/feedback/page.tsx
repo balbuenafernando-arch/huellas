@@ -40,7 +40,7 @@ export default function FeedbackPage() {
       setSent(true);
       event.currentTarget.reset();
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos enviar el feedback. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo enviar el feedback. Inténtalo otra vez."));
     } finally {
       setSaving(false);
     }

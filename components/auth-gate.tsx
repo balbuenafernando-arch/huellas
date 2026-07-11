@@ -78,7 +78,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
     try {
       await signInWithGoogle();
     } catch {
-      setAuthError("No pudimos iniciar con Google. Inténtalo otra vez.");
+      setAuthError("No se pudo iniciar con Google. Inténtalo otra vez.");
     } finally {
       setSigningIn(false);
     }

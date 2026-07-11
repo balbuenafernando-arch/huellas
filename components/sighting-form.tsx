@@ -53,7 +53,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       setCoords({ latitude: details.latitude, longitude: details.longitude });
       setUbicacion(details.address);
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos tomar tu ubicación. Escribe una referencia cercana."));
+      setError(friendlyError(caught, "No se pudo obtener tu ubicación. Escribe una referencia cercana."));
     } finally {
       setUsingGps(false);
     }
@@ -76,13 +76,13 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     try {
       const details = await searchPeruLocation(ubicacion);
       if (!details) {
-        setError("No encontramos esa dirección. Prueba con una referencia más específica.");
+        setError("No se encontro esa dirección. Prueba con una referencia más específica.");
         return;
       }
       setCoords({ latitude: details.latitude, longitude: details.longitude });
       setUbicacion(details.address);
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos buscar esa dirección. Prueba con otra referencia."));
+      setError(friendlyError(caught, "No se pudo buscar esa dirección. Prueba con otra referencia."));
     } finally {
       setSearchingAddress(false);
     }

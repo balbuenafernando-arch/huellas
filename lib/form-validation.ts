@@ -3,7 +3,7 @@
 const allowedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxImageBytes = 5 * 1024 * 1024;
 
-export function friendlyError(error: unknown, fallback = "No pudimos completar la acción. Inténtalo otra vez.") {
+export function friendlyError(error: unknown, fallback = "No se pudo completar la acción. Inténtalo otra vez.") {
   console.error("[HUELLA]", error);
 
   if (!(error instanceof Error)) return fallback;
@@ -17,7 +17,7 @@ export function friendlyError(error: unknown, fallback = "No pudimos completar l
   const withTechnical = (text: string) => technical ? `${text} (${technical})` : text;
 
   if (/network|fetch|offline|failed to fetch|load failed|internet/i.test(details)) {
-    return withTechnical("No pudimos conectar con el servidor. Revisa tu conexión e inténtalo otra vez.");
+    return withTechnical("No se pudo conectar con el servidor. Revisa tu conexión e inténtalo otra vez.");
   }
   if (/auth|login|sesion|session|jwt|token|not authenticated|unauthorized|401/i.test(details)) {
     return withTechnical("Tu sesión necesita validarse de nuevo. Inicia sesión e inténtalo otra vez.");
@@ -29,10 +29,10 @@ export function friendlyError(error: unknown, fallback = "No pudimos completar l
     return withTechnical("Hay datos incompletos o con un formato incorrecto. Revisa el formulario.");
   }
   if (/storage|bucket|upload|imagen|image|mime|formato/i.test(details)) {
-    return withTechnical(message || "No pudimos procesar la imagen. Intenta con otra foto.");
+    return withTechnical(message || "No se pudo procesar la imagen. Intenta con otra foto.");
   }
   if (/supabase|postgrest|database|duplicate|23505|PGRST/i.test(details)) {
-    return withTechnical("No pudimos guardar la información en este momento. Inténtalo otra vez.");
+    return withTechnical("No se pudo guardar la información en este momento. Inténtalo otra vez.");
   }
 
   return withTechnical(fallback);

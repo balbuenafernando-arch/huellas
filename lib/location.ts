@@ -18,7 +18,7 @@ function geolocationErrorMessage(error: GeolocationPositionError) {
   if (error.code === error.PERMISSION_DENIED) return "No tenemos permiso para usar tu ubicación. Activa el permiso del navegador o escribe una referencia.";
   if (error.code === error.POSITION_UNAVAILABLE) return "El GPS no entregó una ubicación. Revisa que esté activado o escribe la zona manualmente.";
   if (error.code === error.TIMEOUT) return "El GPS tardó demasiado. Intenta otra vez o escribe una referencia.";
-  return "No pudimos obtener tu ubicación. Puedes continuar escribiendo la zona.";
+  return "No se pudo obtener tu ubicación. Puedes continuar escribiendo la zona.";
 }
 
 function readAddress(address: Record<string, unknown>, fallback: string) {
@@ -85,7 +85,7 @@ export async function searchPeruLocation(query: string): Promise<LocationDetails
   url.searchParams.set("accept-language", "es");
   url.searchParams.set("addressdetails", "1");
   const response = await fetch(url.toString());
-  if (!response.ok) throw new Error("No pudimos buscar esa ubicación. Prueba con otra referencia.");
+  if (!response.ok) throw new Error("No se pudo buscar esa ubicación. Prueba con otra referencia.");
   const results = await response.json() as Array<{ lat: string; lon: string; display_name?: string; address?: Record<string, unknown> }>;
   const first = results[0];
   if (!first) return null;

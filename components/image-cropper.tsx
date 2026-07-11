@@ -81,7 +81,7 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
       canvas.width = outputWidth;
       canvas.height = outputHeight;
       const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("No pudimos preparar el editor de imagen.");
+      if (!ctx) throw new Error("No se pudo preparar el editor de imagen.");
 
       const coverScale = Math.max(outputWidth / image.naturalWidth, outputHeight / image.naturalHeight) * zoom;
       const drawWidth = image.naturalWidth * coverScale;
@@ -96,7 +96,7 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
       ctx.drawImage(image, dx, dy, drawWidth, drawHeight);
 
       const blob = await canvasToBlob(canvas);
-      if (!blob) throw new Error("No pudimos recortar la imagen.");
+      if (!blob) throw new Error("No se pudo recortar la imagen.");
       const cropped = new File([blob], file.name.replace(/\.[^.]+$/, "-recorte.jpg"), { type: "image/jpeg" });
       onApply(cropped, canvas.toDataURL("image/jpeg", 0.9));
     } finally {

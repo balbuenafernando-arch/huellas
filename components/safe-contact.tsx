@@ -58,7 +58,7 @@ export function SafeContact({
       setStatusMessage("Solicitud enviada. El dueño decidirá si comparte su contacto.");
       await load();
     } catch {
-      setStatusMessage("No pudimos enviar la solicitud. Revisa tu conexión e inténtalo otra vez.");
+      setStatusMessage("No se pudo enviar la solicitud. Revisa tu conexión e inténtalo otra vez.");
     } finally {
       setSaving(false);
     }

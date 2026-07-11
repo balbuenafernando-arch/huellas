@@ -41,7 +41,7 @@ export default function EditPetPage() {
         }
         setAllowed((foundReport && user ? foundReport.user_id === user.id : false) || isOwnedPet(normalized));
       })
-      .catch((caught) => setError(friendlyError(caught, "No pudimos cargar el caso. Inténtalo otra vez.")))
+      .catch((caught) => setError(friendlyError(caught, "No se pudo cargar el caso. Inténtalo otra vez.")))
       .finally(() => setLoading(false));
   }, [params.id]);
 
@@ -114,7 +114,7 @@ export default function EditPetPage() {
       });
       router.push(`/pet/${pet.id}`);
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos guardar los cambios. Revisa tu conexión e inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudieron guardar los cambios. Revisa tu conexión e inténtalo otra vez."));
     } finally {
       setSaving(false);
     }
@@ -127,7 +127,7 @@ export default function EditPetPage() {
       await deletePet(pet.id);
       router.push("/");
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos eliminar el caso. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo eliminar el caso. Inténtalo otra vez."));
     }
   }
 
@@ -140,7 +140,7 @@ export default function EditPetPage() {
       setAddress(details.address);
       setAreaName(details.district || details.province || details.department || details.address);
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos buscar esa dirección."));
+      setError(friendlyError(caught, "No se pudo buscar esa dirección."));
     }
   }
 
@@ -157,7 +157,7 @@ export default function EditPetPage() {
   }
 
   if (loading) return <DetailSkeleton />;
-  if (!pet) return <main className="container py-10"><FriendlyError message={error || "No encontramos este caso."} /></main>;
+  if (!pet) return <main className="container py-10"><FriendlyError message={error || "No se encontro este caso."} /></main>;
   if (!allowed) return <main className="container py-10"><Link href={`/pet/${pet.id}`} className="text-[#1D9E75]">Volver</Link><p className="mt-4">Solo el navegador que creó este caso puede editarlo.</p></main>;
 
   return (

@@ -67,6 +67,14 @@ export function AppHeader() {
     setOpen(false);
   }
 
+  function toggleMenu() {
+    setOpen((value) => {
+      const next = !value;
+      if (next) window.dispatchEvent(new Event("huella:mobile-menu-open"));
+      return next;
+    });
+  }
+
   useEffect(() => {
     closeMenu();
   }, [pathname]);
@@ -81,7 +89,7 @@ export function AppHeader() {
             aria-label={open ? "Cerrar menú" : "Abrir menú"}
             aria-expanded={open}
             aria-controls="mobile-menu"
-            onClick={() => setOpen((value) => !value)}
+            onClick={toggleMenu}
           >
             {open ? <X size={21} /> : <Menu size={21} />}
           </button>

@@ -29,7 +29,7 @@ export default function NotificationsPage() {
       setNotifications(await listNotifications());
       setError("");
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos cargar tus notificaciones. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudieron cargar tus notificaciones. Inténtalo otra vez."));
     }
   }
 
@@ -43,7 +43,7 @@ export default function NotificationsPage() {
       await markAllNotificationsRead();
       await load();
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos marcar las notificaciones como leídas."));
+      setError(friendlyError(caught, "No se pudieron marcar las notificaciones como leídas."));
     } finally {
       setSaving(false);
     }
@@ -56,7 +56,7 @@ export default function NotificationsPage() {
     try {
       await saveNotificationPreferences(next);
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos guardar tus preferencias."));
+      setError(friendlyError(caught, "No se pudieron guardar tus preferencias."));
     }
   }
 
@@ -94,7 +94,7 @@ export default function NotificationsPage() {
       </section>
       <section className="form-card mt-5 space-y-3">
         <h2 className="font-bold">Preferencias</h2>
-        <p className="text-sm text-[#6B6860]">Arquitectura preparada para futuras notificaciones push. Por ahora HUELLA registra tus preferencias internas.</p>
+        <p className="text-sm text-[#6B6860]">Elige cómo quieres enterarte de novedades importantes de tus casos.</p>
         <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-black/10 p-3 text-sm font-semibold">
           Avisos por email
           <input type="checkbox" checked={preferences.notifyByEmail} onChange={(event) => updatePreference({ ...preferences, notifyByEmail: event.target.checked })} />

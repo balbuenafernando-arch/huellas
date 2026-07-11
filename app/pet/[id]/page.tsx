@@ -78,7 +78,7 @@ function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () =
       setEditing(false);
       onDone();
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos guardar el avistamiento. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo guardar el avistamiento. Inténtalo otra vez."));
     } finally {
       setSaving(false);
     }
@@ -143,7 +143,7 @@ export default function PetDetailPage() {
       setOwned((foundReport && user ? foundReport.user_id === user.id : false) || isOwnedPet(found));
       setPageError("");
     } catch (caught) {
-      setPageError(friendlyError(caught, "No pudimos cargar el caso. Revisa tu conexión e inténtalo otra vez."));
+      setPageError(friendlyError(caught, "No se pudo cargar el caso. Revisa tu conexión e inténtalo otra vez."));
     }
   }
 
@@ -214,14 +214,26 @@ export default function PetDetailPage() {
       location: null,
     }));
     const closedAt = report?.reunited_at ?? pet?.cerrado_en ?? caseRecord?.reunitedAt;
-    const reunionEvents = closedAt ? [{
-      id: `reunion-${report?.id ?? pet?.id ?? caseRecord?.id}`,
-      date: closedAt,
-      label: "Mascota reunida",
-      type: "Reencuentro",
-      icon: "●",
-      location: pet?.distrito ?? report?.distrito ?? caseRecord?.district,
-    }] : [];
+    const reunionEvents = closedAt ? [
+      {
+        id: `reunion-${report?.id ?? pet?.id ?? caseRecord?.id}`,
+        date: closedAt,
+        label: "Mascota reunida",
+        type: "Reencuentro",
+        icon: "●",
+        location: pet?.distrito ?? report?.distrito ?? caseRecord?.district,
+        source: creator,
+      },
+      {
+        id: `closed-${report?.id ?? pet?.id ?? caseRecord?.id}`,
+        date: closedAt,
+        label: "Caso cerrado",
+        type: "Estado",
+        icon: "●",
+        location: pet?.distrito ?? report?.distrito ?? caseRecord?.district,
+        source: creator,
+      },
+    ] : [];
     const regularEvents = [...base, ...sightingEvents, ...contactEvents].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     return [...regularEvents, ...reunionEvents];
   }, [caseRecord, contactRequests, pet, report, sightings]);
@@ -266,7 +278,7 @@ export default function PetDetailPage() {
       setShowCloseConfirm(false);
       await load();
     } catch (caught) {
-      setPageError(friendlyError(caught, "No pudimos cerrar la búsqueda. Inténtalo otra vez."));
+      setPageError(friendlyError(caught, "No se pudo cerrar la búsqueda. Inténtalo otra vez."));
     } finally {
       setClosing(false);
     }

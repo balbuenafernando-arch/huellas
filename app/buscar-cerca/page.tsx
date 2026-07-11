@@ -173,6 +173,15 @@ export default function NearbySearchPage() {
   }, []);
 
   useEffect(() => {
+    function closeFloatingPanels() {
+      setView("lista");
+      setShowFilters(false);
+    }
+    window.addEventListener("huella:mobile-menu-open", closeFloatingPanels);
+    return () => window.removeEventListener("huella:mobile-menu-open", closeFloatingPanels);
+  }, []);
+
+  useEffect(() => {
     setVisibleCount(20);
   }, [query, radius, species, stateFilter, sort]);
 
@@ -258,7 +267,7 @@ export default function NearbySearchPage() {
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           {radiusOptions.map((option) => <button key={option.value} type="button" className={`filter-tab shrink-0 ${radius === option.value ? "active" : ""}`} onClick={() => setRadius(option.value)}>{option.label}</button>)}
         </div>
-        {geoDenied && <p className="mt-2 text-xs text-[#6B6860]">No pudimos usar tu ubicacion. Puedes buscar una direccion o referencia.</p>}
+        {geoDenied && <p className="mt-2 text-xs text-[#6B6860]">No se pudo usar tu ubicacion. Puedes buscar una direccion o referencia.</p>}
         {showFilters && <div className="mt-3">{filterPanel}</div>}
       </section>
 
