@@ -225,7 +225,7 @@ function lostReportToReport(row: LostReportRow): Report {
     latitude: row.latitude,
     longitude: row.longitude,
     views_count: row.views_count,
-    reporter_name: row.reporter_is_anonymous ? "Usuario anónimo" : row.reporter_name ?? null,
+    reporter_name: row.reporter_is_anonymous ? "Usuario anónimo" : row.reporter_name ?? "Usuario HUELLA",
     reporter_is_anonymous: Boolean(row.reporter_is_anonymous),
     reunited_at: row.reunited_at,
     created_at: row.created_at,
@@ -248,7 +248,7 @@ function reportToLostInsert(report: Report, ownerId: string) {
     lost_at: report.fecha_reporte,
     reunited_at: report.reunited_at ?? null,
     is_public: true,
-    reporter_name: report.reporter_is_anonymous ? "Usuario anónimo" : report.reporter_name ?? null,
+    reporter_name: report.reporter_is_anonymous ? "Usuario anónimo" : report.reporter_name ?? "Usuario HUELLA",
     reporter_is_anonymous: Boolean(report.reporter_is_anonymous),
   };
 }
@@ -360,7 +360,7 @@ export async function createRegisteredPet(input: Omit<RegisteredPet, "id" | "use
         rasgo_privado: input.rasgo_privado ?? null,
         updated_at: new Date().toISOString(),
       });
-      if (privateError) throw privateError;
+      if (privateError) console.error("Error al guardar datos privados de mascota", privateError);
     }
     return data as RegisteredPet;
   }
@@ -477,7 +477,7 @@ export async function createReport(input: Omit<Report, "id" | "user_id" | "creat
         owner_id: user.id,
         contact_whatsapp: input.whatsapp,
       });
-      if (contactError) throw contactError;
+      if (contactError) console.error("Error al guardar contacto privado del reporte", contactError);
     }
     return saved;
   }
@@ -491,13 +491,15 @@ export async function updateReport(id: string, input: Partial<Report>) {
   if (input.estado === "reunido" && !input.reunited_at) patch.reunited_at = new Date().toISOString();
   if (input.estado === "activo") patch.reunited_at = null;
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase.from("lost_reports").update(reportToLostPatch(input)).eq("id", id).eq("owner_id", user?.id);
+    const { error } = await supabase.from("lost_reports").update(reportToLostPatch(input)).eq("id", id).eq("owner_id", user?.id);
+    if (error) throw error;
     if (input.whatsapp !== undefined && user) {
-      await supabase.from("report_private_contacts").upsert({
+      const { error: contactError } = await supabase.from("report_private_contacts").upsert({
         report_id: id,
         owner_id: user.id,
         contact_whatsapp: input.whatsapp,
       });
+      if (contactError) throw contactError;
     }
   }
   writeLocal(REPORTS_KEY, readLocal<Report[]>(REPORTS_KEY, []).map((report) => report.id === id ? { ...report, ...patch } : report));

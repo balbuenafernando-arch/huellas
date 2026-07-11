@@ -177,7 +177,7 @@ export default function PetDetailPage() {
       .slice(0, 5);
   }, [allPets, pet]);
   const timeline = useMemo<TimelineItem[]>(() => {
-    const creator = report ? `Abierto por ${report.reporter_name || "Usuario anónimo"}` : undefined;
+    const creator = report ? `Abierto por ${report.reporter_is_anonymous ? "Usuario anónimo" : report.reporter_name || "Usuario HUELLA"}` : undefined;
     const base = caseRecord?.timeline?.map((item, index) => ({
       id: `case-${caseRecord.id}-${index}-${item.date}`,
       date: item.date,
@@ -203,7 +203,7 @@ export default function PetDetailPage() {
       icon: "●",
       location: item.ubicacion ?? item.distrito,
       sightingId: item.id,
-      source: `Reportado por ${item.reporter_name || "Usuario anónimo"}`,
+      source: `Reportado por ${item.reporter_is_anonymous ? "Usuario anónimo" : item.reporter_name || "Usuario HUELLA"}`,
     }));
     const contactEvents = contactRequests.map((item) => ({
       id: `contact-${item.id}-${item.status}`,

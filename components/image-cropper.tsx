@@ -52,7 +52,7 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
   useEffect(() => () => URL.revokeObjectURL(objectUrl), [objectUrl]);
 
   function updateOffset(nextX: number, nextY: number) {
-    const limit = 42 * zoom;
+    const limit = 24 * zoom;
     setOffset({ x: clamp(nextX, -limit, limit), y: clamp(nextY, -limit, limit) });
   }
 
@@ -67,7 +67,7 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
   function moveDrag(clientX: number, clientY: number) {
     const drag = dragRef.current;
     if (!drag) return;
-    updateOffset(drag.offsetX + (clientX - drag.x) / 4, drag.offsetY + (clientY - drag.y) / 4);
+    updateOffset(drag.offsetX + (clientX - drag.x) / 10, drag.offsetY + (clientY - drag.y) / 10);
   }
 
   async function applyCrop() {
@@ -116,7 +116,7 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
           onDoubleClick={toggleZoom}
           onWheel={(event) => {
             event.preventDefault();
-            setZoom((value) => clamp(value + (event.deltaY < 0 ? 0.12 : -0.12), 1, 3));
+            setZoom((value) => clamp(value + (event.deltaY < 0 ? 0.08 : -0.08), 1, 3));
           }}
           onPointerDown={(event) => {
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -135,7 +135,8 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
             const drag = dragRef.current;
             if (!drag) return;
             if (event.touches.length === 2 && drag.distance && drag.zoom) {
-              setZoom(clamp(drag.zoom * (touchDistance(event.touches) / drag.distance), 1, 3));
+              const ratio = touchDistance(event.touches) / drag.distance;
+              setZoom(clamp(drag.zoom * (1 + (ratio - 1) * 0.55), 1, 3));
               return;
             }
             moveDrag(event.touches[0].clientX, event.touches[0].clientY);

@@ -67,6 +67,16 @@ function locationLabel(details: LocationDetails | null, address: string) {
   return details?.district || details?.province || details?.department || address || "Ubicacion exacta";
 }
 
+function technicalError(caught: unknown, fallback: string) {
+  if (caught instanceof Error && caught.message) return `${fallback}: ${caught.message}`;
+  if (typeof caught === "object" && caught) {
+    const record = caught as Record<string, unknown>;
+    const detail = [record.code, record.message, record.details, record.hint].filter(Boolean).join(" - ");
+    if (detail) return `${fallback}: ${detail}`;
+  }
+  return fallback;
+}
+
 export default function ReportSightingPage() {
   const [draft, setDraft] = useState<SightingDraft>(defaultDraft);
   const [coords, setCoords] = useState(defaultPeruCoords());
@@ -248,7 +258,13 @@ export default function ReportSightingPage() {
 
     try {
       let foto: string | null = draft.photoDataUrl;
-      if (file?.size) foto = await uploadImage(file);
+      if (file?.size) {
+        try {
+          foto = await uploadImage(file);
+        } catch (caught) {
+          throw new Error(technicalError(caught, "Error al subir la fotografia"));
+        }
+      }
 
       const selectedMatch = matches.find((match) => match.caseId === selectedCaseId);
       let reportId: string | null = selectedMatch?.caseId ?? null;
@@ -256,7 +272,9 @@ export default function ReportSightingPage() {
 
       if (!selectedMatch && user) {
         const photoUrl = foto ?? fallbackPhoto;
-        const pet = await createRegisteredPet({
+        let pet;
+        try {
+          pet = await createRegisteredPet({
           nombre: "Mascota vista",
           alias: "",
           especie,
@@ -275,8 +293,13 @@ export default function ReportSightingPage() {
           foto_principal: photoUrl,
           foto_url: photoUrl,
           rasgo_privado: "",
-        });
-        const report = await createReport({
+          });
+        } catch (caught) {
+          throw new Error(technicalError(caught, "Error al crear la mascota vista en Supabase"));
+        }
+        let report;
+        try {
+          report = await createReport({
           pet_id: pet.id,
           tipo_reporte: "encontrado",
           estado: "activo",
@@ -287,7 +310,10 @@ export default function ReportSightingPage() {
           latitude: coords.latitude,
           longitude: coords.longitude,
           pet,
-        });
+          });
+        } catch (caught) {
+          throw new Error(technicalError(caught, "Error al crear el caso asociado en Supabase"));
+        }
         reportId = report.id;
         petId = pet.id;
       }
@@ -295,7 +321,8 @@ export default function ReportSightingPage() {
       const situacionTexto = quickSituations.find(([value]) => value === draft.situacion)?.[1] ?? "La vi";
       const comentario = `${String(form.get("comentario"))}\nSituacion observada: ${situacionTexto}`;
 
-      await createSighting({
+      try {
+        await createSighting({
         pet_id: petId,
         report_id: reportId,
         especie,
@@ -309,7 +336,10 @@ export default function ReportSightingPage() {
         situacion: draft.situacion as Sighting["situacion"],
         latitud: coords.latitude,
         longitud: coords.longitude,
-      });
+        });
+      } catch (caught) {
+        throw new Error(technicalError(caught, "Error de base de datos al registrar el avistamiento"));
+      }
 
       if (selectedMatch) {
         await createNotification({
@@ -325,7 +355,7 @@ export default function ReportSightingPage() {
       setPhotoFile(null);
       formElement.reset();
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos enviar el avistamiento. Revisa tu conexion e intentalo otra vez."));
+      setError(technicalError(caught, "No se pudo registrar el avistamiento"));
     } finally {
       setSaving(false);
     }

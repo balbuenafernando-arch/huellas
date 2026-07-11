@@ -96,7 +96,7 @@ export default function SightingDetailPage() {
         {sighting.foto && <img src={sighting.foto} alt="Foto del avistamiento" className="max-h-[420px] w-full rounded-xl bg-[#F8F7F4] object-contain" />}
         <div>
           <h1 className="font-serif text-4xl">Avistamiento</h1>
-          <p className="mt-2 text-sm text-[#6B6860]">{`Reportado por ${sighting.reporter_name || "Usuario anónimo"}`}</p>
+          <p className="mt-2 text-sm text-[#6B6860]">{`Reportado por ${sighting.reporter_is_anonymous ? "Usuario anónimo" : sighting.reporter_name || "Usuario HUELLA"}`}</p>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-[#F8F7F4] p-3"><h2 className="font-bold">Fecha</h2><p className="mt-1 text-[#6B6860]">{formatDate(date)}</p></div>

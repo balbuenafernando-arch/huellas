@@ -15,6 +15,16 @@ import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords
 
 type FieldErrors = Record<string, string>;
 
+function technicalError(caught: unknown, fallback: string) {
+  if (caught instanceof Error && caught.message) return `${fallback}: ${caught.message}`;
+  if (typeof caught === "object" && caught) {
+    const record = caught as Record<string, unknown>;
+    const detail = [record.code, record.message, record.details, record.hint].filter(Boolean).join(" - ");
+    if (detail) return `${fallback}: ${detail}`;
+  }
+  return fallback;
+}
+
 export function SightingForm({ petId, reportId, onCreated }: { petId: string; reportId?: string | null; onCreated: () => void }) {
   const [comentario, setComentario] = useState("");
   const [ubicacion, setUbicacion] = useState("");
@@ -153,7 +163,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       setFotoPreview("");
       onCreated();
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos enviar el avistamiento. Revisa tu conexión e inténtalo otra vez."));
+      setError(technicalError(caught, "No se pudo registrar el avistamiento"));
     } finally {
       setSaving(false);
     }

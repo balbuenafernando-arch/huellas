@@ -192,7 +192,7 @@ function normalizeSighting(row: SightingRow): Sighting {
     situacion: row.situacion,
     visto_en: row.observed_at ?? row.created_at,
     owner_token: row.reporter_id ?? null,
-    reporter_name: row.reporter_is_anonymous ? "Usuario anónimo" : row.reporter_name ?? null,
+    reporter_name: row.reporter_is_anonymous ? "Usuario anónimo" : row.reporter_name ?? "Usuario HUELLA",
     reporter_is_anonymous: Boolean(row.reporter_is_anonymous),
     creado_en: row.created_at,
   };
@@ -249,7 +249,7 @@ function sightingToInsert(input: Sighting, reporterId: string | null) {
     report_id: isUuid(input.report_id) ? input.report_id : null,
     pet_id: isUuid(input.pet_id) ? input.pet_id : null,
     reporter_id: reporterId,
-    reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : input.reporter_name ?? null,
+    reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : input.reporter_name ?? "Usuario HUELLA",
     reporter_is_anonymous: Boolean(input.reporter_is_anonymous),
     especie: input.especie ?? null,
     tamano: input.tamano ?? null,
@@ -435,7 +435,8 @@ export async function createPet(input: Omit<Pet, "id" | "creado_en" | "fecha_rep
 
 export async function updatePet(id: string, input: Partial<Pet>) {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase.from("pets").update(petPatch(input, await ensureCurrentProfile())).eq("id", id);
+    const { error } = await supabase.from("pets").update(petPatch(input, await ensureCurrentProfile())).eq("id", id);
+    if (error) throw error;
   }
   const pets = readLocal(PETS_KEY, demoPets).map((pet) => pet.id === id ? { ...pet, ...input } : pet);
   writeLocal(PETS_KEY, pets);
@@ -459,8 +460,8 @@ export async function createSighting(input: Omit<Sighting, "id" | "creado_en" | 
     const reporter = sessionData.session?.user ?? (await supabase.auth.getUser()).data.user ?? null;
     const insertable = sightingToInsert({
       ...sighting,
-      reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : reporter ? userDisplayName(reporter) : "Usuario anónimo",
-      reporter_is_anonymous: Boolean(input.reporter_is_anonymous || !reporter),
+      reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : reporter ? userDisplayName(reporter) : "Usuario HUELLA",
+      reporter_is_anonymous: Boolean(input.reporter_is_anonymous),
     }, reporterId);
     const { data, error } = await supabase.from("sightings").insert(insertable).select().single();
     if (!error && data) {
@@ -483,7 +484,8 @@ export async function updateSightingReview(id: string, petId: string, estado_rev
     patch.feedback_reportero = "Tu avistamiento ayudo a reunir una mascota con su familia.";
   }
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase.from("sightings").update(sightingPatch(patch)).eq("id", id);
+    const { error } = await supabase.from("sightings").update(sightingPatch(patch)).eq("id", id);
+    if (error) throw error;
   }
   const sightings = readLocal(SIGHTINGS_KEY, demoSightings).map((sighting) => sighting.id === id ? { ...sighting, ...patch } : sighting);
   writeLocal(SIGHTINGS_KEY, sightings);
@@ -502,7 +504,8 @@ export async function findPotentialDuplicateSightings(input: { petId: string; ub
 
 export async function updateSighting(id: string, input: Partial<Sighting>) {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase.from("sightings").update(sightingPatch(input)).eq("id", id);
+    const { error } = await supabase.from("sightings").update(sightingPatch(input)).eq("id", id);
+    if (error) throw error;
   }
   const sightings = readLocal(SIGHTINGS_KEY, demoSightings).map((sighting) => sighting.id === id ? { ...sighting, ...input } : sighting);
   writeLocal(SIGHTINGS_KEY, sightings);
@@ -517,7 +520,8 @@ export async function deleteSighting(id: string) {
 
 export async function updateSightingStatus(id: string, petId: string, estado: NonNullable<Sighting["estado"]>) {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase.from("sightings").update(sightingPatch({ estado, estado_avistamiento: estado })).eq("id", id);
+    const { error } = await supabase.from("sightings").update(sightingPatch({ estado, estado_avistamiento: estado })).eq("id", id);
+    if (error) throw error;
   }
   const sightings = readLocal(SIGHTINGS_KEY, demoSightings).map((sighting) => sighting.id === id ? { ...sighting, estado, estado_avistamiento: estado } : sighting);
   writeLocal(SIGHTINGS_KEY, sightings);
@@ -531,10 +535,11 @@ export async function updateSightingStatus(id: string, petId: string, estado: No
 export async function markPetStatus(id: string, estado: PetStatus) {
   const cerrado_en = estado === "reunido" ? new Date().toISOString() : null;
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase
+    const { error } = await supabase
       .from("lost_reports")
       .update({ status: estado === "reunido" ? "reunited" : "active", reunited_at: cerrado_en, updated_at: new Date().toISOString() })
       .eq("pet_id", id);
+    if (error) throw error;
   }
   const pets = readLocal(PETS_KEY, demoPets).map((pet) => pet.id === id ? { ...pet, estado, cerrado_en } : pet);
   writeLocal(PETS_KEY, pets);

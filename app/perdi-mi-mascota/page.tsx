@@ -26,6 +26,16 @@ function locationLabel(details: LocationDetails | null, address: string) {
   return details?.district || details?.province || details?.department || address || "Ubicacion exacta";
 }
 
+function technicalError(caught: unknown, fallback: string) {
+  if (caught instanceof Error && caught.message) return `${fallback}: ${caught.message}`;
+  if (typeof caught === "object" && caught) {
+    const record = caught as Record<string, unknown>;
+    const detail = [record.code, record.message, record.details, record.hint].filter(Boolean).join(" - ");
+    if (detail) return `${fallback}: ${detail}`;
+  }
+  return fallback;
+}
+
 export default function EmergencyReportPage() {
   const [coords, setCoords] = useState(defaultPeruCoords());
   const [address, setAddress] = useState("");
@@ -195,9 +205,16 @@ export default function EmergencyReportPage() {
       let fotoUrl = fallbackPhoto;
       const selectedPet = registeredPets.find((item) => item.id === selectedPetId);
       let pet = selectedPet;
-      if (file?.size) fotoUrl = await uploadMascotaImage(file, "mascotas");
+      if (file?.size) {
+        try {
+          fotoUrl = await uploadMascotaImage(file, "mascotas");
+        } catch (caught) {
+          throw new Error(technicalError(caught, "Error al subir la fotografia"));
+        }
+      }
       if (!pet) {
-        pet = await createRegisteredPet({
+        try {
+          pet = await createRegisteredPet({
           nombre: String(form.get("nombre")),
           alias: "",
           especie: String(form.get("especie")),
@@ -215,10 +232,15 @@ export default function EmergencyReportPage() {
           fotos: [fotoUrl],
           foto_principal: fotoUrl,
           foto_url: fotoUrl,
-        });
+          });
+        } catch (caught) {
+          throw new Error(technicalError(caught, "Error al crear la mascota en Supabase"));
+        }
       }
       const recompensa = String(form.get("recompensa") || "");
-      const report = await createReport({
+      let report;
+      try {
+        report = await createReport({
         pet_id: pet.id,
         tipo_reporte: "perdido",
         estado: "activo",
@@ -229,10 +251,13 @@ export default function EmergencyReportPage() {
         latitude: coords.latitude,
         longitude: coords.longitude,
         pet,
-      });
+        });
+      } catch (caught) {
+        throw new Error(technicalError(caught, "Error de base de datos al crear el reporte"));
+      }
       setPublishedPet(reportToLegacyPet(report));
     } catch (caught) {
-      setError(friendlyError(caught, "No pudimos activar la busqueda. Revisa los datos e intentalo otra vez."));
+      setError(technicalError(caught, "No se pudo crear el reporte"));
     } finally {
       setSaving(false);
     }
