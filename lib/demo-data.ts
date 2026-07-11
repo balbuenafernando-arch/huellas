@@ -84,7 +84,7 @@ export const demoPets: Pet[] = [
   { id: "bruno", nombre: "Bruno", tipo: "Perro", raza: "Pastor Alemán", descripcion: "Reunido con su familia gracias a la comunidad.", estado: "reunido", distrito: "La Molina", direccion: "Av. La Molina", latitud: -12.0864, longitud: -76.9224, whatsapp: "51987654329", foto_principal: "https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?auto=format&fit=crop&w=900&q=80", fecha_reporte: demoDate(8, "11:00:00"), creado_en: demoDate(8, "11:00:00") },
   { id: "misha", nombre: "Misha", tipo: "Gato", raza: "Gata gris", descripcion: "Ya volvió a casa.", estado: "reunido", distrito: "Jesús María", direccion: "Campo de Marte", latitud: -12.0706, longitud: -77.0432, whatsapp: "51987654330", foto_principal: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=900&q=80", fecha_reporte: demoDate(10, "11:00:00"), creado_en: demoDate(10, "11:00:00") },
   { id: "thor", nombre: "Thor", tipo: "Perro", raza: "Husky", descripcion: "Fue reconocido por vecinos de Surquillo.", estado: "reunido", distrito: "Surquillo", direccion: "Av. Angamos", latitud: -12.1121, longitud: -77.0116, whatsapp: "51987654331", foto_principal: "https://images.unsplash.com/photo-1605568427561-40dd23c2acea?auto=format&fit=crop&w=900&q=80", fecha_reporte: demoDate(12, "11:00:00"), creado_en: demoDate(12, "11:00:00") },
-  { id: "canela", nombre: "Canela", tipo: "Perro", raza: "Mestiza", descripcion: "Reunida después de un avistamiento en Lince.", estado: "reunido", distrito: "Lince", direccion: "Parque Ramón Castilla", latitud: -12.0846, longitud: -77.0348, whatsapp: "51987654332", foto_principal: "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?auto=format&fit=crop&w=900&q=80", fecha_reporte: demoDate(13, "11:00:00"), creado_en: demoDate(13, "11:00:00") }
+  { id: "canela", nombre: "Canela", tipo: "Perro", raza: "Mestiza", descripcion: "Reunida después de un reporte en Lince.", estado: "reunido", distrito: "Lince", direccion: "Parque Ramón Castilla", latitud: -12.0846, longitud: -77.0348, whatsapp: "51987654332", foto_principal: "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?auto=format&fit=crop&w=900&q=80", fecha_reporte: demoDate(13, "11:00:00"), creado_en: demoDate(13, "11:00:00") }
 ];
 
 export const demoSightings: Sighting[] = [
@@ -97,6 +97,6 @@ export const demoSightings: Sighting[] = [
 ];
 
 export const demoNotifications: Notification[] = [
-  { id: "n1", pet_id: "luna", tipo: "nuevo_avistamiento", mensaje: "Nuevo avistamiento recibido para Luna", leido: false, creado_en: demoDate(0, "18:05:00") },
-  { id: "n2", pet_id: "max", tipo: "avistamiento_confirmado", mensaje: "Avistamiento confirmado para Max", leido: false, creado_en: demoDate(1, "17:30:00") }
+  { id: "n1", pet_id: "luna", tipo: "nuevo_avistamiento", mensaje: "Nuevo reporte recibido para Luna", leido: false, creado_en: demoDate(0, "18:05:00") },
+  { id: "n2", pet_id: "max", tipo: "avistamiento_confirmado", mensaje: "Reporte confirmado para Max", leido: false, creado_en: demoDate(1, "17:30:00") }
 ];

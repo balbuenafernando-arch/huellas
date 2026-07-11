@@ -5,6 +5,7 @@ import type { User } from "@supabase/supabase-js";
 import { LogOut, Mail, UserCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { SecondaryHeader } from "@/components/secondary-header";
 import { supabase } from "@/lib/supabase";
 import { signOut } from "@/lib/sprint14-store";
 
@@ -20,7 +21,6 @@ export default function AuthPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!supabase) {
@@ -39,14 +39,13 @@ export default function AuthPage() {
   }, []);
 
   async function closeSession() {
-    setMessage("");
     await signOut();
     setUser(null);
     router.replace("/");
   }
 
   if (loading) {
-    return <main className="container py-6"><section className="form-card mx-auto max-w-md text-sm font-semibold text-[#6B6860]">Cargando perfil...</section></main>;
+    return <main className="container py-6"><section className="form-card mx-auto max-w-md text-sm font-semibold text-[#6B6860]">Cargando configuración...</section></main>;
   }
 
   if (!user) return null;
@@ -55,11 +54,8 @@ export default function AuthPage() {
 
   return (
     <main className="container py-6">
+      <SecondaryHeader title="Configuración" description="Tu cuenta permite guardar mascotas, publicar búsquedas y dar seguimiento a los reportes." />
       <section className="form-card mx-auto max-w-md space-y-5">
-        <div>
-          <h1 className="font-serif text-4xl">Perfil</h1>
-          <p className="mt-2 text-sm text-[#6B6860]">Datos vinculados a tu cuenta Google.</p>
-        </div>
         <div className="flex items-center gap-4 rounded-xl bg-[#F8F7F4] p-4">
           {avatar ? <img src={avatar} alt={displayName(user)} className="h-16 w-16 rounded-full object-cover" /> : <span className="grid h-16 w-16 place-items-center rounded-full bg-white text-[#1D9E75]"><UserCircle size={34} /></span>}
           <div className="min-w-0">
@@ -67,7 +63,6 @@ export default function AuthPage() {
             <p className="mt-1 flex items-center gap-2 truncate text-sm text-[#6B6860]"><Mail size={15} />{user.email}</p>
           </div>
         </div>
-        {message && <p className="text-sm text-[#712B13]">{message}</p>}
         <Button type="button" variant="outline" className="w-full" onClick={closeSession}><LogOut size={18} />Cerrar sesión</Button>
       </section>
     </main>

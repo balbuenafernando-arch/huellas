@@ -82,7 +82,7 @@ export function buildCaseTimeline(caseRecord: Pick<CaseRecord, "id" | "pet" | "c
     ...caseRecord.sightings.map((sighting) => ({
       id: sighting.id,
       date: sighting.visto_en ?? sighting.creado_en,
-      label: (sighting.estado_avistamiento ?? sighting.estado) === "confirmado" ? "Avistamiento confirmado" : "Avistamiento recibido",
+      label: (sighting.estado_avistamiento ?? sighting.estado) === "confirmado" ? "Reporte confirmado" : "La vieron",
       kind: "avistamiento_recibido" as CaseUpdateKind,
     })),
   ];

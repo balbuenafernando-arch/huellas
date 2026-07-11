@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { AuthorBadge } from "@/components/author-badge";
+import { SecondaryHeader } from "@/components/secondary-header";
 import { ContentReportButton } from "@/components/content-report-button";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
 import type { Sighting } from "@/lib/demo-data";
@@ -31,7 +33,6 @@ const situationLabels: Record<string, string> = {
 
 export default function SightingDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const [sighting, setSighting] = useState<Sighting>();
   const [report, setReport] = useState<Report | undefined>();
   const [owned, setOwned] = useState(false);
@@ -51,7 +52,7 @@ export default function SightingDetailPage() {
       setOwned(Boolean(foundReport && user && foundReport.user_id === user.id) || isOwnedPet(legacyPet));
       setError("");
     } catch (caught) {
-      setError(friendlyError(caught, "No se pudo cargar el avistamiento. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo cargar el reporte. Inténtalo otra vez."));
     } finally {
       setLoading(false);
     }
@@ -76,7 +77,7 @@ export default function SightingDetailPage() {
 
   async function share() {
     const url = `${window.location.origin}/avistamiento/${params.id}`;
-    if (navigator.share) await navigator.share({ title: "Avistamiento en HUELLA", url });
+    if (navigator.share) await navigator.share({ title: "Reporte en HUELLA", url });
     else {
       await navigator.clipboard.writeText(url);
       alert("Enlace copiado.");
@@ -84,19 +85,19 @@ export default function SightingDetailPage() {
   }
 
   if (loading) return <DetailSkeleton />;
-  if (!sighting) return <main className="container py-10"><FriendlyError message={error || "Avistamiento no encontrado."} onRetry={load} /></main>;
+  if (!sighting) return <main className="container py-10"><FriendlyError message={error || "Reporte no encontrado."} onRetry={load} /></main>;
 
   const date = sighting.visto_en ?? sighting.creado_en;
 
   return (
     <main className="container py-6">
-      <button type="button" onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))} className="mb-3 text-sm font-semibold text-[#6B6860]">Volver</button>
+      <SecondaryHeader title="Detalle del reporte" description="Información enviada por una persona que reportó haber visto a la mascota." />
       {error && <div className="mb-4"><FriendlyError message={error} onRetry={load} /></div>}
       <section className="form-card mx-auto max-w-2xl space-y-4">
-        {sighting.foto && <img src={sighting.foto} alt="Foto del avistamiento" className="max-h-[420px] w-full rounded-xl bg-[#F8F7F4] object-contain" />}
+        {sighting.foto && <img src={sighting.foto} alt="Foto del reporte" className="max-h-[420px] w-full rounded-xl bg-[#F8F7F4] object-contain" />}
         <div>
-          <h1 className="font-serif text-4xl">Avistamiento</h1>
-          <p className="mt-2 text-sm text-[#6B6860]">{`Reportado por ${sighting.reporter_is_anonymous ? "Usuario anónimo" : sighting.reporter_name || "Usuario HUELLA"}`}</p>
+          <h1 className="font-serif text-4xl">Reporte</h1>
+          <div className="mt-3"><AuthorBadge author={{ name: sighting.reporter_name, isAnonymous: sighting.reporter_is_anonymous, publishedAt: sighting.creado_en }} /></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="rounded-xl bg-[#F8F7F4] p-3"><h2 className="font-bold">Fecha</h2><p className="mt-1 text-[#6B6860]">{formatDate(date)}</p></div>
@@ -107,7 +108,7 @@ export default function SightingDetailPage() {
         <div><h2 className="font-bold">Situación observada</h2><p className="mt-1 text-[#6B6860]">{situationLabels[String(sighting.situacion ?? "")] ?? "Solo la vi"}</p></div>
         {(sighting.especie || sighting.color || sighting.tamano || sighting.distrito) && <div><h2 className="font-bold">Datos observados</h2><p className="mt-1 text-[#6B6860]">{[sighting.especie, sighting.tamano, sighting.color, sighting.distrito].filter(Boolean).join(" · ")}</p></div>}
         <div><h2 className="font-bold">Placa o medalla</h2><p className="mt-1 text-[#6B6860]">{sighting.llevaba_placa === "si" ? `Sí${sighting.nombre_observado ? ` · ${sighting.nombre_observado}` : ""}` : sighting.llevaba_placa === "no" ? "No" : "No pude verificar"}</p></div>
-        <div className="grid gap-2 min-[390px]:flex"><Button onClick={share}>Compartir avistamiento</Button>{(sighting.report_id || sighting.pet_id) && <Button variant="outline" asChild><Link href={`/pet/${sighting.report_id ?? sighting.pet_id}`}>Ver centro de búsqueda</Link></Button>}</div>
+        <div className="grid gap-2 min-[390px]:flex"><Button onClick={share}>Compartir reporte</Button>{(sighting.report_id || sighting.pet_id) && <Button variant="outline" asChild><Link href={`/pet/${sighting.report_id ?? sighting.pet_id}`}>Ver búsqueda</Link></Button>}</div>
         <ContentReportButton targetType="sighting" targetId={sighting.id} />
         {owned && <div className="border-t border-black/10 pt-4"><h2 className="mb-2 font-bold">Estado de revisión</h2><div className="grid gap-2">{reviewStates.map((state) => <Button key={state.value} disabled={saving} variant={sighting.estado_revision === state.value ? "default" : "outline"} onClick={() => changeReview(state.value)}>{state.label}</Button>)}</div></div>}
         <p className="sr-only">{formatDateTime(date)}</p>

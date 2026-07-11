@@ -14,12 +14,13 @@ type Props = {
   userCoords: { latitude: number | null; longitude: number | null };
   referenceCoords: { latitude: number | null; longitude: number | null };
   recenterSignal: number;
+  currentUserId?: string | null;
   onSelect: (caseId: string) => void;
 };
 
-function caseIcon(caseRecord: CaseRecord, selected: boolean) {
+function caseIcon(caseRecord: CaseRecord, selected: boolean, mine: boolean) {
   const state = searchState(caseRecord);
-  const color = state.label === "Resguardado" ? "#378ADD" : state.label === "Avistamiento reciente" ? "#B7791F" : "#D85A30";
+  const color = mine ? "#1D9E75" : state.label === "Resguardado" ? "#378ADD" : state.label === "La vieron hace poco" ? "#B7791F" : "#D85A30";
   const size = selected ? 42 : 34;
   const letter = caseRecord.pet.tipo.toLowerCase().includes("gato") ? "G" : "P";
   return L.divIcon({
@@ -63,7 +64,7 @@ function RecenterUser({ userCoords, recenterSignal }: Pick<Props, "userCoords" |
   return null;
 }
 
-export default function LeafletSearchMap({ cases, selectedId, userCoords, referenceCoords, recenterSignal, onSelect }: Props) {
+export default function LeafletSearchMap({ cases, selectedId, userCoords, referenceCoords, recenterSignal, currentUserId, onSelect }: Props) {
   const mappedCases = useMemo(() => cases.filter((caseRecord) => caseRecord.latitude != null && caseRecord.longitude != null), [cases]);
   const selected = mappedCases.find((caseRecord) => caseRecord.id === selectedId);
   const center: [number, number] = selected
@@ -80,11 +81,12 @@ export default function LeafletSearchMap({ cases, selectedId, userCoords, refere
       {userCoords.latitude != null && userCoords.longitude != null && <Marker position={[userCoords.latitude, userCoords.longitude]} icon={userIcon} />}
       {mappedCases.map((caseRecord) => {
         const distanceLabel = formatDistance(distanceKm(referenceCoords.latitude, referenceCoords.longitude, caseRecord.latitude, caseRecord.longitude));
+        const mine = Boolean(currentUserId && caseRecord.ownerId === currentUserId);
         return (
           <Marker
             key={caseRecord.id}
             position={[caseRecord.latitude as number, caseRecord.longitude as number]}
-            icon={caseIcon(caseRecord, caseRecord.id === selectedId)}
+            icon={caseIcon(caseRecord, caseRecord.id === selectedId, mine)}
             eventHandlers={{ click: () => onSelect(caseRecord.id) }}
           >
             <Popup>
@@ -93,6 +95,7 @@ export default function LeafletSearchMap({ cases, selectedId, userCoords, refere
                 <div>
                   <strong className="block">{caseRecord.pet.nombre}</strong>
                   <p className="text-xs text-[#6B6860]">{distanceLabel ?? `${caseRecord.district} · zona aproximada`}</p>
+                  <p className="text-xs font-semibold text-[#6B4A10]">{mine ? "Mi búsqueda" : "Caso de la comunidad"}</p>
                   <p className="text-xs font-semibold text-[#1D9E75]">Caso {publicCaseCode(caseRecord.id)}</p>
                 </div>
                 <Link href={`/pet/${caseRecord.id}`} className="block rounded-lg bg-[#1D9E75] px-3 py-2 text-center text-sm font-semibold text-white">Ver búsqueda</Link>

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Heart, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SecondaryHeader } from "@/components/secondary-header";
 import { PosterButton, ShareButton } from "@/components/report-actions";
 import { getSightings, isOwnedSighting } from "@/lib/pet-store";
 import type { Sighting } from "@/lib/demo-data";
@@ -26,13 +27,13 @@ function ReportRow({ report, sightingCount, onChanged }: { report: Report; sight
           </div>
           <p className="text-xs font-semibold text-[#1D9E75]">Caso {publicCaseCode(report.id)}</p>
           <p className="text-sm text-[#7A7871]">{report.distrito}</p>
-          <div className={`mt-3 rounded-xl p-3 text-sm font-semibold ${sightingCount > 0 ? "bg-[#E1F5EE] text-[#085041]" : "bg-[#F8F7F4] text-[#6B6860]"}`}>{sightingCount > 0 ? `${sightingCount} avistamiento${sightingCount === 1 ? "" : "s"} para revisar` : "HUELLA sigue comparando zona y rasgos."}</div>
+          <div className={`mt-3 rounded-xl p-3 text-sm font-semibold ${sightingCount > 0 ? "bg-[#E1F5EE] text-[#085041]" : "bg-[#F8F7F4] text-[#6B6860]"}`}>{sightingCount > 0 ? `${sightingCount} reporte${sightingCount === 1 ? "" : "s"} para revisar` : "HUELLA sigue comparando zona y rasgos."}</div>
           <div className="mt-3 grid gap-2 min-[390px]:grid-cols-2">
             <ShareButton pet={pet} label={report.estado === "reunido" ? "Compartir historia" : "Compartir búsqueda"} />
             {report.estado !== "reunido" && <PosterButton pet={pet} />}
           </div>
           <div className="mt-3 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-            <Button size="sm" asChild><Link href={`/pet/${report.id}`}>Ver centro de búsqueda</Link></Button>
+            <Button size="sm" asChild><Link href={`/pet/${report.id}`}>Ver búsqueda</Link></Button>
             <Button size="sm" variant="outline" asChild><Link href={`/pet/${report.id}/editar`}>Editar</Link></Button>
             {report.estado === "activo" ? <Button size="sm" asChild><Link href={`/pet/${report.id}`}><Heart size={16} />Cerrar búsqueda</Link></Button> : <Button size="sm" onClick={() => updateReport(report.id, { estado: "activo" }).then(onChanged)}><RotateCcw size={16} />Reabrir búsqueda</Button>}
           </div>
@@ -70,12 +71,12 @@ export default function MisReportesPage() {
     if (linkedName) return linkedName;
     const observed = [sighting.especie, sighting.tamano, sighting.color].filter(Boolean).join(" ");
     if (observed) return observed;
-    return sighting.comentario?.trim().slice(0, 42) || "Avistamiento";
+    return sighting.comentario?.trim().slice(0, 42) || "Reporte";
   }
 
   return (
     <main className="container py-6">
-      <div className="mb-5"><h1 className="font-serif text-4xl">Mis búsquedas</h1><p className="mt-2 text-[#6B6860]">Aquí ves qué necesita atención y qué avistamientos llegaron.</p></div>
+      <SecondaryHeader title="Mis búsquedas" description="Aquí separas tus casos de los reportes que enviaste para ayudar a otras familias." />
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="space-y-3">
           <h2 className="text-xl font-bold">Mis búsquedas activas</h2>
@@ -83,8 +84,8 @@ export default function MisReportesPage() {
           {lost.map((report) => <ReportRow key={report.id} report={report} sightingCount={caseSightingCounts[report.id] ?? 0} onChanged={load} />)}
         </section>
         <section className="space-y-3">
-          <h2 className="text-xl font-bold">Mis avistamientos</h2>
-          {sightings.length === 0 && <div className="form-card empty-state text-sm"><strong>Aún no compartiste avistamientos.</strong><span>Si ves una mascota que podría estar perdida, tu información puede ayudar.</span></div>}
+          <h2 className="text-xl font-bold">Reportes que envié</h2>
+          {sightings.length === 0 && <div className="form-card empty-state text-sm"><strong>Aún no reportaste haber visto una mascota.</strong><span>Si ves una mascota que podría estar perdida, tu información puede ayudar.</span></div>}
           {sightings.map((sighting) => <Link key={sighting.id} href={`/avistamiento/${sighting.id}`} className="form-card block hover:bg-[#F8F7F4]"><h3 className="font-bold">{sightingTitle(sighting)}</h3><p className="mt-1 text-sm text-[#7A7871]">{sighting.distrito ?? sighting.ubicacion}</p><p className="mt-1 text-sm">{formatDateTime(sighting.visto_en ?? sighting.creado_en)}</p></Link>)}
         </section>
       </div>

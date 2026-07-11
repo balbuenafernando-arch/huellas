@@ -24,7 +24,7 @@ function WelcomeScreen({ onContinue, loading, error }: { onContinue: () => void;
           {[
             [PawPrint, "Registra tus mascotas."],
             [Search, "Reporta pérdidas."],
-            [CheckCircle2, "Reporta avistamientos."],
+            [CheckCircle2, "Reporta que la viste."],
             [Bell, "Recibe notificaciones."],
             [ShieldCheck, "Da seguimiento a los casos."],
           ].map(([Icon, text]) => (

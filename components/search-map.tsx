@@ -14,6 +14,7 @@ export type SearchMapProps = {
   userCoords: { latitude: number | null; longitude: number | null };
   referenceCoords: { latitude: number | null; longitude: number | null };
   recenterSignal: number;
+  currentUserId?: string | null;
   onSelect: (caseId: string) => void;
 };
 

@@ -4,6 +4,7 @@ import type { FormEvent } from "react";
 import { useState } from "react";
 import { Camera, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { SecondaryHeader } from "@/components/secondary-header";
 import { FriendlyError } from "@/components/feedback";
 import { submitFeedback, type FeedbackType } from "@/lib/feedback";
 import { uploadImage } from "@/services/image-service";
@@ -48,11 +49,8 @@ export default function FeedbackPage() {
 
   return (
     <main className="container py-6">
+      <SecondaryHeader title="Ayúdanos a mejorar HUELLA" description="Tu comentario llega al equipo de beta y nos ayuda a encontrar puntos confusos." />
       <section className="form-card mx-auto max-w-xl space-y-4">
-        <div>
-          <h1 className="font-serif text-4xl">Ayúdanos a mejorar HUELLA</h1>
-          <p className="mt-2 text-sm text-[#6B6860]">Tu comentario llega al equipo de beta.</p>
-        </div>
         {error && <FriendlyError message={error} />}
         {sent && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">Gracias. Recibimos tu comentario.</div>}
         <form className="space-y-4" onSubmit={submit}>

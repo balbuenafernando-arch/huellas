@@ -69,7 +69,7 @@ export default function LeafletPetMap({ pets, selectedId, sightings = [] }: { pe
                   <img src={pet.foto_principal} alt={pet.nombre} className="mb-2 h-20 w-full rounded-lg bg-[#F8F7F4] object-contain" loading="lazy" />
                   <strong>{pet.nombre}</strong>
                   <p className="text-xs text-[#6B6860]">{pet.raza} · {pet.distrito}</p>
-                  <Link href={`/pet/${pet.id}`} className="mt-1 block text-sm font-semibold text-[#1D9E75]">Abrir centro de búsqueda</Link>
+                  <Link href={`/pet/${pet.id}`} className="mt-1 block text-sm font-semibold text-[#1D9E75]">Abrir búsqueda</Link>
                 </div>
               ))}
               {cluster.pets.length > 4 && <p className="text-xs font-semibold text-[#6B6860]">+{cluster.pets.length - 4} casos cercanos</p>}
@@ -81,10 +81,10 @@ export default function LeafletPetMap({ pets, selectedId, sightings = [] }: { pe
         <Marker key={sighting.id} position={[sighting.latitud as number, sighting.longitud as number]} icon={sightingIcon(index)}>
           <Popup>
             <div className="w-48 space-y-1">
-              <strong>Avistamiento {index + 1}</strong>
+              <strong>Reporte {index + 1}</strong>
               <p className="text-xs text-[#6B6860]">{sighting.ubicacion ?? sighting.distrito ?? "Ubicación aproximada"}</p>
               <p className="text-xs text-[#6B6860]">{new Date(sighting.visto_en ?? sighting.creado_en).toLocaleString("es-PE", { dateStyle: "medium", timeStyle: "short" })}</p>
-              <Link href={`/avistamiento/${sighting.id}`} className="mt-1 block text-sm font-semibold text-[#1D9E75]">Ver avistamiento</Link>
+              <Link href={`/avistamiento/${sighting.id}`} className="mt-1 block text-sm font-semibold text-[#1D9E75]">Ver reporte</Link>
             </div>
           </Popup>
         </Marker>

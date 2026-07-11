@@ -473,14 +473,14 @@ export async function createSighting(input: Omit<Sighting, "id" | "creado_en" | 
     }, reporterId);
     const { data, error } = await supabase.from("sightings").insert(insertable).select().single();
     if (!error && data) {
-      if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo avistamiento recibido" });
+      if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo reporte recibido" });
       return normalizeSighting(data as SightingRow);
     }
     if (error) throw error;
   }
   const sightings = [sighting, ...readLocal(SIGHTINGS_KEY, demoSightings)];
   writeLocal(SIGHTINGS_KEY, sightings);
-  if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo avistamiento recibido" });
+  if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo reporte recibido" });
   return sighting;
 }
 
@@ -489,7 +489,7 @@ export async function updateSightingReview(id: string, petId: string, estado_rev
   if (estado_revision === "encontrada") {
     patch.estado = "confirmado";
     patch.estado_avistamiento = "confirmado";
-    patch.feedback_reportero = "Tu avistamiento ayudo a reunir una mascota con su familia.";
+    patch.feedback_reportero = "Tu reporte ayudó a reunir una mascota con su familia.";
   }
   if (isSupabaseConfigured && supabase && isUuid(id)) {
     const { error } = await supabase.from("sightings").update(sightingPatch(patch)).eq("id", id);
@@ -537,7 +537,7 @@ export async function updateSightingStatus(id: string, petId: string, estado: No
   await createNotification({
     pet_id: petId,
     tipo: estado === "confirmado" ? "avistamiento_confirmado" : "reporte_actualizado",
-    mensaje: estado === "confirmado" ? "Avistamiento confirmado" : "Avistamiento descartado",
+    mensaje: estado === "confirmado" ? "Reporte confirmado" : "Reporte descartado",
   });
 }
 

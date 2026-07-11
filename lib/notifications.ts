@@ -33,7 +33,7 @@ function writeLocal(items: AppNotification[]) {
 
 function titleFor(type: string) {
   if (type.includes("contact")) return "Solicitud de contacto";
-  if (type.includes("avistamiento") || type.includes("sighting")) return "Nuevo avistamiento";
+  if (type.includes("avistamiento") || type.includes("sighting")) return "Nuevo reporte";
   if (type.includes("coincidencia") || type.includes("match")) return "Nueva coincidencia";
   if (type.includes("cerrado") || type.includes("reunida") || type.includes("reunited")) return "Mascota reunida";
   return "Caso actualizado";

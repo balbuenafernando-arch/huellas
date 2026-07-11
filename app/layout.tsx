@@ -11,7 +11,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "HUELLA | Reencuentro de mascotas",
-  description: "Conecta búsquedas y avistamientos para ayudar a reunir mascotas con sus familias.",
+  description: "Conecta búsquedas y reportes de personas que vieron mascotas perdidas para ayudar a reunirlas con sus familias.",
   manifest: "/manifest.webmanifest",
   applicationName: "HUELLA",
   appleWebApp: {
