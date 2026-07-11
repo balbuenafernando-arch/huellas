@@ -46,7 +46,8 @@ function writeLocalReunionStory(caseId: string, story: ReunionStory) {
 export async function listReunionStories(): Promise<Record<string, ReunionStory>> {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from("reunion_stories").select("*").order("reunited_at", { ascending: false });
-    if (!error && data) {
+    if (error) throw error;
+    if (data) {
       return toLegacyMap(data.map((item) => ({
         id: item.id,
         caseId: item.case_id ?? item.report_id ?? item.pet_id,

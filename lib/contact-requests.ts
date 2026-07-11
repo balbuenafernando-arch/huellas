@@ -57,7 +57,8 @@ export async function listContactRequests(reportId: string) {
       .select("*")
       .eq("report_id", reportId)
       .order("created_at", { ascending: false });
-    if (!error && data) return data as ContactRequest[];
+    if (error) throw error;
+    if (data) return data as ContactRequest[];
   }
   return readLocal().filter((request) => request.report_id === reportId && (!user || request.owner_id === user.id || request.requester_id === user.id));
 }

@@ -38,5 +38,6 @@ export async function removePublicImages(bucket: string, paths: string[]) {
   if (!publicImageBuckets.has(bucket)) throw new Error("Bucket de imagen no permitido.");
   if (!isSupabaseConfigured || paths.length === 0) return;
   const supabase = getSupabaseClient();
-  await supabase.storage.from(bucket).remove(paths.filter((path) => path && !path.includes("..")));
+  const { error } = await supabase.storage.from(bucket).remove(paths.filter((path) => path && !path.includes("..")));
+  if (error) throw error;
 }

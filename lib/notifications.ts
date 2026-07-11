@@ -57,7 +57,8 @@ export async function listNotifications(): Promise<AppNotification[]> {
   const user = await getCurrentUser();
   if (isSupabaseConfigured && supabase && user) {
     const { data, error } = await supabase.from("notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false });
-    if (!error && data) return data.map((item) => normalizeNotification(item as Record<string, unknown>));
+    if (error) throw error;
+    if (data) return data.map((item) => normalizeNotification(item as Record<string, unknown>));
   }
   const local = readLocal();
   return local.length ? local : demoNotifications.map((item) => normalizeNotification(item as unknown as Record<string, unknown>));
@@ -66,7 +67,8 @@ export async function listNotifications(): Promise<AppNotification[]> {
 export async function markAllNotificationsRead() {
   const user = await getCurrentUser();
   if (isSupabaseConfigured && supabase && user) {
-    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", user.id).is("read_at", null);
+    const { error } = await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", user.id).is("read_at", null);
+    if (error) throw error;
   }
   writeLocal(readLocal().map((item) => ({ ...item, read: true })));
 }

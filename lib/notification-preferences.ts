@@ -28,7 +28,8 @@ function writeLocal(preferences: NotificationPreferences) {
 export async function getNotificationPreferences() {
   const user = await getCurrentUser();
   if (isSupabaseConfigured && supabase && user) {
-    const { data } = await supabase.from("user_settings").select("notify_by_email, notify_by_whatsapp").eq("user_id", user.id).maybeSingle();
+    const { data, error } = await supabase.from("user_settings").select("notify_by_email, notify_by_whatsapp").eq("user_id", user.id).maybeSingle();
+    if (error) throw error;
     if (data) return { notifyByEmail: Boolean(data.notify_by_email), notifyByWhatsapp: Boolean(data.notify_by_whatsapp) };
   }
   return readLocal();
@@ -37,12 +38,13 @@ export async function getNotificationPreferences() {
 export async function saveNotificationPreferences(preferences: NotificationPreferences) {
   const user = await getCurrentUser();
   if (isSupabaseConfigured && supabase && user) {
-    await supabase.from("user_settings").upsert({
+    const { error } = await supabase.from("user_settings").upsert({
       user_id: user.id,
       notify_by_email: preferences.notifyByEmail,
       notify_by_whatsapp: preferences.notifyByWhatsapp,
       updated_at: new Date().toISOString(),
     });
+    if (error) throw error;
   }
   writeLocal(preferences);
 }

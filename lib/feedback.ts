@@ -23,7 +23,7 @@ export async function submitFeedback(input: { tipo: FeedbackType; comentario: st
 export async function submitErrorReport(error: Error, stack = "") {
   if (!isSupabaseConfigured || !supabase) return;
   const { data: userData } = await supabase.auth.getUser();
-  await supabase.from("feedback").insert({
+  const { error: insertError } = await supabase.from("feedback").insert({
     user_id: userData.user?.id ?? null,
     tipo: "Error",
     comentario: [
@@ -36,4 +36,5 @@ export async function submitErrorReport(error: Error, stack = "") {
     screenshot_url: null,
     app_version: APP_VERSION,
   });
+  if (insertError) throw insertError;
 }

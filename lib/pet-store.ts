@@ -316,7 +316,8 @@ export function isOwnedSighting(sighting?: Sighting) {
 export async function getPets(): Promise<Pet[]> {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from("pets").select("*").order("created_at", { ascending: false });
-    if (!error && data?.length) return (data as PetRow[]).map(normalizePet);
+    if (error) throw error;
+    if (data?.length) return (data as PetRow[]).map(normalizePet);
   }
   return readLocal(PETS_KEY, demoPets);
 }
@@ -332,7 +333,8 @@ export async function getSightings(petId?: string | null, relatedId?: string | n
     const filters = [petId, relatedId].filter(isUuid).flatMap((id) => [`pet_id.eq.${id}`, `report_id.eq.${id}`]);
     if (filters.length) query = query.or(filters.join(","));
     const { data, error } = await query;
-    if (!error && data) return (data as SightingRow[]).map(normalizeSighting);
+    if (error) throw error;
+    if (data) return (data as SightingRow[]).map(normalizeSighting);
   }
   const sightings = readLocal(SIGHTINGS_KEY, demoSightings);
   return petId ? sightings.filter((sighting) => sighting.pet_id === petId || sighting.report_id === petId || sighting.pet_id === relatedId || sighting.report_id === relatedId) : sightings;
@@ -341,7 +343,8 @@ export async function getSightings(petId?: string | null, relatedId?: string | n
 export async function getSighting(id: string): Promise<Sighting | undefined> {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
     const { data, error } = await supabase.from("sightings").select("*").eq("id", id).maybeSingle();
-    if (!error && data) return normalizeSighting(data as SightingRow);
+    if (error) throw error;
+    if (data) return normalizeSighting(data as SightingRow);
   }
   return readLocal(SIGHTINGS_KEY, demoSightings).find((sighting) => sighting.id === id);
 }
@@ -350,7 +353,8 @@ export async function getNotifications(): Promise<Notification[]> {
   const userId = await currentUserId();
   if (isSupabaseConfigured && supabase && userId) {
     const { data, error } = await supabase.from("notifications").select("*").eq("user_id", userId).order("created_at", { ascending: false });
-    if (!error && data) {
+    if (error) throw error;
+    if (data) {
       return data.map((item) => ({
         id: String(item.id),
         pet_id: String(item.report_id ?? ""),
@@ -368,18 +372,16 @@ export async function createNotification(input: Omit<Notification, "id" | "leido
   const notification: Notification = { ...input, id: crypto.randomUUID(), leido: false, creado_en: new Date().toISOString() };
   const userId = await currentUserId();
   if (isSupabaseConfigured && supabase && userId && isUuid(input.pet_id)) {
-    try {
-      const { data: report } = await supabase.from("lost_reports").select("id, owner_id").or(`pet_id.eq.${input.pet_id},id.eq.${input.pet_id}`).maybeSingle();
-      if (report?.id && report?.owner_id === userId) {
-        await supabase.from("notifications").insert({
-          user_id: report.owner_id,
-          report_id: report.id,
-          type: input.tipo,
-          message: input.mensaje,
-        });
-      }
-    } catch (error) {
-      console.warn("[HUELLA] No se pudo crear la notificacion secundaria.", error);
+    const { data: report, error: reportError } = await supabase.from("lost_reports").select("id, owner_id").or(`pet_id.eq.${input.pet_id},id.eq.${input.pet_id}`).maybeSingle();
+    if (reportError) throw reportError;
+    if (report?.id && report?.owner_id === userId) {
+      const { error } = await supabase.from("notifications").insert({
+        user_id: report.owner_id,
+        report_id: report.id,
+        type: input.tipo,
+        message: input.mensaje,
+      });
+      if (error) throw error;
     }
   }
   writeLocal(NOTIFICATIONS_KEY, [notification, ...readLocal(NOTIFICATIONS_KEY, demoNotifications)]);
@@ -389,7 +391,8 @@ export async function createNotification(input: Omit<Notification, "id" | "leido
 export async function markNotificationsRead() {
   const userId = await currentUserId();
   if (isSupabaseConfigured && supabase && userId) {
-    await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", userId).is("read_at", null);
+    const { error } = await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", userId).is("read_at", null);
+    if (error) throw error;
   }
   writeLocal(NOTIFICATIONS_KEY, readLocal(NOTIFICATIONS_KEY, demoNotifications).map((item) => ({ ...item, leido: true })));
 }
@@ -397,7 +400,7 @@ export async function markNotificationsRead() {
 export async function createContentReport(input: Omit<ContentReport, "id" | "creado_en">) {
   const report: ContentReport = { ...input, id: crypto.randomUUID(), creado_en: new Date().toISOString() };
   if (isSupabaseConfigured && supabase && isUuid(input.target_id)) {
-    await supabase.from("moderation_reports").insert({
+    const { error } = await supabase.from("moderation_reports").insert({
       reporter_id: await ensureCurrentProfile(),
       target_type: input.target_type,
       target_id: input.target_id,
@@ -405,6 +408,7 @@ export async function createContentReport(input: Omit<ContentReport, "id" | "cre
       details: input.detalle ?? null,
       status: "open",
     });
+    if (error) throw error;
   }
   writeLocal(CONTENT_REPORTS_KEY, [report, ...readLocal<ContentReport[]>(CONTENT_REPORTS_KEY, [])]);
   return report;
@@ -448,7 +452,8 @@ export async function updatePet(id: string, input: Partial<Pet>) {
 
 export async function deletePet(id: string) {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase.from("pets").delete().eq("id", id);
+    const { error } = await supabase.from("pets").delete().eq("id", id);
+    if (error) throw error;
   }
   writeLocal(PETS_KEY, readLocal(PETS_KEY, demoPets).filter((pet) => pet.id !== id));
   writeLocal(SIGHTINGS_KEY, readLocal(SIGHTINGS_KEY, demoSightings).filter((sighting) => sighting.pet_id !== id));
@@ -516,7 +521,8 @@ export async function updateSighting(id: string, input: Partial<Sighting>) {
 
 export async function deleteSighting(id: string) {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase.from("sightings").delete().eq("id", id);
+    const { error } = await supabase.from("sightings").delete().eq("id", id);
+    if (error) throw error;
   }
   writeLocal(SIGHTINGS_KEY, readLocal(SIGHTINGS_KEY, demoSightings).filter((sighting) => sighting.id !== id));
 }

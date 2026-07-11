@@ -409,7 +409,8 @@ export async function listReports(includeReunidos = false) {
       .order("created_at", { ascending: false });
     if (!includeReunidos) query = query.eq("status", "active");
     const { data, error } = await query;
-    if (!error && data?.length) return (data as unknown as LostReportRow[]).map(lostReportToReport);
+    if (error) throw error;
+    if (data?.length) return (data as unknown as LostReportRow[]).map(lostReportToReport);
   }
   const local = readLocal<Report[]>(REPORTS_KEY, []);
   if (local.length) return includeReunidos ? local : local.filter((report) => report.estado === "activo");
@@ -424,7 +425,8 @@ export async function listMyReports() {
       .select("*, pet:pets(*), private_contact:report_private_contacts(contact_whatsapp, contact_phone)")
       .eq("owner_id", user.id)
       .order("created_at", { ascending: false });
-    if (!error && data) return (data as unknown as LostReportRow[]).map(lostReportToReport);
+    if (error) throw error;
+    if (data) return (data as unknown as LostReportRow[]).map(lostReportToReport);
   }
   return readLocal<Report[]>(REPORTS_KEY, []).filter((report) => report.user_id === user?.id);
 }
@@ -436,7 +438,8 @@ export async function getReport(id: string) {
       .select("*, pet:pets(*), private_contact:report_private_contacts(contact_whatsapp, contact_phone)")
       .eq("id", id)
       .maybeSingle();
-    if (!error && data) return lostReportToReport(data as unknown as LostReportRow);
+    if (error) throw error;
+    if (data) return lostReportToReport(data as unknown as LostReportRow);
   }
   const localReport = readLocal<Report[]>(REPORTS_KEY, []).find((report) => report.id === id);
   if (localReport) return localReport;
@@ -449,7 +452,8 @@ export async function incrementReportView(id: string) {
   if (!report) return;
   const next = (report.views_count ?? 0) + 1;
   if (isSupabaseConfigured && supabase && isUuid(id)) {
-    await supabase.from("lost_reports").update({ views_count: next, updated_at: new Date().toISOString() }).eq("id", id);
+    const { error } = await supabase.from("lost_reports").update({ views_count: next, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) throw error;
   }
   writeLocal(REPORTS_KEY, readLocal<Report[]>(REPORTS_KEY, []).map((item) => item.id === id ? { ...item, views_count: next } : item));
 }
@@ -484,7 +488,7 @@ export async function createReport(input: Omit<Report, "id" | "user_id" | "creat
         owner_id: user.id,
         contact_whatsapp: input.whatsapp,
       });
-      if (contactError) console.error("Error al guardar contacto privado del reporte", contactError);
+      if (contactError) throw contactError;
     }
     return saved;
   }
@@ -540,8 +544,9 @@ export async function getBasicMetrics() {
   const [pets, reports] = await Promise.all([listMyRegisteredPets(), listReports(true)]);
   let sightingsCount = readLocal<typeof demoSightings>("huella:sightings", demoSightings).length;
   if (isSupabaseConfigured && supabase) {
-    const { count } = await supabase.from("sightings").select("id", { count: "exact", head: true });
-    sightingsCount = count ?? sightingsCount;
+    const { count, error } = await supabase.from("sightings").select("id", { count: "exact", head: true });
+    if (error) throw error;
+    sightingsCount = count ?? 0;
   }
   return {
     mascotasRegistradas: pets.length,
