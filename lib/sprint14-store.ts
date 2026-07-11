@@ -135,6 +135,9 @@ async function ensureProfile(user: User) {
 async function ensureProfileRow(user: User) {
   await ensureProfile(user);
   if (!isSupabaseConfigured || !supabase) return;
+  const { data: ensuredId, error: rpcError } = await supabase.rpc("ensure_current_profile");
+  if (!rpcError && ensuredId === user.id) return;
+  if (rpcError && rpcError.code !== "PGRST202") throw rpcError;
   const { data: existing, error: readError } = await supabase.from("profiles").select("id").eq("id", user.id).maybeSingle();
   if (readError) throw readError;
   if (existing) return;
