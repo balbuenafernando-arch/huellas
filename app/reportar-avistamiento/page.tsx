@@ -17,7 +17,7 @@ import type { CaseMatch } from "@/lib/cases";
 import { uploadImage } from "@/services/image-service";
 import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation, type LocationDetails } from "@/lib/location";
 import { FriendlyError } from "@/components/feedback";
-import { friendlyError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
+import { friendlyError, operationError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
 
 const traits = ["Collar", "Placa", "Panuelo", "Mancha blanca", "Oreja doblada", "Cola corta", "Cojera", "Herida visible", "Ojo de color distinto", "Otro"];
 const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
@@ -65,16 +65,6 @@ function loadDraft() {
 
 function locationLabel(details: LocationDetails | null, address: string) {
   return details?.district || details?.province || details?.department || address || "Ubicacion exacta";
-}
-
-function technicalError(caught: unknown, fallback: string) {
-  if (caught instanceof Error && caught.message) return `${fallback}: ${caught.message}`;
-  if (typeof caught === "object" && caught) {
-    const record = caught as Record<string, unknown>;
-    const detail = [record.code, record.message, record.details, record.hint].filter(Boolean).join(" - ");
-    if (detail) return `${fallback}: ${detail}`;
-  }
-  return fallback;
 }
 
 export default function ReportSightingPage() {
@@ -244,7 +234,7 @@ export default function ReportSightingPage() {
       user = await getCurrentUser();
       foundMatches = await findLostPetMatches({ especie, tamano, color, distrito: locationLabel(locationDetails, draft.ubicacion), rasgos, fecha: seenAt, latitude: coords.latitude, longitude: coords.longitude });
     } catch (caught) {
-      setError(friendlyError(caught, "No se pudo revisar coincidencias. Intenta nuevamente."));
+      setError(operationError(caught, "revisar coincidencias"));
       setSaving(false);
       return;
     }
@@ -262,7 +252,7 @@ export default function ReportSightingPage() {
         try {
           foto = await uploadImage(file);
         } catch (caught) {
-          throw new Error(technicalError(caught, "Error al subir la fotografia"));
+          throw new Error(operationError(caught, "subir fotografia de avistamiento", "Error al subir la fotografia"));
         }
       }
 
@@ -295,7 +285,7 @@ export default function ReportSightingPage() {
           rasgo_privado: "",
           });
         } catch (caught) {
-          throw new Error(technicalError(caught, "Error al crear la mascota vista en Supabase"));
+          throw new Error(operationError(caught, "crear mascota vista en Supabase", "Error al crear la mascota vista en Supabase"));
         }
         let report;
         try {
@@ -312,7 +302,7 @@ export default function ReportSightingPage() {
           pet,
           });
         } catch (caught) {
-          throw new Error(technicalError(caught, "Error al crear el caso asociado en Supabase"));
+          throw new Error(operationError(caught, "crear caso asociado en Supabase", "Error al crear el caso asociado en Supabase"));
         }
         reportId = report.id;
         petId = pet.id;
@@ -338,7 +328,7 @@ export default function ReportSightingPage() {
         longitud: coords.longitude,
         });
       } catch (caught) {
-        throw new Error(technicalError(caught, "Error de base de datos al registrar el avistamiento"));
+        throw new Error(operationError(caught, "registrar avistamiento en Supabase", "Error de base de datos al registrar el avistamiento"));
       }
 
       if (selectedMatch) {
@@ -355,7 +345,7 @@ export default function ReportSightingPage() {
       setPhotoFile(null);
       formElement.reset();
     } catch (caught) {
-      setError(technicalError(caught, "No se pudo registrar el avistamiento"));
+      setError(caught instanceof Error ? caught.message : operationError(caught, "registrar avistamiento"));
     } finally {
       setSaving(false);
     }

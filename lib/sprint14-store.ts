@@ -340,7 +340,8 @@ export async function listMyRegisteredPets() {
       .select("*, private_details:pet_private_details(telefono, rasgo_privado)")
       .or(`user_id.eq.${user.id},owner_id.eq.${user.id}`)
       .order("created_at", { ascending: false });
-    if (!error && data) return (data as RegisteredPetRow[]).map(normalizeRegisteredPet);
+    if (error) throw error;
+    if (data) return (data as RegisteredPetRow[]).map(normalizeRegisteredPet);
   }
   return readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, []).filter((pet) => pet.user_id === user?.id);
 }
@@ -363,9 +364,9 @@ export async function createRegisteredPet(input: Omit<RegisteredPet, "id" | "use
         rasgo_privado: input.rasgo_privado ?? null,
         updated_at: new Date().toISOString(),
       });
-      if (privateError) console.error("Error al guardar datos privados de mascota", privateError);
+      if (privateError) throw privateError;
     }
-    return data as RegisteredPet;
+    return normalizeRegisteredPet(data as RegisteredPetRow);
   }
   writeLocal(REGISTERED_PETS_KEY, [pet, ...readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, [])]);
   return pet;
@@ -375,15 +376,17 @@ export async function updateRegisteredPet(id: string, input: Partial<RegisteredP
   if (isSupabaseConfigured && supabase && isUuid(id)) {
     const user = await getCurrentUser();
     if (user) await ensureProfile(user);
-    await supabase.from("pets").update(registeredPetPatch(input)).eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`);
+    const { error } = await supabase.from("pets").update(registeredPetPatch(input)).eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`);
+    if (error) throw error;
     if ((input.telefono !== undefined || input.rasgo_privado !== undefined) && user) {
-      await supabase.from("pet_private_details").upsert({
+      const { error: privateError } = await supabase.from("pet_private_details").upsert({
         pet_id: id,
         owner_id: user.id,
         telefono: input.telefono ?? null,
         rasgo_privado: input.rasgo_privado ?? null,
         updated_at: new Date().toISOString(),
       });
+      if (privateError) throw privateError;
     }
   }
   writeLocal(REGISTERED_PETS_KEY, readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, []).map((pet) => pet.id === id ? { ...pet, ...input } : pet));
@@ -392,7 +395,8 @@ export async function updateRegisteredPet(id: string, input: Partial<RegisteredP
 export async function deleteRegisteredPet(id: string) {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
     const user = await getCurrentUser();
-    await supabase.from("pets").delete().eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`);
+    const { error } = await supabase.from("pets").delete().eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`);
+    if (error) throw error;
   }
   writeLocal(REGISTERED_PETS_KEY, readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, []).filter((pet) => pet.id !== id));
 }

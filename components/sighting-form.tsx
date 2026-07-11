@@ -8,22 +8,12 @@ import { createSighting, findPotentialDuplicateSightings } from "@/lib/pet-store
 import { uploadImage } from "@/services/image-service";
 import type { Sighting } from "@/lib/demo-data";
 import { FriendlyError } from "@/components/feedback";
-import { friendlyError, validateImageFile, validateNotFuture } from "@/lib/form-validation";
+import { friendlyError, operationError, validateImageFile, validateNotFuture } from "@/lib/form-validation";
 import { ImageCropper } from "@/components/image-cropper";
 import { LocationPicker } from "@/components/location-picker";
 import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 
 type FieldErrors = Record<string, string>;
-
-function technicalError(caught: unknown, fallback: string) {
-  if (caught instanceof Error && caught.message) return `${fallback}: ${caught.message}`;
-  if (typeof caught === "object" && caught) {
-    const record = caught as Record<string, unknown>;
-    const detail = [record.code, record.message, record.details, record.hint].filter(Boolean).join(" - ");
-    if (detail) return `${fallback}: ${detail}`;
-  }
-  return fallback;
-}
 
 export function SightingForm({ petId, reportId, onCreated }: { petId: string; reportId?: string | null; onCreated: () => void }) {
   const [comentario, setComentario] = useState("");
@@ -141,8 +131,13 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         return;
       }
       let fotoUrl: string | null = null;
-      if (foto) fotoUrl = await uploadImage(foto);
-      await createSighting({
+      try {
+        if (foto) fotoUrl = await uploadImage(foto);
+      } catch (caught) {
+        throw new Error(operationError(caught, "subir fotografia de avistamiento", "Error al subir la fotografia"));
+      }
+      try {
+        await createSighting({
         pet_id: petId,
         report_id: reportId ?? null,
         comentario,
@@ -154,7 +149,10 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         nombre_observado: String(form.get("nombre_observado") ?? "").trim() || null,
         latitud: coords.latitude,
         longitud: coords.longitude,
-      });
+        });
+      } catch (caught) {
+        throw new Error(operationError(caught, "registrar avistamiento en Supabase", "Error de base de datos al registrar el avistamiento"));
+      }
       setComentario("");
       setUbicacion("");
       setVistoEn("");
@@ -163,7 +161,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       setFotoPreview("");
       onCreated();
     } catch (caught) {
-      setError(technicalError(caught, "No se pudo registrar el avistamiento"));
+      setError(caught instanceof Error ? caught.message : operationError(caught, "registrar avistamiento"));
     } finally {
       setSaving(false);
     }

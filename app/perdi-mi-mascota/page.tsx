@@ -16,7 +16,7 @@ import type { CaseMatch } from "@/lib/cases";
 import { formatDistance } from "@/lib/utils";
 import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation, type LocationDetails } from "@/lib/location";
 import { FriendlyError } from "@/components/feedback";
-import { friendlyError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
+import { friendlyError, operationError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
 import { isValidPeruWhatsapp, normalizePeruWhatsapp } from "@/lib/whatsapp";
 
 const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
@@ -24,16 +24,6 @@ type FieldErrors = Record<string, string>;
 
 function locationLabel(details: LocationDetails | null, address: string) {
   return details?.district || details?.province || details?.department || address || "Ubicacion exacta";
-}
-
-function technicalError(caught: unknown, fallback: string) {
-  if (caught instanceof Error && caught.message) return `${fallback}: ${caught.message}`;
-  if (typeof caught === "object" && caught) {
-    const record = caught as Record<string, unknown>;
-    const detail = [record.code, record.message, record.details, record.hint].filter(Boolean).join(" - ");
-    if (detail) return `${fallback}: ${detail}`;
-  }
-  return fallback;
 }
 
 export default function EmergencyReportPage() {
@@ -209,7 +199,7 @@ export default function EmergencyReportPage() {
         try {
           fotoUrl = await uploadMascotaImage(file, "mascotas");
         } catch (caught) {
-          throw new Error(technicalError(caught, "Error al subir la fotografia"));
+          throw new Error(operationError(caught, "subir fotografia de busqueda", "Error al subir la fotografia"));
         }
       }
       if (!pet) {
@@ -234,7 +224,7 @@ export default function EmergencyReportPage() {
           foto_url: fotoUrl,
           });
         } catch (caught) {
-          throw new Error(technicalError(caught, "Error al crear la mascota en Supabase"));
+          throw new Error(operationError(caught, "crear mascota en Supabase", "Error al crear la mascota en Supabase"));
         }
       }
       const recompensa = String(form.get("recompensa") || "");
@@ -253,11 +243,11 @@ export default function EmergencyReportPage() {
         pet,
         });
       } catch (caught) {
-        throw new Error(technicalError(caught, "Error de base de datos al crear el reporte"));
+        throw new Error(operationError(caught, "crear reporte en Supabase", "Error de base de datos al crear el reporte"));
       }
       setPublishedPet(reportToLegacyPet(report));
     } catch (caught) {
-      setError(technicalError(caught, "No se pudo crear el reporte"));
+      setError(caught instanceof Error ? caught.message : operationError(caught, "crear reporte"));
     } finally {
       setSaving(false);
     }

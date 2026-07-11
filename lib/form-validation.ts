@@ -38,6 +38,40 @@ export function friendlyError(error: unknown, fallback = "No se pudo completar l
   return withTechnical(fallback);
 }
 
+function errorField(error: unknown, field: string) {
+  if (!error || typeof error !== "object" || !(field in error)) return "";
+  const value = (error as Record<string, unknown>)[field];
+  return value == null ? "" : String(value);
+}
+
+export function operationError(error: unknown, operation: string, title?: string) {
+  console.error("[HUELLA]", operation, error);
+
+  const message = error instanceof Error ? error.message : errorField(error, "message") || "Error desconocido";
+  const code = errorField(error, "code") || errorField(error, "status") || "Sin codigo";
+  const detail = errorField(error, "details") || errorField(error, "detail") || "Sin detalle";
+  const hint = errorField(error, "hint") || "Sin hint";
+
+  return [
+    title ?? `Error al ${operation}`,
+    "",
+    "Codigo:",
+    code,
+    "",
+    "Mensaje:",
+    message,
+    "",
+    "Detalle:",
+    detail,
+    "",
+    "Hint:",
+    hint,
+    "",
+    "Operacion:",
+    operation,
+  ].join("\n");
+}
+
 export function validateImageFile(file?: File | null) {
   if (!file || file.size === 0) return null;
   if (!allowedImageTypes.has(file.type)) return "Usa una imagen en formato JPG, PNG o WebP.";

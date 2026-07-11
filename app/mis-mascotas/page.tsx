@@ -10,7 +10,7 @@ import type { Sighting } from "@/lib/demo-data";
 import { getSightings } from "@/lib/pet-store";
 import { listMyCases, type CaseRecord } from "@/lib/cases";
 import { createRegisteredPet, deleteRegisteredPet, listMyRegisteredPets, type RegisteredPet, updateRegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
-import { friendlyError, requiredText, validateImageFiles } from "@/lib/form-validation";
+import { friendlyError, operationError, requiredText, validateImageFiles } from "@/lib/form-validation";
 
 type FieldErrors = Record<string, string>;
 
@@ -120,7 +120,12 @@ export default function MisMascotasPage() {
     setSuccessMessage("");
     try {
       const wasEditing = Boolean(editing);
-      const uploaded = files.length ? await Promise.all(files.map((file) => uploadMascotaImage(file))) : [];
+      let uploaded: string[] = [];
+      try {
+        uploaded = files.length ? await Promise.all(files.map((file) => uploadMascotaImage(file))) : [];
+      } catch (caught) {
+        throw new Error(operationError(caught, "subir fotografia de mascota"));
+      }
       const existingFotos = editing?.fotos?.length ? editing.fotos : editing?.foto_url ? [editing.foto_url] : [];
       const fotos = uploaded.length ? uploaded : existingFotos;
       const principal = String(fotos[0] || editing?.foto_url || "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80");
@@ -146,14 +151,18 @@ export default function MisMascotasPage() {
         foto_url: principal,
         rasgo_privado: editing?.rasgo_privado ?? "",
       };
-      if (editing) await updateRegisteredPet(editing.id, payload);
-      else await createRegisteredPet(payload);
+      try {
+        if (editing) await updateRegisteredPet(editing.id, payload);
+        else await createRegisteredPet(payload);
+      } catch (caught) {
+        throw new Error(operationError(caught, editing ? "actualizar mascota" : "guardar mascota"));
+      }
       closeForm();
       formElement.reset();
       await load();
       setSuccessMessage(wasEditing ? "Mascota actualizada correctamente. Sus datos ya estan disponibles para futuras busquedas." : "Mascota creada correctamente. Ahora puedes activar una busqueda si algun dia la necesitas.");
     } catch (caught) {
-      setError(friendlyError(caught, "No se pudo guardar la mascota. Revisa los datos e inténtalo otra vez."));
+      setError(caught instanceof Error ? caught.message : operationError(caught, "guardar mascota"));
     } finally {
       setSaving(false);
     }
@@ -165,7 +174,7 @@ export default function MisMascotasPage() {
       await deleteRegisteredPet(id);
       await load();
     } catch (caught) {
-      setError(friendlyError(caught, "No se pudo eliminar la mascota. Inténtalo otra vez."));
+      setError(operationError(caught, "eliminar mascota"));
     }
   }
 
