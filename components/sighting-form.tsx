@@ -107,10 +107,10 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     event.preventDefault();
     if (saving) return;
     const errors: FieldErrors = {};
-    if (!ubicacion.trim()) errors.ubicacion = "Indica dónde viste a la mascota.";
-    if (!vistoEn) errors.visto_en = "Indica fecha y hora en que la viste.";
+    if (!ubicacion.trim()) errors.ubicacion = "Indica la ubicacion del avistamiento.";
+    if (!vistoEn) errors.visto_en = "Indica fecha y hora del avistamiento.";
     if (!comentario.trim()) errors.comentario = "Describe lo que viste.";
-    const validationMessage = validateNotFuture(vistoEn, "La fecha en que la viste") || validateImageFile(foto);
+    const validationMessage = validateNotFuture(vistoEn, "La fecha del avistamiento") || validateImageFile(foto);
     if (validationMessage) {
       if (validationMessage.includes("fecha") || validationMessage.includes("Fecha")) errors.visto_en = validationMessage;
       else errors.foto = validationMessage;
@@ -126,7 +126,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     try {
       const duplicates = await findPotentialDuplicateSightings({ petId: reportId ?? petId, ubicacion, vistoEn });
       if (duplicates.length && !warning) {
-      setWarning("Ya hay reportes parecidos cerca. Revisa si ayudan; si tu información agrega algo, envíala igual.");
+      setWarning("Ya hay avistamientos parecidos cerca. Revisa si ayudan; si tu información agrega algo, envíala igual.");
         setSaving(false);
         return;
       }
@@ -134,7 +134,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       try {
         if (foto) fotoUrl = await uploadImage(foto);
       } catch (caught) {
-        throw new Error(operationError(caught, "subir fotografía del reporte", "Error al subir la fotografía"));
+        throw new Error(operationError(caught, "subir fotografia de avistamiento", "Error al subir la fotografia"));
       }
       try {
         await createSighting({
@@ -151,7 +151,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         longitud: coords.longitude,
         });
       } catch (caught) {
-        throw new Error(operationError(caught, "registrar reporte en Supabase", "Error de base de datos al guardar el reporte"));
+        throw new Error(operationError(caught, "registrar avistamiento en Supabase", "Error de base de datos al registrar el avistamiento"));
       }
       setComentario("");
       setUbicacion("");
@@ -161,20 +161,20 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       setFotoPreview("");
       onCreated();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : operationError(caught, "registrar reporte"));
+      setError(caught instanceof Error ? caught.message : operationError(caught, "registrar avistamiento"));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <form id="reportar-que-la-vi" ref={formRef} onSubmit={submit} className="form-card scroll-mt-24 space-y-4">
+    <form id="compartir-avistamiento" ref={formRef} onSubmit={submit} className="form-card scroll-mt-24 space-y-4">
       {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onApply={(file, previewUrl) => {
         setFoto(file);
         setFotoPreview(previewUrl);
         setCropFile(null);
       }} />}
-      <h2 className="font-bold">Reportar que la vi</h2>
+      <h2 className="font-bold">Compartir avistamiento</h2>
       {error && <FriendlyError message={error} />}
       {warning && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">{warning}</div>}
       <div>
@@ -191,7 +191,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. El pin manda sobre la dirección.</p>
       <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={usingGps || saving}>{usingGps ? "Obteniendo ubicacion..." : "Usar mi ubicación actual"}</Button>
       <div>
-        <label className="label">Fecha y hora en que la viste *</label>
+        <label className="label">Fecha y hora del avistamiento *</label>
         <input required className="field" name="visto_en" type="datetime-local" value={vistoEn} onChange={(e) => setVistoEn(e.target.value)} />
         {fieldErrors.visto_en && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.visto_en}</p>}
       </div>
@@ -227,13 +227,13 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
         <div className="grid gap-2 min-[390px]:grid-cols-2">
           <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
-          <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galería</Button>
+          <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galeria</Button>
         </div>
         {fotoPreview && <img src={fotoPreview} alt="Foto recortada" className="mt-3 max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
         {fieldErrors.foto && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.foto}</p>}
       </div>
       <div className="flex gap-2 rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]"><MapPin size={18} className="shrink-0" />Comparte una referencia clara para orientar la búsqueda.</div>
-      <Button type="submit" disabled={saving}><Send size={18} />{saving ? "Guardando reporte..." : warning ? "Enviar de todos modos" : "Enviar reporte"}</Button>
+      <Button type="submit" disabled={saving}><Send size={18} />{saving ? "Registrando avistamiento..." : warning ? "Enviar de todos modos" : "Enviar avistamiento"}</Button>
     </form>
   );
 }

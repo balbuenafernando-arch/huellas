@@ -11,8 +11,8 @@ export function ProgressiveSigninCard({ continueHref = "/", context = "search" }
       <h2 className="font-bold">{isSighting ? "Gracias por ayudar." : "Tu búsqueda ya está publicada."}</h2>
       <p className="mt-2 text-sm leading-6 text-[#6B6860]">
         {isSighting
-          ? "Registramos tu reporte y quedó asociado a tu sesión."
-          : "Ahora puedes dar seguimiento, editar la información y comunicarte con quienes reporten haberla visto."}
+          ? "Registramos el avistamiento y quedó asociado a tu sesión."
+          : "Ahora puedes dar seguimiento, editar la información y comunicarte con quienes reporten avistamientos."}
       </p>
       <div className="mt-4">
         <Button asChild><Link href={continueHref}>Continuar</Link></Button>

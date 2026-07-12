@@ -41,7 +41,7 @@ function toPoint(sighting: Sighting): SearchPoint | null {
     latitude: sighting.latitud,
     longitude: sighting.longitud,
     date: sighting.visto_en ?? sighting.creado_en,
-    label: sighting.ubicacion ?? sighting.distrito ?? "Reporte",
+    label: sighting.ubicacion ?? sighting.distrito ?? "Avistamiento",
   };
 }
 

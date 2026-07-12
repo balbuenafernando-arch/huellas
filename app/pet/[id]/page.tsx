@@ -4,10 +4,8 @@ import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { CheckCircle, Download, Edit, MapPin, Trash2, X } from "lucide-react";
+import { ArrowLeft, CheckCircle, Download, Edit, MapPin, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AuthorBadge } from "@/components/author-badge";
-import { SecondaryHeader } from "@/components/secondary-header";
 import { PetMap } from "@/components/pet-map";
 import { PosterButton, ShareButton } from "@/components/report-actions";
 import { SightingForm } from "@/components/sighting-form";
@@ -80,7 +78,7 @@ function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () =
       setEditing(false);
       onDone();
     } catch (caught) {
-      setError(friendlyError(caught, "No se pudo guardar el reporte. Inténtalo otra vez."));
+      setError(friendlyError(caught, "No se pudo guardar el avistamiento. Inténtalo otra vez."));
     } finally {
       setSaving(false);
     }
@@ -200,8 +198,8 @@ export default function PetDetailPage() {
     const sightingEvents = sightings.map((item) => ({
       id: `sighting-${item.id}`,
       date: item.visto_en ?? item.creado_en,
-      label: (item.estado_avistamiento ?? item.estado) === "confirmado" ? "Reporte confirmado" : "La vieron",
-      type: "Reporte",
+      label: (item.estado_avistamiento ?? item.estado) === "confirmado" ? "Avistamiento confirmado" : "Avistamiento recibido",
+      type: "Avistamiento",
       icon: "●",
       location: item.ubicacion ?? item.distrito,
       sightingId: item.id,
@@ -323,7 +321,7 @@ export default function PetDetailPage() {
 
   return (
     <main className="container py-5">
-      <SecondaryHeader title={isClosed ? "Detalle del reencuentro" : "Detalle de la búsqueda"} description={isClosed ? "Este caso ya terminó: la mascota volvió a casa." : "Revisa la información del caso, reportes asociados y formas de ayudar."} />
+      <button type="button" onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))} className="mb-3 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Volver</button>
       {pageError && <div className="mb-4"><FriendlyError message={pageError} onRetry={load} /></div>}
       <div className="grid gap-5 lg:grid-cols-[.92fr_1.08fr]">
         <section className="space-y-3">
@@ -346,18 +344,17 @@ export default function PetDetailPage() {
             <div className="mt-3 grid gap-2 text-sm min-[430px]:grid-cols-3">
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#1D9E75]">Caso {publicCaseCode(report?.id ?? pet.id)}</strong>Identificador público</div>
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#1D9E75]">❤️ {helperCount}</strong>personas ayudando</div>
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#1D9E75]">{sightings.length}</strong>reportes de personas que la vieron</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#1D9E75]">{sightings.length}</strong>avistamientos registrados</div>
             </div>
-            <div className="mt-3"><AuthorBadge author={{ name: report?.reporter_name, isAnonymous: report?.reporter_is_anonymous, isCurrentUser: owned, publishedAt: report?.created_at ?? pet.creado_en }} /></div>
             {pet.alias?.length ? <p className="mt-2 text-sm text-[#6B6860]">También responde a: {pet.alias.join(", ")}</p> : null}
-            {latestSighting && <p className="mt-2 text-sm font-semibold text-[#1D9E75]">Último reporte: {timeAgo(latestSighting.visto_en ?? latestSighting.creado_en)}</p>}
+            {latestSighting && <p className="mt-2 text-sm font-semibold text-[#1D9E75]">Último avistamiento: {timeAgo(latestSighting.visto_en ?? latestSighting.creado_en)}</p>}
             <p className="mt-2 text-sm text-[#6B6860]">Última actualización: {timeAgo(report?.updated_at ?? caseRecord?.updatedAt ?? pet.creado_en)}</p>
             {owned && pendingContactRequests > 0 && <div className="mt-3 rounded-2xl bg-[#FAEEDA] p-4 text-sm text-[#6B4A10]"><strong className="block">❤️ Tienes personas intentando ayudarte.</strong><p>{pendingContactRequests} solicitud{pendingContactRequests === 1 ? "" : "es"} pendiente{pendingContactRequests === 1 ? "" : "s"}.</p><a href="#solicitudes-contacto" className="mt-2 inline-block font-bold text-[#6B4A10]">Revisar solicitudes</a></div>}
             {owned && report && <p className="mt-2 text-sm font-semibold text-[#6B6860]">{report.views_count ?? 0} visualizaciones</p>}
             {isClosed && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">Mascota reunida</h2><p className="mt-1 font-semibold">Caso cerrado. {pet.nombre} volvió a casa.</p><p className="mt-1 text-sm">Gracias por confiar en HUELLA{closedDate ? ` · ${formatDate(closedDate)}` : ""}.</p></div>}
             <p className="mt-4 leading-7 text-[#4D4A43]">{pet.descripcion}</p>
             <div className="mt-4 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-              {!isClosed && <Button asChild><a href="#reportar-que-la-vi">Reportar que la vi</a></Button>}
+              {!isClosed && <Button asChild><a href="#compartir-avistamiento">Compartir avistamiento</a></Button>}
               <ShareButton pet={pet} label={isClosed ? "Compartir historia" : "Compartir búsqueda"} />
               {!isClosed && <PosterButton pet={pet} />}
             </div>
@@ -452,8 +449,8 @@ export default function PetDetailPage() {
       <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <div className="space-y-4">
           {confirmedLast && <article className="form-card border-[#9FE1CB] bg-[#FAFDFB]">
-            <h2 className="mb-2 font-bold text-[#085041]">Último reporte confirmado</h2>
-            {confirmedLast.foto && <img src={confirmedLast.foto} alt="Reporte confirmado" className="mb-3 max-h-72 w-full rounded-xl object-contain bg-white" />}
+            <h2 className="mb-2 font-bold text-[#085041]">Último avistamiento confirmado</h2>
+            {confirmedLast.foto && <img src={confirmedLast.foto} alt="Avistamiento confirmado" className="mb-3 max-h-72 w-full rounded-xl object-contain bg-white" />}
             <p>{confirmedLast.comentario}</p>
             <p className="mt-2 text-sm font-semibold text-[#085041]">{formatDate(confirmedLast.visto_en ?? confirmedLast.creado_en)} · {new Date(confirmedLast.visto_en ?? confirmedLast.creado_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</p>
             <p className="text-sm text-[#7A7871]">{confirmedLast.ubicacion ?? "Ubicación no indicada"}</p>
@@ -469,8 +466,8 @@ export default function PetDetailPage() {
           {sightings.length > 0 && <div className="form-card space-y-3">
             <h2 className="font-bold">Actividad reciente</h2>
             <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Último reporte</strong>{(latestSighting?.ubicacion ?? latestSighting?.distrito) || "Ubicación aproximada"}</div>
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Personas que reportaron haberla visto</strong>{sightings.length}</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Último avistamiento</strong>{(latestSighting?.ubicacion ?? latestSighting?.distrito) || "Ubicación aproximada"}</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Cantidad de avistamientos</strong>{sightings.length}</div>
               {latestSighting && <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Fecha</strong>{formatDate(latestSighting.visto_en ?? latestSighting.creado_en)}</div>}
               {latestSighting && <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Hora</strong>{new Date(latestSighting.visto_en ?? latestSighting.creado_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</div>}
             </div>
@@ -479,19 +476,19 @@ export default function PetDetailPage() {
           </div>}
 
           <div className="space-y-3">
-            <h2 className="text-xl font-bold">Personas que reportaron haberla visto ({sightings.length})</h2>
+            <h2 className="text-xl font-bold">Avistamientos ({sightings.length})</h2>
             {sightings.map((s) => {
               const estado = s.estado_avistamiento ?? s.estado ?? "pendiente";
               return <article key={s.id} className="form-card">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">{owned && <span className={`status-pill ${estado === "confirmado" ? "status-encontrado" : estado === "descartado" ? "status-reunido" : "status-perdido"}`}>{estado}</span>}<span className="text-sm text-[#7A7871]">{formatDate(s.visto_en ?? s.creado_en)}</span></div>
                 <Link href={`/avistamiento/${s.id}`} className="block rounded-xl hover:bg-[#F8F7F4]">
-                  {s.foto && <img src={s.foto} alt="Foto del reporte" className="mb-3 max-h-64 w-full rounded-xl object-contain bg-[#F8F7F4]" />}
+                  {s.foto && <img src={s.foto} alt="Foto de avistamiento" className="mb-3 max-h-64 w-full rounded-xl object-contain bg-[#F8F7F4]" />}
                   <p className="leading-6">{s.comentario}</p>
                   <p className="mt-2 flex items-center gap-2 text-sm text-[#7A7871]"><MapPin size={15} />{s.ubicacion}</p>
                 </Link>
                 {s.feedback_reportero && isOwnedSighting(s) && <div className="mt-3 rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{s.feedback_reportero}</div>}
                 {owned && <div className="mt-3 rounded-xl bg-[#F8F7F4] p-3 text-sm"><strong>Revisión:</strong> {reviewLabels[s.estado_revision ?? "por_revisar"] ?? "Por revisar"}</div>}
-                {owned && estado === "pendiente" && <div className="mt-3 grid gap-2 min-[390px]:flex"><Button size="sm" onClick={() => updateSightingStatus(s.id, pet.id, "confirmado").then(load)}>Confirmar reporte</Button><Button size="sm" variant="outline" onClick={() => updateSightingStatus(s.id, pet.id, "descartado").then(load)}>Descartar reporte</Button></div>}
+                {owned && estado === "pendiente" && <div className="mt-3 grid gap-2 min-[390px]:flex"><Button size="sm" onClick={() => updateSightingStatus(s.id, pet.id, "confirmado").then(load)}>Confirmar avistamiento</Button><Button size="sm" variant="outline" onClick={() => updateSightingStatus(s.id, pet.id, "descartado").then(load)}>Descartar avistamiento</Button></div>}
                 {isOwnedSighting(s) && <SightingEditor sighting={s} onDone={load} />}
               </article>;
             })}
@@ -500,7 +497,7 @@ export default function PetDetailPage() {
 
         <aside className="space-y-5">
           {!isClosed && <SightingForm petId={report?.pet_id ?? pet.id} reportId={report?.id ?? null} onCreated={load} />}
-          {collaboratorStats.sent > 0 && <div className="form-card"><h2 className="mb-2 font-bold">Aporte de la comunidad</h2><div className="grid grid-cols-1 gap-2 text-center text-sm min-[390px]:grid-cols-3"><div><strong className="block text-xl">{collaboratorStats.sent}</strong>reportes</div><div><strong className="block text-xl">{collaboratorStats.confirmed}</strong>confirmados</div><div><strong className="block text-xl">{collaboratorStats.rate}%</strong>confirmación</div></div></div>}
+          {collaboratorStats.sent > 0 && <div className="form-card"><h2 className="mb-2 font-bold">Perfil de colaborador</h2><div className="grid grid-cols-1 gap-2 text-center text-sm min-[390px]:grid-cols-3"><div><strong className="block text-xl">{collaboratorStats.sent}</strong>enviados</div><div><strong className="block text-xl">{collaboratorStats.confirmed}</strong>confirmados</div><div><strong className="block text-xl">{collaboratorStats.rate}%</strong>confirmación</div></div></div>}
           <div id="mapa-del-caso" className="map-panel scroll-mt-24"><PetMap pets={allPets.length ? allPets : [pet]} selectedId={pet.id} sightings={sightings} /></div>
         </aside>
       </section>

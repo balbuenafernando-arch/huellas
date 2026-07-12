@@ -67,7 +67,7 @@ export function operationError(error: unknown, operation: string, title?: string
     "Hint:",
     hint,
     "",
-    "Operación:",
+    "Operacion:",
     operation,
   ].join("\n");
 }

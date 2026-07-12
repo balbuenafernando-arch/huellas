@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "HUELLA - Reencuentro de mascotas",
     short_name: "HUELLA",
-    description: "Conecta mascotas perdidas con reportes cercanos.",
+    description: "Conecta mascotas perdidas con avistamientos cercanos.",
     start_url: "/",
     scope: "/",
     display: "standalone",

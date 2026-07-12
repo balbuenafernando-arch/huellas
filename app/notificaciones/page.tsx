@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck, HeartHandshake, PawPrint, Radar, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SecondaryHeader } from "@/components/secondary-header";
 import { FriendlyError } from "@/components/feedback";
 import { listNotifications, markAllNotificationsRead, type AppNotification } from "@/lib/notifications";
 import { getNotificationPreferences, saveNotificationPreferences, type NotificationPreferences } from "@/lib/notification-preferences";
@@ -63,10 +62,16 @@ export default function NotificationsPage() {
 
   return (
     <main className="container py-6">
-      <SecondaryHeader title="Notificaciones" description={unread ? `${unread} novedad${unread === 1 ? "" : "es"} sin leer` : "No tienes novedades pendientes."} action={<Button type="button" variant="outline" onClick={markAllRead} disabled={!notifications.length || saving}><CheckCheck size={18} />{saving ? "Sincronizando..." : "Marcar todas como leídas"}</Button>} />
+      <div className="mb-5 flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between">
+        <div>
+          <h1 className="font-serif text-4xl">Notificaciones</h1>
+          <p className="mt-2 text-sm text-[#6B6860]">{unread ? `${unread} novedad${unread === 1 ? "" : "es"} sin leer` : "No tienes novedades pendientes."}</p>
+        </div>
+        <Button type="button" variant="outline" onClick={markAllRead} disabled={!notifications.length || saving}><CheckCheck size={18} />{saving ? "Sincronizando..." : "Marcar todas como leídas"}</Button>
+      </div>
       {error && <div className="mb-4"><FriendlyError message={error} onRetry={load} /></div>}
       <section className="space-y-3">
-        {notifications.length === 0 && <div className="form-card empty-state text-sm"><strong>Aún no hay notificaciones.</strong><span>Te avisaremos cuando llegue un reporte, una coincidencia o una solicitud de contacto.</span></div>}
+        {notifications.length === 0 && <div className="form-card empty-state text-sm"><strong>Aún no hay notificaciones.</strong><span>Te avisaremos cuando llegue un avistamiento, una coincidencia o una solicitud de contacto.</span></div>}
         {notifications.map((notification) => {
           const Icon = iconFor(notification.type);
           return (
@@ -89,12 +94,13 @@ export default function NotificationsPage() {
       </section>
       <section className="form-card mt-5 space-y-3">
         <h2 className="font-bold">Preferencias</h2>
-        <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-[#F8F7F4] p-3 text-sm font-semibold">
-          <span>Recibir correo cuando haya novedades</span>
+        <p className="text-sm text-[#6B6860]">Elige cómo quieres enterarte de novedades importantes de tus casos.</p>
+        <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-black/10 p-3 text-sm font-semibold">
+          Avisos por email
           <input type="checkbox" checked={preferences.notifyByEmail} onChange={(event) => updatePreference({ ...preferences, notifyByEmail: event.target.checked })} />
         </label>
-        <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl bg-[#F8F7F4] p-3 text-sm font-semibold">
-          <span>Recibir avisos por WhatsApp cuando esté disponible</span>
+        <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-black/10 p-3 text-sm font-semibold">
+          Avisos por WhatsApp autorizados
           <input type="checkbox" checked={preferences.notifyByWhatsapp} onChange={(event) => updatePreference({ ...preferences, notifyByWhatsapp: event.target.checked })} />
         </label>
       </section>

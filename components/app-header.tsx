@@ -1,9 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Bell, ChevronDown, ClipboardList, Heart, HelpCircle, Home, Lightbulb, MapPin, Menu, Settings, Share2, X } from "lucide-react";
+import {
+  Bell,
+  ChevronDown,
+  ClipboardList,
+  Heart,
+  HelpCircle,
+  Home,
+  Lightbulb,
+  MapPin,
+  Menu,
+  PawPrint,
+  Settings,
+  Share2,
+  UserCircle,
+  X,
+} from "lucide-react";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { ShareHuellaButton } from "@/components/share-huella-button";
 
@@ -18,18 +33,21 @@ const mobileNav = [
   ...mainNav.slice(0, 2),
   { href: "/mis-mascotas", label: "Mis mascotas", icon: Heart },
   { href: "/mis-reportes", label: "Mis búsquedas", icon: ClipboardList },
+  { href: "/mis-reportes", label: "Mis avistamientos", icon: PawPrint },
   ...mainNav.slice(2),
   { href: "/notificaciones", label: "Notificaciones", icon: Bell },
-  { href: "/auth", label: "Configuración", icon: Settings },
   { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
+  { href: "/auth", label: "Configuración", icon: Settings },
 ];
 
 const moreNav = [
   { href: "/mis-mascotas", label: "Mis mascotas", icon: Heart },
   { href: "/mis-reportes", label: "Mis búsquedas", icon: ClipboardList },
+  { href: "/mis-reportes", label: "Mis avistamientos", icon: PawPrint },
   { href: "/notificaciones", label: "Notificaciones", icon: Bell },
-  { href: "/auth", label: "Configuración", icon: Settings },
   { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
+  { href: "/auth", label: "Perfil", icon: UserCircle },
+  { href: "/auth", label: "Ayuda", icon: HelpCircle },
 ];
 
 function Brand({ onNavigate }: { onNavigate?: () => void }) {
@@ -43,13 +61,10 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppHeader() {
   const [open, setOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
   function closeMenu() {
     setOpen(false);
-    setMoreOpen(false);
   }
 
   function toggleMenu() {
@@ -64,52 +79,48 @@ export function AppHeader() {
     closeMenu();
   }, [pathname]);
 
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") closeMenu();
-    }
-    function onPointerDown(event: PointerEvent) {
-      if (!moreOpen) return;
-      if (moreRef.current && !moreRef.current.contains(event.target as Node)) setMoreOpen(false);
-    }
-    window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("pointerdown", onPointerDown);
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("pointerdown", onPointerDown);
-    };
-  }, [moreOpen]);
-
   return (
     <>
       <header className="topbar">
         <div className="container topbar-inner">
-          <button type="button" className="header-icon-btn lg:hidden" aria-label={open ? "Cerrar menú" : "Abrir menú"} aria-expanded={open} aria-controls="mobile-menu" onClick={toggleMenu}>
+          <button
+            type="button"
+            className="header-icon-btn lg:hidden"
+            aria-label={open ? "Cerrar menú" : "Abrir menú"}
+            aria-expanded={open}
+            aria-controls="mobile-menu"
+            onClick={toggleMenu}
+          >
             {open ? <X size={21} /> : <Menu size={21} />}
           </button>
 
           <Brand />
 
           <nav className="nav-desktop" aria-label="Navegación principal">
-            {mainNav.map((item) => <Link key={item.href} href={item.href} className="desktop-nav-link">{item.label}</Link>)}
+            {mainNav.map((item) => (
+              <Link key={item.href} href={item.href} className="desktop-nav-link">
+                {item.label}
+              </Link>
+            ))}
           </nav>
 
           <div className="topbar-actions">
             <div className="hidden sm:block"><ShareHuellaButton compact /></div>
             <NotificationsBell />
-            <div className="more-menu hidden lg:block" ref={moreRef}>
-              <button type="button" className="more-menu-trigger" aria-label="Abrir más opciones" aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)}>
+            <details className="more-menu hidden lg:block">
+              <summary className="more-menu-trigger" aria-label="Abrir más opciones">
                 Más <ChevronDown size={15} />
-              </button>
-              {moreOpen && <div className="more-menu-panel">
+              </summary>
+              <div className="more-menu-panel">
                 {moreNav.map((item) => (
-                  <Link key={`${item.href}-${item.label}`} href={item.href} className="more-menu-link" onClick={closeMenu}>
+                  <Link key={`${item.href}-${item.label}`} href={item.href} className="more-menu-link">
                     <item.icon size={17} />
                     <span>{item.label}</span>
                   </Link>
                 ))}
-              </div>}
-            </div>
+                <div className="more-menu-share"><ShareHuellaButton compact /></div>
+              </div>
+            </details>
           </div>
         </div>
       </header>

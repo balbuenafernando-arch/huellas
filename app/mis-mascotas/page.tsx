@@ -4,7 +4,6 @@ import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Camera, Edit, Image as ImageIcon, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SecondaryHeader } from "@/components/secondary-header";
 import { ImageCropper } from "@/components/image-cropper";
 import { FriendlyError, PageSkeleton } from "@/components/feedback";
 import type { Sighting } from "@/lib/demo-data";
@@ -38,21 +37,15 @@ export default function MisMascotasPage() {
 
   async function load() {
     try {
-      const registeredPets = await listMyRegisteredPets();
+      const [registeredPets, myCases, allSightings] = await Promise.all([listMyRegisteredPets(), listMyCases(), getSightings()]);
       setPets(registeredPets);
+      setCases(myCases);
+      setSightings(allSightings);
       setError("");
     } catch (caught) {
       setError(friendlyError(caught, "No se pudieron cargar tus mascotas. Revisa tu conexión e inténtalo otra vez."));
     } finally {
       setLoading(false);
-    }
-
-    try {
-      const [myCases, allSightings] = await Promise.all([listMyCases(), getSightings()]);
-      setCases(myCases);
-      setSightings(allSightings);
-    } catch (caught) {
-      console.error("No se pudieron cargar los datos auxiliares de Mis mascotas.", caught);
     }
   }
 
@@ -189,9 +182,12 @@ export default function MisMascotasPage() {
 
   return (
     <main className="container py-6">
-      <SecondaryHeader title="Mis mascotas" description="Registra información útil para activar una búsqueda rápidamente si algún día la necesitas." action={<Button type="button" onClick={() => openForm()}><Plus size={18} />Registrar mascota</Button>} />
+      <div className="mb-5 flex flex-col gap-3 min-[390px]:flex-row min-[390px]:items-end min-[390px]:justify-between">
+        <div><h1 className="font-serif text-4xl">Mis mascotas</h1><p className="mt-2 text-[#6B6860]">Registra información útil para activar una búsqueda rápidamente si algún día la necesitas.</p></div>
+        <Button type="button" onClick={() => openForm()}><Plus size={18} />Registrar mascota</Button>
+      </div>
       {error && <div className="mb-4"><FriendlyError message={error} onRetry={load} /></div>}
-      {successMessage && <div className="mb-4 rounded-xl bg-[#E1F5EE] p-4 text-sm font-semibold text-[#085041]"><strong className="block text-base">¡Mascota registrada!</strong>{successMessage}</div>}
+      {successMessage && <div className="mb-4 rounded-xl bg-[#E1F5EE] p-4 text-sm font-semibold text-[#085041]"><strong className="block text-base">Operacion exitosa</strong>{successMessage}</div>}
       <div className="grid gap-5 lg:grid-cols-[1.1fr_.9fr]">
         <section className="space-y-3">
           <h2 className="text-xl font-bold">Mascotas registradas</h2>
@@ -224,7 +220,7 @@ export default function MisMascotasPage() {
             <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
             <div className="grid gap-2 min-[390px]:grid-cols-2">
               <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
-              <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galería</Button>
+              <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galeria</Button>
             </div>
             {photoPreview && <img src={photoPreview} alt="Vista previa" className="mt-3 max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
             {fieldErrors.fotos && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.fotos}</p>}
@@ -254,7 +250,7 @@ export default function MisMascotasPage() {
             <div className="grid grid-cols-2 gap-2 text-center text-sm">
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-xl">{cases.filter((item) => item.status !== "reunido").length}</strong>casos activos</div>
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-xl">{cases.filter((item) => item.status === "reunido").length}</strong>historial</div>
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-xl">{sightings.length}</strong>reportes</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-xl">{sightings.length}</strong>avistamientos</div>
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-xl">{sightings.filter((item) => (item.estado_avistamiento ?? item.estado) === "confirmado").length}</strong>confirmados</div>
             </div>
           </div>

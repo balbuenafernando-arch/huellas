@@ -3,9 +3,8 @@
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Camera, Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
+import { ArrowLeft, Camera, Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { SecondaryHeader } from "@/components/secondary-header";
 import { ProgressiveSigninCard } from "@/components/progressive-signin-card";
 import { LocationPicker } from "@/components/location-picker";
 import { ImageCropper } from "@/components/image-cropper";
@@ -65,7 +64,7 @@ function loadDraft() {
 }
 
 function locationLabel(details: LocationDetails | null, address: string) {
-  return details?.district || details?.province || details?.department || address || "Ubicación exacta";
+  return details?.district || details?.province || details?.department || address || "Ubicacion exacta";
 }
 
 export default function ReportSightingPage() {
@@ -185,7 +184,7 @@ export default function ReportSightingPage() {
 
   function selectCase(match: CaseMatch) {
     setSelectedCaseId(match.caseId);
-    setAssociationMessage(`Reporte asociado a ${match.pet.nombre}. Presiona "Unir a este caso" para finalizar.`);
+    setAssociationMessage(`Avistamiento asociado a ${match.pet.nombre}. Presiona "Unir a este caso" para finalizar.`);
   }
 
   function showFieldErrors(errors: FieldErrors) {
@@ -218,7 +217,7 @@ export default function ReportSightingPage() {
     if (ubicacionError) errors.ubicacion = ubicacionError;
     const comentarioError = requiredText(form.get("comentario") || draft.comentario, "La descripcion", 1000);
     if (comentarioError) errors.comentario = comentarioError;
-    const dateError = validateNotFuture(seenAt, "La fecha en que la viste");
+    const dateError = validateNotFuture(seenAt, "La fecha del avistamiento");
     if (dateError) errors.visto_en = dateError;
     const imageError = validateImageFile(file);
     if (imageError) errors.foto = imageError;
@@ -240,7 +239,7 @@ export default function ReportSightingPage() {
       return;
     }
 
-    if (!reviewedMatches) {
+    if (foundMatches.length && !reviewedMatches) {
       setMatches(foundMatches);
       setReviewedMatches(true);
       setSaving(false);
@@ -253,7 +252,7 @@ export default function ReportSightingPage() {
         try {
           foto = await uploadImage(file);
         } catch (caught) {
-          throw new Error(operationError(caught, "subir fotografia del reporte", "Error al subir la fotografía"));
+          throw new Error(operationError(caught, "subir fotografia de avistamiento", "Error al subir la fotografia"));
         }
       }
 
@@ -329,7 +328,7 @@ export default function ReportSightingPage() {
         longitud: coords.longitude,
         });
       } catch (caught) {
-        throw new Error(operationError(caught, "registrar reporte de persona que la vio", "Error de base de datos al registrar el reporte"));
+        throw new Error(operationError(caught, "registrar avistamiento en Supabase", "Error de base de datos al registrar el avistamiento"));
       }
 
       if (selectedMatch) {
@@ -346,7 +345,7 @@ export default function ReportSightingPage() {
       setPhotoFile(null);
       formElement.reset();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : operationError(caught, "registrar reporte"));
+      setError(caught instanceof Error ? caught.message : operationError(caught, "registrar avistamiento"));
     } finally {
       setSaving(false);
     }
@@ -357,7 +356,7 @@ export default function ReportSightingPage() {
       <main className="container py-6">
         <section className="form-card mx-auto max-w-xl space-y-4">
           <ProgressiveSigninCard context="sighting" />
-          <div className="rounded-xl bg-[#E1F5EE] p-4 font-semibold text-[#085041]"><strong className="block text-lg">¡Gracias por reportar que la viste!</strong>Quedó asociado al caso correspondiente o guardado como nuevo seguimiento para que la familia pueda revisarlo.</div>
+          <div className="rounded-xl bg-[#E1F5EE] p-4 font-semibold text-[#085041]"><strong className="block text-lg">Avistamiento registrado correctamente.</strong>Quedo asociado al caso correspondiente o guardado como nuevo seguimiento para que el equipo y la familia puedan revisarlo.</div>
           <Button asChild><Link href="/">Volver al inicio</Link></Button>
         </section>
       </main>
@@ -371,7 +370,8 @@ export default function ReportSightingPage() {
         updateDraft("photoDataUrl", previewUrl);
         setCropFile(null);
       }} />}
-      <SecondaryHeader title="Vi una mascota perdida" description="Primero buscamos casos activos similares. Tú eliges si corresponde a una búsqueda existente o si debe quedar como un reporte independiente." />
+      <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Inicio</Link>
+      <div className="mb-5"><h1 className="font-serif text-4xl">Vi una mascota</h1><p className="mt-2 text-[#6B6860]">Primero buscamos si corresponde a un caso activo. Solo se guarda despues de revisar coincidencias.</p></div>
       <form ref={formRef} onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           {error && <FriendlyError message={error} />}
@@ -379,7 +379,7 @@ export default function ReportSightingPage() {
           <input ref={galleryInputRef} className="sr-only" name="foto_galeria" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
           <div className="grid gap-2 min-[390px]:grid-cols-2">
             <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
-            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galería</Button>
+            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galeria</Button>
           </div>
           {draft.photoDataUrl && <img src={draft.photoDataUrl} alt="Foto recortada" className="max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
           {fieldErrors.foto && <p className="text-sm font-semibold text-[#B42318]">{fieldErrors.foto}</p>}
@@ -389,7 +389,7 @@ export default function ReportSightingPage() {
           </div>
           <div><label className="label">Color *</label><input required maxLength={120} className="field" name="color" value={draft.color} onChange={(event) => updateDraft("color", event.target.value)} placeholder="Marron, blanco, negro..." /></div>
           <div>
-            <label className="label">Ubicación *</label>
+            <label className="label">Ubicacion *</label>
             <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">
               <input ref={addressInputRef} required maxLength={240} className="field" name="ubicacion" value={draft.ubicacion} onChange={(event) => updateDraft("ubicacion", event.target.value)} placeholder="Calle, parque o referencia" aria-invalid={Boolean(fieldErrors.ubicacion)} />
               <Button type="button" variant="outline" onClick={searchAddress} disabled={searchingAddress || saving}><Search size={18} />{searchingAddress ? "Buscando..." : "Buscar"}</Button>
@@ -404,17 +404,15 @@ export default function ReportSightingPage() {
             <Button type="button" variant="outline" onClick={() => addressInputRef.current?.focus()} disabled={saving}>Cambiar ubicacion</Button>
           </div>
           <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. El pin manda sobre la direccion.</p>
-          <div><label className="label">Fecha y hora en que la viste *</label><input required className="field" type="datetime-local" name="visto_en" value={draft.vistoEn} onChange={(event) => updateDraft("vistoEn", event.target.value)} aria-invalid={Boolean(fieldErrors.visto_en)} />{fieldErrors.visto_en && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.visto_en}</p>}</div>
+          <div><label className="label">Fecha y hora *</label><input required className="field" type="datetime-local" name="visto_en" value={draft.vistoEn} onChange={(event) => updateDraft("vistoEn", event.target.value)} aria-invalid={Boolean(fieldErrors.visto_en)} />{fieldErrors.visto_en && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.visto_en}</p>}</div>
           <div><label className="label">Situacion observada</label><div className="grid gap-2 min-[390px]:grid-cols-2">{quickSituations.map(([value, label]) => <button key={value} type="button" onClick={() => updateDraft("situacion", value)} className={`min-h-11 rounded-xl border px-3 text-left text-sm font-semibold ${draft.situacion === value ? "border-[#1D9E75] bg-[#E1F5EE] text-[#085041]" : "border-black/10 bg-white text-[#4D4A43]"}`}>{label}</button>)}</div></div>
           <div><label className="label">Comentario *</label><textarea required maxLength={1000} className="textarea min-h-24" name="comentario" value={draft.comentario} onChange={(event) => updateDraft("comentario", event.target.value)} placeholder="Que hacia, como se veia, si parecia asustada..." aria-invalid={Boolean(fieldErrors.comentario)} />{fieldErrors.comentario && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.comentario}</p>}</div>
           <div><label className="label">Rasgos distintivos</label><div className="grid gap-2 md:grid-cols-2">{traits.map((trait) => <label key={trait} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="rasgos" value={trait} checked={draft.rasgos.includes(trait)} onChange={(event) => toggleTrait(trait, event.target.checked)} />{trait}</label>)}</div>{draft.rasgos.includes("Otro") && <div className="mt-3"><label className="label">Describe el rasgo</label><input className="field" value={draft.rasgoOtro} onChange={(event) => updateDraft("rasgoOtro", event.target.value)} maxLength={240} placeholder="Ej. cicatriz, collar especial, comportamiento" /></div>}</div>
           {associationMessage && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{associationMessage}</div>}
-          {saving && !reviewedMatches && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">Buscando casos activos parecidos antes de guardar tu reporte.</div>}
-          {reviewedMatches && matches.length === 0 && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">No encontramos una búsqueda parecida. Puedes guardar tu reporte como seguimiento independiente.</div>}
-          <Button disabled={saving}>{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? "Guardando reporte..." : matches.length && reviewedMatches ? selectedCaseId ? "Unir a este caso" : "Guardar reporte" : reviewedMatches ? "Guardar reporte" : "Buscar coincidencias"}</Button>
+          <Button disabled={saving}>{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? "Registrando avistamiento..." : matches.length && reviewedMatches ? selectedCaseId ? "Unir a este caso" : "Enviar avistamiento" : "Buscar coincidencias"}</Button>
         </section>
         <aside className="space-y-3">
-          <div className="form-card"><h2 className="font-bold">Casos similares</h2><p className="mt-2 text-sm text-[#6B6860]">Se comparan especie, color, tamaño, fecha, rasgos y distancia geográfica.</p>{reviewedMatches && !selectedCaseId && <p className="mt-2 text-sm font-semibold text-[#6B4A10]">Si ninguna coincide, se creará un caso de seguimiento para centralizar futuros reportes.</p>}</div>
+          <div className="form-card"><h2 className="font-bold">Coincidencias</h2><p className="mt-2 text-sm text-[#6B6860]">Se comparan especie, color, tamano, fecha, rasgos y distancia geografica.</p>{reviewedMatches && !selectedCaseId && <p className="mt-2 text-sm font-semibold text-[#6B4A10]">Si ninguna coincide, se creara un caso de seguimiento para centralizar futuros avistamientos.</p>}</div>
           {matches.map((match) => (
             <article key={match.caseId} className={`form-card ${selectedCaseId === match.caseId ? "border-[#1D9E75] bg-[#FAFDFB]" : ""}`}>
               <div className="flex gap-3">
@@ -426,7 +424,7 @@ export default function ReportSightingPage() {
                   {match.distance !== null && <p className="text-sm font-semibold text-[#1D9E75]">{formatDistance(match.distance)}</p>}
                 </div>
               </div>
-              <div className="mt-3 grid gap-2 min-[390px]:flex"><Button type="button" size="sm" onClick={() => selectCase(match)}>Corresponde</Button><Button type="button" size="sm" variant="outline" asChild><Link href={`/pet/${match.caseId}`}>Ver búsqueda</Link></Button></div>
+              <div className="mt-3 grid gap-2 min-[390px]:flex"><Button type="button" size="sm" onClick={() => selectCase(match)}>Corresponde</Button><Button type="button" size="sm" variant="outline" asChild><Link href={`/pet/${match.caseId}`}>Ver centro de busqueda</Link></Button></div>
             </article>
           ))}
           {matches.length > 0 && <Button type="button" variant="outline" className="w-full" onClick={() => setSelectedCaseId("")}>Ninguna coincide</Button>}
