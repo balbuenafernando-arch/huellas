@@ -38,15 +38,21 @@ export default function MisMascotasPage() {
 
   async function load() {
     try {
-      const [registeredPets, myCases, allSightings] = await Promise.all([listMyRegisteredPets(), listMyCases(), getSightings()]);
+      const registeredPets = await listMyRegisteredPets();
       setPets(registeredPets);
-      setCases(myCases);
-      setSightings(allSightings);
       setError("");
     } catch (caught) {
       setError(friendlyError(caught, "No se pudieron cargar tus mascotas. Revisa tu conexión e inténtalo otra vez."));
     } finally {
       setLoading(false);
+    }
+
+    try {
+      const [myCases, allSightings] = await Promise.all([listMyCases(), getSightings()]);
+      setCases(myCases);
+      setSightings(allSightings);
+    } catch (caught) {
+      console.error("No se pudieron cargar los datos auxiliares de Mis mascotas.", caught);
     }
   }
 

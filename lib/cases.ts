@@ -12,6 +12,7 @@ import {
   type Report,
   updateReport,
 } from "@/lib/sprint14-store";
+import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 export type CaseStatus = "activo" | "en_busqueda" | "bajo_seguimiento" | "encontrado" | "reunido" | "archivado";
 
@@ -147,8 +148,14 @@ export async function petToCase(pet: Pet): Promise<CaseRecord> {
 }
 
 export async function listCases(includeClosed = false): Promise<CaseRecord[]> {
-  const [reports, legacyPets] = await Promise.all([listReports(true), getPets()]);
+  const reports = await listReports(true);
   const reportCases = await Promise.all(reports.map(reportToCase));
+  if (isSupabaseConfigured && supabase) {
+    return reportCases
+      .filter((caseRecord) => includeClosed || caseRecord.status !== "reunido")
+      .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }
+  const legacyPets = await getPets();
   const reportIds = new Set(reportCases.flatMap((caseRecord) => [caseRecord.id, caseRecord.petId].filter(Boolean) as string[]));
   const legacyCases = await Promise.all(legacyPets.filter((pet) => !reportIds.has(pet.id)).map(petToCase));
   return [...reportCases, ...legacyCases]
