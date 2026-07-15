@@ -196,8 +196,8 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         {fieldErrors.visto_en && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.visto_en}</p>}
       </div>
       <div>
-        <label className="label">Descripción *</label>
-        <textarea required maxLength={1000} className="textarea min-h-24" name="comentario" value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Cuenta dónde, cuándo y cómo viste a esta mascota" />
+        <label className="label">Describe lo que observaste *</label>
+        <textarea required maxLength={1000} className="textarea min-h-24" name="comentario" value={comentario} onChange={(e) => setComentario(e.target.value)} placeholder="Describe brevemente dónde viste la mascota, cómo se comportaba o cualquier detalle que pueda ayudar al propietario." />
         {fieldErrors.comentario && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.comentario}</p>}
       </div>
       <fieldset>

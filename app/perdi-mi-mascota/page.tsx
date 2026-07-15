@@ -26,6 +26,10 @@ function locationLabel(details: LocationDetails | null, address: string) {
   return details?.district || details?.province || details?.department || address || "Ubicacion exacta";
 }
 
+function petOptionLabel(pet: RegisteredPet) {
+  return [pet.nombre, [pet.especie, pet.sexo].filter(Boolean).join(" · ")].filter(Boolean).join(" - ");
+}
+
 export default function EmergencyReportPage() {
   const [coords, setCoords] = useState(defaultPeruCoords());
   const [address, setAddress] = useState("");
@@ -159,7 +163,7 @@ export default function EmergencyReportPage() {
     const addressError = requiredText(address, "La ubicacion", 240);
     if (addressError) errors.ubicacion = addressError;
     const whatsapp = String(form.get("whatsapp") || "");
-    const whatsappError = requiredText(whatsapp, "El WhatsApp de contacto", 40) || (!isValidPeruWhatsapp(whatsapp) ? "Ingresa un WhatsApp peruano valido." : null);
+    const whatsappError = whatsapp && !isValidPeruWhatsapp(whatsapp) ? "Ingresa un WhatsApp peruano valido." : null;
     if (whatsappError) errors.whatsapp = whatsappError;
     const notesError = requiredText(form.get("observaciones"), "A tener en cuenta sobre la mascota", 1000);
     if (notesError) errors.observaciones = notesError;
@@ -217,7 +221,7 @@ export default function EmergencyReportPage() {
           esterilizado: false,
           placa_medalla: "",
           caracteristicas: form.getAll("caracteristicas").map(String),
-          telefono: normalizePeruWhatsapp(whatsapp),
+          telefono: whatsapp ? normalizePeruWhatsapp(whatsapp) : "",
           contacto_preferido: "whatsapp",
           fotos: [fotoUrl],
           foto_principal: fotoUrl,
@@ -227,7 +231,6 @@ export default function EmergencyReportPage() {
           throw new Error(operationError(caught, "crear mascota en Supabase", "Error al crear la mascota en Supabase"));
         }
       }
-      const recompensa = String(form.get("recompensa") || "");
       let report;
       try {
         report = await createReport({
@@ -235,9 +238,9 @@ export default function EmergencyReportPage() {
         tipo_reporte: "perdido",
         estado: "activo",
         distrito: locationLabel(locationDetails, address),
-        descripcion: `${String(form.get("observaciones"))} Ultima ubicacion: ${address}. Fecha: ${fecha}. Hora: ${hora}. Recompensa: ${recompensa || "no indicada"}.`,
+        descripcion: String(form.get("observaciones")),
         foto_url: file?.size ? fotoUrl : pet.foto_principal ?? pet.foto_url,
-        whatsapp: normalizePeruWhatsapp(whatsapp),
+        whatsapp: whatsapp ? normalizePeruWhatsapp(whatsapp) : "",
         latitude: coords.latitude,
         longitude: coords.longitude,
         pet,
@@ -282,7 +285,7 @@ export default function EmergencyReportPage() {
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 1 - Foto y nombre</div>
           <div><h1 className="font-serif text-4xl">Perdi mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Primero revisamos coincidencias cercanas. La busqueda se guarda recien cuando confirmas.</p></div>
           {error && <FriendlyError message={error} />}
-          {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{pet.nombre} - {pet.especie}</option>)}<option value="">No esta registrada</option></select></div>}
+          {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{petOptionLabel(pet)}</option>)}<option value="">No esta registrada</option></select></div>}
           <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
           <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
           <div className="grid gap-2 min-[390px]:grid-cols-2">
@@ -320,7 +323,7 @@ export default function EmergencyReportPage() {
           <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. Las coordenadas del pin son la fuente principal.</p>
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha *</label><input required className="field" name="fecha" type="date" aria-invalid={Boolean(fieldErrors.fecha)} />{fieldErrors.fecha && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.fecha}</p>}</div><div><label className="label">Hora *</label><input required className="field" name="hora" type="time" /></div></div>
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 3 - Contacto</div>
-          <div><label className="label">WhatsApp de contacto *</label><input required maxLength={40} className="field" name="whatsapp" placeholder="+51 987 654 321" aria-invalid={Boolean(fieldErrors.whatsapp)} />{fieldErrors.whatsapp && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.whatsapp}</p>}</div>
+          <div><label className="label">WhatsApp (opcional)</label><input maxLength={40} className="field" name="whatsapp" placeholder="+51 987 654 321" aria-invalid={Boolean(fieldErrors.whatsapp)} />{fieldErrors.whatsapp && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.whatsapp}</p>}</div>
           <div><label className="label">Recompensa opcional</label><input maxLength={160} className="field" name="recompensa" placeholder="Monto o descripcion" /></div>
           <div><label className="label">A tener en cuenta sobre la mascota *</label><textarea required maxLength={1000} className="textarea min-h-24" name="observaciones" placeholder="Comportamiento, ultimo momento visto, cuidados importantes" aria-invalid={Boolean(fieldErrors.observaciones)} />{fieldErrors.observaciones && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.observaciones}</p>}</div>
           {reviewedMatches && matches.length > 0 && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]"><strong>Coincidencias encontradas.</strong><span className="block">Revisa los casos antes de crear la busqueda. Si ninguna corresponde, puedes continuar.</span></div>}
