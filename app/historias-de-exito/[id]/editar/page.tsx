@@ -6,11 +6,12 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { FriendlyError, PageSkeleton } from "@/components/feedback";
 import { getCurrentUser, getReport, updateReport, type Report } from "@/lib/sprint14-store";
 import { listReunionStories, saveReunionStory, type ReunionStory } from "@/lib/reunion-stories";
 import { uploadImage } from "@/services/image-service";
-import { friendlyError, validateImageFile } from "@/lib/form-validation";
+import { friendlyError, validateImageFiles } from "@/lib/form-validation";
 
 export default function EditReunionStoryPage() {
   const params = useParams<{ id: string }>();
@@ -21,6 +22,8 @@ export default function EditReunionStoryPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [retainedPhotoUrls, setRetainedPhotoUrls] = useState<string[]>([]);
 
   useEffect(() => {
     Promise.all([getReport(params.id), listReunionStories(), getCurrentUser()])
@@ -37,18 +40,17 @@ export default function EditReunionStoryPage() {
     event.preventDefault();
     if (!report || !allowed || saving) return;
     const form = new FormData(event.currentTarget);
-    const photoValue = form.get("foto");
-    const photo = photoValue instanceof File && photoValue.size ? photoValue : null;
-    const imageError = validateImageFile(photo);
+    const imageError = validateImageFiles(photoFiles);
     if (imageError) return setError(imageError);
     setSaving(true);
     setError("");
     try {
-      const photoUrl = photo ? await uploadImage(photo) : story?.photoUrl ?? null;
+      const uploaded = await Promise.all(photoFiles.slice(0, 3).map((photo) => uploadImage(photo)));
+      const photoUrls = [...retainedPhotoUrls, ...uploaded].slice(0, 3);
       const reunitedAt = new Date(`${String(form.get("fecha"))}T12:00:00`).toISOString();
       const message = String(form.get("mensaje") || "").trim();
       const history = String(form.get("historia") || "").trim();
-      await saveReunionStory(report.id, { ...story, reportId: report.id, petId: report.pet_id, ownerId: report.user_id, photoUrl, story: [history, message].filter(Boolean).join("\n\n"), reunitedAt });
+      await saveReunionStory(report.id, { ...story, reportId: report.id, petId: report.pet_id, ownerId: report.user_id, photoUrl: photoUrls[0] ?? null, photoUrls, story: [history, message].filter(Boolean).join("\n\n"), reunitedAt });
       await updateReport(report.id, { estado: "reunido", reunited_at: reunitedAt });
       router.push("/historias-de-exito");
       router.refresh();
@@ -63,5 +65,5 @@ export default function EditReunionStoryPage() {
   if (!report || !allowed) return <main className="container py-10"><FriendlyError message={error || "Esta historia no está disponible para edición."} /></main>;
   const [currentHistory, currentMessage = ""] = (story?.story ?? "").split("\n\n", 2);
 
-  return <main className="container py-6"><Link href="/historias-de-exito" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Volver a Reencuentros</Link><form onSubmit={submit} className="form-card mx-auto max-w-2xl space-y-4"><div><h1 className="font-serif text-4xl">Editar historia de reencuentro</h1><p className="mt-2 text-sm text-[#6B6860]">Aquí solo se modifica la historia de éxito; la búsqueda permanece cerrada.</p></div>{error && <FriendlyError message={error} />}<div><label className="label">Fotografía del reencuentro (opcional)</label><input className="field" name="foto" type="file" accept="image/*" /></div>{story?.photoUrl && <img src={story.photoUrl} alt="Reencuentro" className="max-h-72 w-full rounded-xl bg-[#F8F7F4] object-contain" />}<div><label className="label">Historia</label><textarea className="textarea min-h-28" name="historia" maxLength={200} defaultValue={currentHistory} /></div><div><label className="label">Mensaje para la comunidad</label><textarea className="textarea min-h-20" name="mensaje" maxLength={200} defaultValue={currentMessage} /></div><div><label className="label">Fecha del reencuentro</label><input required className="field" name="fecha" type="date" defaultValue={(story?.reunitedAt ?? report.reunited_at ?? new Date().toISOString()).slice(0, 10)} /></div><Button disabled={saving}><Save size={18} />{saving ? "Guardando..." : "Guardar historia"}</Button></form></main>;
+  return <main className="container py-6"><Link href="/historias-de-exito" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Volver a Reencuentros</Link><form onSubmit={submit} className="form-card mx-auto max-w-2xl space-y-4"><div><h1 className="font-serif text-4xl">Editar historia de reencuentro</h1><p className="mt-2 text-sm text-[#6B6860]">Aquí solo se modifica la historia de éxito; la búsqueda permanece cerrada.</p></div>{error && <FriendlyError message={error} />}<div><label className="label">Fotografías del reencuentro (opcional, máximo 3)</label><PhotoUploader initialUrls={(story?.photoUrls?.length ? story.photoUrls : [story?.photoUrl].filter(Boolean) as string[]).slice(0, 3)} disabled={saving} onChange={(files, urls) => { setPhotoFiles(files); setRetainedPhotoUrls(urls); }} onError={setError} /></div><div><label className="label">Historia</label><textarea className="textarea min-h-28" name="historia" maxLength={200} defaultValue={currentHistory} /></div><div><label className="label">Mensaje para la comunidad</label><textarea className="textarea min-h-20" name="mensaje" maxLength={200} defaultValue={currentMessage} /></div><div><label className="label">Fecha del reencuentro</label><input required className="field" name="fecha" type="date" defaultValue={(story?.reunitedAt ?? report.reunited_at ?? new Date().toISOString()).slice(0, 10)} /></div><Button disabled={saving}><Save size={18} />{saving ? "Guardando..." : "Guardar historia"}</Button></form></main>;
 }

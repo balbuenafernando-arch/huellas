@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PetMap } from "@/components/pet-map";
 import { PosterButton, ShareButton } from "@/components/report-actions";
 import { SightingForm } from "@/components/sighting-form";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { ContentReportButton } from "@/components/content-report-button";
 import { SafeContact } from "@/components/safe-contact";
 import { StatusPill } from "@/components/pet-card";
@@ -22,7 +23,7 @@ import { publicCaseCode, searchState } from "@/lib/case-display";
 import { saveReunionStory } from "@/lib/reunion-stories";
 import { listContactRequests, type ContactRequest } from "@/lib/contact-requests";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
-import { friendlyError, validateImageFile } from "@/lib/form-validation";
+import { friendlyError, validateImageFiles } from "@/lib/form-validation";
 
 const reviewLabels: Record<string, string> = {
   por_revisar: "Por revisar",
@@ -53,14 +54,14 @@ function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () =
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [retainedPhotoUrls, setRetainedPhotoUrls] = useState<string[]>([]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
-    const file = form.get("foto") as File | null;
-    let foto = sighting.foto;
     if (saving) return;
-    const validationError = validateImageFile(file);
+    const validationError = validateImageFiles(photoFiles);
     if (validationError) {
       setError(validationError);
       return;
@@ -68,12 +69,14 @@ function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () =
     setSaving(true);
     setError("");
     try {
-      if (file?.size) foto = await uploadImage(file);
+      const uploaded = await Promise.all(photoFiles.slice(0, 3).map((file) => uploadImage(file)));
+      const fotos = [...retainedPhotoUrls, ...uploaded].slice(0, 3);
       await updateSighting(sighting.id, {
         comentario: String(form.get("comentario")).slice(0, 1000),
         ubicacion: String(form.get("ubicacion")).slice(0, 240),
         visto_en: String(form.get("visto_en")) || sighting.visto_en,
-        foto,
+        foto: fotos[0] ?? null,
+        fotos,
       });
       setEditing(false);
       onDone();
@@ -100,7 +103,7 @@ function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () =
       <textarea className="textarea min-h-20" name="comentario" maxLength={1000} defaultValue={sighting.comentario} />
       <input className="field" name="ubicacion" maxLength={240} defaultValue={sighting.ubicacion ?? ""} placeholder="Ubicación" />
       <input className="field" name="visto_en" type="datetime-local" defaultValue={sighting.visto_en?.slice(0, 16)} />
-      <input className="field" name="foto" type="file" accept="image/*" />
+      <PhotoUploader initialUrls={(sighting.fotos?.length ? sighting.fotos : [sighting.foto].filter((url): url is string => Boolean(url))).slice(0, 3)} disabled={saving} onChange={(files, urls) => { setPhotoFiles(files); setRetainedPhotoUrls(urls); }} onError={setError} />
       <div className="grid gap-2 min-[390px]:flex"><Button size="sm" disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</Button><Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>Cancelar</Button></div>
     </form>
   );
@@ -124,8 +127,7 @@ export default function PetDetailPage() {
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [closing, setClosing] = useState(false);
   const [pageError, setPageError] = useState("");
-  const [reunionPhoto, setReunionPhoto] = useState<File | null>(null);
-  const [reunionPreview, setReunionPreview] = useState<string | null>(null);
+  const [reunionPhotos, setReunionPhotos] = useState<File[]>([]);
   const viewerTouchRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number; time: number; distance?: number; zoom?: number } | null>(null);
 
   async function load() {
@@ -251,21 +253,22 @@ export default function PetDetailPage() {
     if (closing) return;
     setClosing(true);
     setPageError("");
-    let photoUrl: string | null = null;
+    let photoUrls: string[] = [];
     try {
-      const validationError = validateImageFile(reunionPhoto);
+      const validationError = validateImageFiles(reunionPhotos);
       if (validationError) {
         setPageError(validationError);
         return;
       }
-      if (reunionPhoto) photoUrl = await uploadImage(reunionPhoto);
+      if (reunionPhotos.length) photoUrls = await Promise.all(reunionPhotos.slice(0, 3).map((file) => uploadImage(file)));
       const reunitedAt = new Date().toISOString();
       const durationDays = Math.max(1, Math.round((new Date(reunitedAt).getTime() - new Date(report?.created_at ?? pet.creado_en).getTime()) / 86_400_000));
       await saveReunionStory(report?.id ?? pet.id, {
         reportId: report?.id ?? pet.id,
         petId: report?.pet_id ?? pet.id,
         ownerId: report?.user_id ?? pet.owner_token ?? null,
-        photoUrl,
+        photoUrl: photoUrls[0] ?? null,
+        photoUrls,
         story: story?.trim().slice(0, 200) || null,
         reunitedAt,
         searchDurationDays: durationDays,
@@ -279,12 +282,6 @@ export default function PetDetailPage() {
     } finally {
       setClosing(false);
     }
-  }
-
-  async function handleReunionPhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    setReunionPhoto(file);
-    setReunionPreview(file ? URL.createObjectURL(file) : null);
   }
 
   async function reopenReport() {
@@ -392,8 +389,7 @@ export default function PetDetailPage() {
             <div className="text-4xl" aria-hidden="true">🎉</div>
             <h2 className="font-serif text-2xl">¡Nos alegra saber que tu mascota volvió contigo!</h2>
             <p className="text-sm leading-6 text-[#6B6860]">Comparte este momento para dar esperanza a otras familias.</p>
-            <div><span className="mb-1 block text-xs font-bold text-[#1D9E75]">PASO 2</span><label className="label">Fotografía del reencuentro (opcional)</label><input className="field" type="file" accept="image/*" onChange={handleReunionPhoto} /></div>
-            {reunionPreview && <img src={reunionPreview} alt="Reencuentro" className="max-h-64 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
+            <div><span className="mb-1 block text-xs font-bold text-[#1D9E75]">PASO 2</span><label className="label">Fotografías del reencuentro (opcional, máximo 3)</label><PhotoUploader disabled={closing} onChange={(files) => setReunionPhotos(files)} onError={setPageError} /></div>
             <div><span className="mb-1 block text-xs font-bold text-[#1D9E75]">PASO 3</span><label className="label">Cuéntanos brevemente cómo ocurrió el reencuentro (opcional)</label><textarea className="textarea min-h-20" name="historia" maxLength={200} placeholder="Ejemplo: Un vecino reconoció el afiche y nos llamó." /></div>
             <div className="grid gap-2 min-[390px]:flex">
               <Button type="submit" disabled={closing}>{closing ? "Guardando reencuentro..." : "Guardar y cerrar búsqueda"}</Button>
@@ -454,7 +450,7 @@ export default function PetDetailPage() {
         <div className="space-y-4">
           {confirmedLast && <article className="form-card border-[#9FE1CB] bg-[#FAFDFB]">
             <h2 className="mb-2 font-bold text-[#085041]">Último avistamiento confirmado</h2>
-            {confirmedLast.foto && <img src={confirmedLast.foto} alt="Avistamiento confirmado" className="mb-3 max-h-72 w-full rounded-xl object-contain bg-white" />}
+            {(confirmedLast.fotos?.length ? confirmedLast.fotos : [confirmedLast.foto].filter((url): url is string => Boolean(url))).length > 0 && <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{(confirmedLast.fotos?.length ? confirmedLast.fotos : [confirmedLast.foto].filter((url): url is string => Boolean(url))).slice(0, 3).map((url) => <img key={url} src={url} alt="Avistamiento confirmado" className="h-52 w-full rounded-xl bg-white object-contain" />)}</div>}
             <p>{confirmedLast.comentario}</p>
             <p className="mt-2 text-sm font-semibold text-[#085041]">{formatDate(confirmedLast.visto_en ?? confirmedLast.creado_en)} · {new Date(confirmedLast.visto_en ?? confirmedLast.creado_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</p>
             <p className="text-sm text-[#7A7871]">{confirmedLast.ubicacion ?? "Ubicación no indicada"}</p>
@@ -486,7 +482,7 @@ export default function PetDetailPage() {
               return <article key={s.id} className="form-card">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">{owned && <span className={`status-pill ${estado === "confirmado" ? "status-encontrado" : estado === "descartado" ? "status-reunido" : "status-perdido"}`}>{estado}</span>}<span className="text-sm text-[#7A7871]">{formatDate(s.visto_en ?? s.creado_en)}</span></div>
                 <Link href={`/avistamiento/${s.id}`} className="block rounded-xl hover:bg-[#F8F7F4]">
-                  {s.foto && <img src={s.foto} alt="Foto de avistamiento" className="mb-3 max-h-64 w-full rounded-xl object-contain bg-[#F8F7F4]" />}
+                  {(s.fotos?.length ? s.fotos : [s.foto].filter((url): url is string => Boolean(url))).length > 0 && <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{(s.fotos?.length ? s.fotos : [s.foto].filter((url): url is string => Boolean(url))).slice(0, 3).map((url) => <img key={url} src={url} alt="Foto de avistamiento" className="h-44 w-full rounded-xl bg-[#F8F7F4] object-contain" />)}</div>}
                   <p className="leading-6">{s.comentario}</p>
                   <p className="mt-2 flex items-center gap-2 text-sm text-[#7A7871]"><MapPin size={15} />{s.ubicacion}</p>
                 </Link>

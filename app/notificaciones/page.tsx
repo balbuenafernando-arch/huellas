@@ -28,6 +28,7 @@ export default function NotificationsPage() {
   async function load() {
     try {
       setNotifications(await listNotifications());
+      window.dispatchEvent(new Event("huella:notifications-updated"));
       setError("");
     } catch (caught) {
       setError(friendlyError(caught, "No se pudieron cargar tus notificaciones. Inténtalo otra vez."));

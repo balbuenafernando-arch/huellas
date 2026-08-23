@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { ClipboardList, Heart, Home, MapPin } from "lucide-react";
+import { ClipboardList, Home, MapPin, PawPrint } from "lucide-react";
 import Link from "next/link";
 import { OfflineBanner } from "@/components/feedback";
 import { AppHeader } from "@/components/app-header";
@@ -33,7 +33,7 @@ export const viewport: Viewport = {
 const primaryNav = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/buscar-cerca", label: "Buscar cerca de mí", icon: MapPin },
-  { href: "/mis-mascotas", label: "Mis mascotas", icon: Heart },
+  { href: "/mis-mascotas", label: "Mis mascotas", icon: PawPrint },
   { href: "/mis-busquedas", label: "Mis búsquedas", icon: ClipboardList },
 ];
 

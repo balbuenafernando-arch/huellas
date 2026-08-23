@@ -93,7 +93,7 @@ export default function SightingDetailPage() {
       <button type="button" onClick={() => (window.history.length > 1 ? router.back() : router.push("/"))} className="mb-3 text-sm font-semibold text-[#6B6860]">Volver</button>
       {error && <div className="mb-4"><FriendlyError message={error} onRetry={load} /></div>}
       <section className="form-card mx-auto max-w-2xl space-y-4">
-        {sighting.foto && <img src={sighting.foto} alt="Foto del avistamiento" className="max-h-[420px] w-full rounded-xl bg-[#F8F7F4] object-contain" />}
+        {(sighting.fotos?.length ? sighting.fotos : [sighting.foto].filter((url): url is string => Boolean(url))).length > 0 && <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">{(sighting.fotos?.length ? sighting.fotos : [sighting.foto].filter((url): url is string => Boolean(url))).slice(0, 3).map((url) => <img key={url} src={url} alt="Foto del avistamiento" className="h-52 w-full rounded-xl bg-[#F8F7F4] object-contain" />)}</div>}
         <div>
           <h1 className="font-serif text-4xl">Avistamiento</h1>
           <p className="mt-2 text-sm text-[#6B6860]">{`Reportado por ${sighting.reporter_is_anonymous ? "Usuario anónimo" : sighting.reporter_name || "Usuario HUELLA"}`}</p>

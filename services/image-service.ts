@@ -5,7 +5,7 @@ import { uploadPublicImage } from "@/repositories/storage-repository";
 const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 const maxBytes = 5 * 1024 * 1024;
 const targetBytes = 500 * 1024;
-const maxImages = 5;
+const maxImages = 3;
 const outputSizes = [1280, 1120, 960];
 const outputQualities = [0.72, 0.64, 0.56, 0.48];
 

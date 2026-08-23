@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { LocationPicker } from "@/components/location-picker";
 import type { Pet } from "@/lib/demo-data";
 import { deletePet, getPet, isOwnedPet, specialConditions, updatePet } from "@/lib/pet-store";
@@ -27,6 +28,8 @@ export default function EditPetPage() {
   const [areaName, setAreaName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [retainedPhotoUrls, setRetainedPhotoUrls] = useState<string[]>([]);
 
   useEffect(() => {
     Promise.all([getReport(params.id), getPet(params.id), getCurrentUser()])
@@ -54,9 +57,9 @@ export default function EditPetPage() {
     const place = areaName || address || pet.distrito;
     const recompensaTexto = String(form.get("recompensa") || "").trim();
     const recompensaMonto = Number(recompensaTexto.replace(/[^0-9.,]/g, "").replace(",", "."));
-    const files = form.getAll("fotos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 3);
+    const files = photoFiles.slice(0, 3);
     let fotoPrincipal = pet.foto_principal;
-    let fotos = pet.fotos?.length ? pet.fotos.slice(0, 3) : [fotoPrincipal];
+    let fotos = retainedPhotoUrls.length ? retainedPhotoUrls.slice(0, 3) : (pet.fotos?.length ? pet.fotos.slice(0, 3) : [fotoPrincipal]);
 
     const validationMessage =
       requiredText(form.get("nombre"), "El nombre", 120) ||
@@ -73,7 +76,8 @@ export default function EditPetPage() {
     setError("");
     try {
       if (files.length) {
-        fotos = await Promise.all(files.map((file) => uploadImage(file)));
+        const uploaded = await Promise.all(files.map((file) => uploadImage(file)));
+        fotos = [...retainedPhotoUrls, ...uploaded].slice(0, 3);
         fotoPrincipal = fotos[0];
       }
 
@@ -86,6 +90,7 @@ export default function EditPetPage() {
           descripcion: String(form.get("descripcion")),
           reward_text: recompensaTexto || null,
           foto_url: fotoPrincipal,
+          photos: fotos,
           latitude,
           longitude,
         });
@@ -179,9 +184,7 @@ export default function EditPetPage() {
           <div><label className="label">¿Qué hace fácil reconocer a esta mascota?</label><textarea className="textarea min-h-20" name="caracteristicas_personalizadas" maxLength={500} defaultValue={pet.caracteristicas_personalizadas || pet.caracteristicas?.join(". ") || ""} placeholder="Ejemplo: Tiene un collar rojo, una cicatriz en la oreja izquierda y una mancha blanca en el pecho." /></div>
         </section>
         <section className="form-card space-y-4">
-          <img src={pet.foto_principal} alt={pet.nombre} className="h-52 w-full rounded-xl bg-[#F8F7F4] object-contain" />
-          <div className="grid grid-cols-3 gap-2">{(pet.fotos?.length ? pet.fotos : [pet.foto_principal]).slice(0, 3).map((foto) => <img key={foto} src={foto} alt="Foto actual" className="h-16 w-full rounded-lg object-contain bg-[#F8F7F4]" />)}</div>
-          <div><label className="label">Reemplazar fotos (máximo 3)</label><input className="field" name="fotos" type="file" accept="image/*" multiple /></div>
+          <div><label className="label">Fotografías (máximo 3)</label><PhotoUploader initialUrls={(pet.fotos?.length ? pet.fotos : [pet.foto_principal]).slice(0, 3)} disabled={saving} onChange={(files, urls) => { setPhotoFiles(files); setRetainedPhotoUrls(urls); }} onError={setError} /></div>
           <div>
             <label className="label">Dirección</label>
             <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">

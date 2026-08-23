@@ -1,16 +1,15 @@
 ﻿"use client";
 
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useRef, useState } from "react";
-import { Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
+import { MapPin, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CameraCapture } from "@/components/camera-capture";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { createSighting, findPotentialDuplicateSightings } from "@/lib/pet-store";
 import { uploadImage } from "@/services/image-service";
 import type { Sighting } from "@/lib/demo-data";
 import { FriendlyError } from "@/components/feedback";
-import { friendlyError, operationError, validateImageFile, validateNotFuture } from "@/lib/form-validation";
-import { ImageCropper } from "@/components/image-cropper";
+import { friendlyError, operationError, validateImageFiles, validateNotFuture } from "@/lib/form-validation";
 import { LocationPicker } from "@/components/location-picker";
 import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 
@@ -20,9 +19,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
   const [comentario, setComentario] = useState("");
   const [ubicacion, setUbicacion] = useState("");
   const [vistoEn, setVistoEn] = useState("");
-  const [foto, setFoto] = useState<File | null>(null);
-  const [fotoPreview, setFotoPreview] = useState("");
-  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [coords, setCoords] = useState<{ latitude: number; longitude: number }>(defaultPeruCoords());
   const [placa, setPlaca] = useState("no_pude_verificar");
   const [warning, setWarning] = useState("");
@@ -31,7 +28,6 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
   const [usingGps, setUsingGps] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const galleryInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   async function useLocation() {
@@ -78,26 +74,6 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     }
   }
 
-  function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    const validationMessage = validateImageFile(file);
-    if (validationMessage) {
-      setError(validationMessage);
-      return;
-    }
-    if (file) {
-      setCropFile(file);
-      setError("");
-    }
-  }
-
-  function handleCameraPhoto(file: File) {
-    const validationMessage = validateImageFile(file);
-    if (validationMessage) return setError(validationMessage);
-    setCropFile(file);
-    setError("");
-  }
-
   function showFieldErrors(errors: FieldErrors) {
     setFieldErrors(errors);
     const first = Object.keys(errors)[0];
@@ -117,7 +93,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     if (!ubicacion.trim()) errors.ubicacion = "Indica la ubicación del avistamiento.";
     if (!vistoEn) errors.visto_en = "Indica fecha y hora del avistamiento.";
     if (!comentario.trim()) errors.comentario = "Describe lo que viste.";
-    const validationMessage = validateNotFuture(vistoEn, "La fecha del avistamiento") || validateImageFile(foto);
+    const validationMessage = validateNotFuture(vistoEn, "La fecha del avistamiento") || validateImageFiles(photoFiles);
     if (validationMessage) {
       if (validationMessage.includes("fecha") || validationMessage.includes("Fecha")) errors.visto_en = validationMessage;
       else errors.foto = validationMessage;
@@ -137,9 +113,9 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         setSaving(false);
         return;
       }
-      let fotoUrl: string | null = null;
+      let photoUrls: string[] = [];
       try {
-        if (foto) fotoUrl = await uploadImage(foto);
+        photoUrls = await Promise.all(photoFiles.slice(0, 3).map((photo) => uploadImage(photo)));
       } catch (caught) {
         throw new Error(operationError(caught, "subir fotografia de avistamiento", "Error al subir la fotografia"));
       }
@@ -148,7 +124,8 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         pet_id: petId,
         report_id: reportId ?? null,
         comentario,
-        foto: fotoUrl,
+        foto: photoUrls[0] ?? null,
+        fotos: photoUrls,
         ubicacion,
         visto_en: vistoEn,
         situacion: String(form.get("situacion") ?? "solo_la_vi") as Sighting["situacion"],
@@ -164,8 +141,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       setUbicacion("");
       setVistoEn("");
       setWarning("");
-      setFoto(null);
-      setFotoPreview("");
+      setPhotoFiles([]);
       onCreated();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : operationError(caught, "registrar avistamiento"));
@@ -176,11 +152,6 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
 
   return (
     <form id="compartir-avistamiento" ref={formRef} onSubmit={submit} className="form-card scroll-mt-24 space-y-4">
-      {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onApply={(file, previewUrl) => {
-        setFoto(file);
-        setFotoPreview(previewUrl);
-        setCropFile(null);
-      }} />}
       <h2 className="font-bold">Compartir avistamiento</h2>
       {error && <FriendlyError message={error} />}
       {warning && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">{warning}</div>}
@@ -229,13 +200,8 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       </div>
       {placa === "si" && <div><label className="label">Nombre observado</label><input className="field" name="nombre_observado" placeholder="Nombre en la placa" /></div>}
       <div>
-        <label className="label">Foto (opcional pero recomendada)</label>
-        <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
-        <div className="grid gap-2 min-[390px]:grid-cols-2">
-          <CameraCapture disabled={saving} onCapture={handleCameraPhoto} />
-          <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galería</Button>
-        </div>
-        {fotoPreview && <img src={fotoPreview} alt="Foto recortada" className="mt-3 max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
+        <label className="label">Fotografías (opcional, máximo 3)</label>
+        <PhotoUploader disabled={saving} onChange={(files) => setPhotoFiles(files)} onError={setError} />
         {fieldErrors.foto && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.foto}</p>}
       </div>
       <div className="flex gap-2 rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]"><MapPin size={18} className="shrink-0" />Comparte una referencia clara para orientar la búsqueda.</div>

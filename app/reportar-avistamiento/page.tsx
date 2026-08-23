@@ -1,13 +1,12 @@
 "use client";
 
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Image as ImageIcon, MapPin, Search } from "lucide-react";
+import { ArrowLeft, MapPin, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CameraCapture } from "@/components/camera-capture";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { LocationPicker } from "@/components/location-picker";
-import { ImageCropper } from "@/components/image-cropper";
 import { createNotification, createSighting } from "@/lib/pet-store";
 import type { Sighting } from "@/lib/demo-data";
 import { findLostPetMatches } from "@/lib/matching";
@@ -17,7 +16,7 @@ import type { CaseMatch } from "@/lib/cases";
 import { uploadImage } from "@/services/image-service";
 import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation, type LocationDetails } from "@/lib/location";
 import { FriendlyError } from "@/components/feedback";
-import { friendlyError, operationError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
+import { friendlyError, operationError, requiredText, validateImageFiles, validateNotFuture } from "@/lib/form-validation";
 
 const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
 type FieldErrors = Record<string, string>;
@@ -29,9 +28,7 @@ type SightingDraft = {
   ubicacion: string;
   vistoEn: string;
   comentario: string;
-  reconocimiento: string;
   situacion: string;
-  photoDataUrl: string | null;
 };
 
 const defaultDraft: SightingDraft = {
@@ -41,9 +38,7 @@ const defaultDraft: SightingDraft = {
   ubicacion: "",
   vistoEn: "",
   comentario: "",
-  reconocimiento: "",
   situacion: "solo_la_vi",
-  photoDataUrl: null,
 };
 
 const quickSituations = [
@@ -63,8 +58,7 @@ export default function ReportSightingPage() {
   const [locationDetails, setLocationDetails] = useState<LocationDetails | null>(null);
   const [matches, setMatches] = useState<CaseMatch[]>([]);
   const [selectedCaseId, setSelectedCaseId] = useState("");
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [reviewedMatches, setReviewedMatches] = useState(false);
   const [noMatches, setNoMatches] = useState(false);
   const [sent, setSent] = useState(false);
@@ -73,7 +67,6 @@ export default function ReportSightingPage() {
   const [searchingAddress, setSearchingAddress] = useState(false);
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const galleryInputRef = useRef<HTMLInputElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -81,8 +74,7 @@ export default function ReportSightingPage() {
     setDraft(defaultDraft);
     setMatches([]);
     setSelectedCaseId("");
-    setPhotoFile(null);
-    setCropFile(null);
+    setPhotoFiles([]);
     setReviewedMatches(false);
     setNoMatches(false);
     setSent(false);
@@ -157,26 +149,6 @@ export default function ReportSightingPage() {
     resetMatches();
   }
 
-  function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    const validationError = validateImageFile(file);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    if (file) {
-      setCropFile(file);
-      setError("");
-    }
-  }
-
-  function handleCameraPhoto(file: File) {
-    const validationError = validateImageFile(file);
-    if (validationError) return setError(validationError);
-    setCropFile(file);
-    setError("");
-  }
-
   function selectCase(match: CaseMatch) {
     setSelectedCaseId(match.caseId);
     requestAnimationFrame(() => document.getElementById(`coincidencia-${match.caseId}`)?.scrollIntoView({ block: "center", behavior: "smooth" }));
@@ -212,10 +184,10 @@ export default function ReportSightingPage() {
     const especie = String(form.get("especie") || draft.especie);
     const tamano = String(form.get("tamano") || draft.tamano);
     const color = String(form.get("color") || draft.color);
-    const reconocimiento = String(form.get("reconocimiento") || draft.reconocimiento).trim();
-    const rasgos = reconocimiento ? [reconocimiento] : [];
+    const descripcionObservada = String(form.get("comentario") || draft.comentario).trim();
+    const rasgos = descripcionObservada ? [descripcionObservada] : [];
     const seenAt = String(form.get("visto_en") || draft.vistoEn);
-    const file = photoFile;
+    const files = photoFiles;
     const errors: FieldErrors = {};
     const ubicacionError = requiredText(form.get("ubicacion") || draft.ubicacion, "La ubicación", 240);
     if (ubicacionError) errors.ubicacion = ubicacionError;
@@ -223,7 +195,7 @@ export default function ReportSightingPage() {
     if (comentarioError) errors.comentario = comentarioError;
     const dateError = validateNotFuture(seenAt, "La fecha del avistamiento");
     if (dateError) errors.visto_en = dateError;
-    const imageError = validateImageFile(file);
+    const imageError = validateImageFiles(files);
     if (imageError) errors.foto = imageError;
     if (showFieldErrors(errors)) {
       setError("");
@@ -251,10 +223,10 @@ export default function ReportSightingPage() {
     }
 
     try {
-      let foto: string | null = draft.photoDataUrl;
-      if (file?.size) {
+      let fotos: string[] = [];
+      if (files.length) {
         try {
-          foto = await uploadImage(file);
+          fotos = await Promise.all(files.slice(0, 3).map((file) => uploadImage(file)));
         } catch (caught) {
           throw new Error(operationError(caught, "subir fotografia de avistamiento", "Error al subir la fotografia"));
         }
@@ -265,7 +237,7 @@ export default function ReportSightingPage() {
       let petId: string | null = selectedMatch?.petId ?? null;
 
       if (!selectedMatch && user) {
-        const photoUrl = foto ?? fallbackPhoto;
+        const photoUrl = fotos[0] ?? fallbackPhoto;
         let pet;
         try {
           pet = await createRegisteredPet({
@@ -281,12 +253,13 @@ export default function ReportSightingPage() {
           esterilizado: false,
           placa_medalla: "",
           caracteristicas: rasgos,
-          caracteristicas_personalizadas: reconocimiento,
+          caracteristicas_personalizadas: descripcionObservada,
           telefono: "",
           contacto_preferido: "whatsapp",
-          fotos: [photoUrl],
+          fotos: fotos.length ? fotos : [photoUrl],
           foto_principal: photoUrl,
           foto_url: photoUrl,
+          photos: fotos.length ? fotos : [photoUrl],
           rasgo_privado: "",
           });
         } catch (caught) {
@@ -325,7 +298,8 @@ export default function ReportSightingPage() {
         color,
         distrito: locationLabel(locationDetails, draft.ubicacion),
         comentario,
-        foto,
+        foto: fotos[0] ?? null,
+        fotos,
         ubicacion: String(form.get("ubicacion") || draft.ubicacion),
         visto_en: seenAt,
         situacion: draft.situacion as Sighting["situacion"],
@@ -346,7 +320,7 @@ export default function ReportSightingPage() {
 
       setSent(true);
       setDraft(defaultDraft);
-      setPhotoFile(null);
+      setPhotoFiles([]);
       formElement.reset();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : operationError(caught, "registrar avistamiento"));
@@ -368,22 +342,12 @@ export default function ReportSightingPage() {
 
   return (
     <main className="container py-6">
-      {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onApply={(file, previewUrl) => {
-        setPhotoFile(file);
-        updateDraft("photoDataUrl", previewUrl);
-        setCropFile(null);
-      }} />}
       <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Inicio</Link>
       <div className="mb-5"><h1 className="font-serif text-4xl">Vi una mascota</h1><p className="mt-2 text-[#6B6860]">Primero buscamos si corresponde a un caso activo. Solo se guarda después de revisar coincidencias.</p></div>
       <form ref={formRef} onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           {error && <FriendlyError message={error} />}
-          <input ref={galleryInputRef} className="sr-only" name="foto_galeria" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
-          <div className="grid gap-2 min-[390px]:grid-cols-2">
-            <CameraCapture disabled={saving} onCapture={handleCameraPhoto} />
-            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galería</Button>
-          </div>
-          {draft.photoDataUrl && <img src={draft.photoDataUrl} alt="Foto recortada" className="max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
+          <PhotoUploader disabled={saving} onChange={(files) => setPhotoFiles(files)} onError={setError} />
           {fieldErrors.foto && <p className="text-sm font-semibold text-[#B42318]">{fieldErrors.foto}</p>}
           <div className="grid gap-3 md:grid-cols-2">
             <div><label className="label">Especie *</label><select className="select" name="especie" value={draft.especie} onChange={(event) => updateDraft("especie", event.target.value)}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div>
@@ -409,7 +373,6 @@ export default function ReportSightingPage() {
           <div><label className="label">Fecha y hora *</label><input required className="field" type="datetime-local" name="visto_en" value={draft.vistoEn} onChange={(event) => updateDraft("vistoEn", event.target.value)} aria-invalid={Boolean(fieldErrors.visto_en)} />{fieldErrors.visto_en && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.visto_en}</p>}</div>
           <div><label className="label">Situación observada</label><div className="grid gap-2 min-[390px]:grid-cols-2">{quickSituations.map(([value, label]) => <button key={value} type="button" onClick={() => updateDraft("situacion", value)} className={`min-h-11 rounded-xl border px-3 text-left text-sm font-semibold ${draft.situacion === value ? "border-[#1D9E75] bg-[#E1F5EE] text-[#085041]" : "border-black/10 bg-white text-[#4D4A43]"}`}>{label}</button>)}</div></div>
           <div><label className="label">Describe lo que observaste *</label><textarea required maxLength={1000} className="textarea min-h-24" name="comentario" value={draft.comentario} onChange={(event) => updateDraft("comentario", event.target.value)} placeholder="Describe brevemente dónde viste la mascota, cómo se comportaba o cualquier detalle que pueda ayudar al propietario." aria-invalid={Boolean(fieldErrors.comentario)} />{fieldErrors.comentario && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.comentario}</p>}</div>
-          <div><label className="label">Detalles observados (opcional)</label><textarea className="textarea min-h-20" name="reconocimiento" value={draft.reconocimiento} onChange={(event) => updateDraft("reconocimiento", event.target.value)} maxLength={500} placeholder="Ejemplo: Llevaba un collar rojo, tenía una cicatriz en la oreja izquierda y caminaba con dificultad." /></div>
           {!reviewedMatches && <Button name="intent" value="search" disabled={saving}>{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Search size={18} />}{saving ? "Buscando coincidencias..." : "Buscar coincidencias"}</Button>}
         </section>
         <aside className="space-y-3">

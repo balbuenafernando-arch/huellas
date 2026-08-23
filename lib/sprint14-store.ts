@@ -3,6 +3,7 @@
 import type { Pet as LegacyPet, PetStatus } from "@/lib/demo-data";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { uploadImage } from "@/services/image-service";
+import { removePublicImages } from "@/repositories/storage-repository";
 import type { User } from "@supabase/supabase-js";
 
 export type RegisteredPet = {
@@ -26,6 +27,7 @@ export type RegisteredPet = {
   fotos?: string[] | null;
   foto_principal?: string | null;
   foto_url: string;
+  photos?: string[];
   caracteristicas?: string[] | null;
   caracteristicas_personalizadas?: string | null;
   condiciones_especiales?: string[] | null;
@@ -42,6 +44,7 @@ export type Report = {
   distrito: string;
   descripcion: string;
   foto_url: string;
+  photos?: string[];
   whatsapp?: string | null;
   latitude: number | null;
   longitude: number | null;
@@ -74,6 +77,7 @@ type LostReportRow = {
   approximate_address: string | null;
   description: string | null;
   reward_text: string | null;
+  photo_urls?: string[] | null;
   latitude: number | null;
   longitude: number | null;
   lost_at: string | null;
@@ -89,6 +93,7 @@ type LostReportRow = {
 };
 
 type RegisteredPetRow = RegisteredPet & {
+  photo_urls?: string[] | null;
   private_details?: Array<{ telefono?: string | null; rasgo_privado?: string | null }> | { telefono?: string | null; rasgo_privado?: string | null } | null;
 };
 
@@ -153,6 +158,9 @@ function normalizeRegisteredPet(row: RegisteredPetRow): RegisteredPet {
   const privateDetails = Array.isArray(row.private_details) ? row.private_details[0] : row.private_details;
   return {
     ...row,
+    fotos: (row.photo_urls?.length ? row.photo_urls : row.fotos ?? []).slice(0, 3),
+    foto_principal: row.photo_urls?.[0] ?? row.foto_principal,
+    foto_url: row.photo_urls?.[0] ?? row.foto_url,
     telefono: privateDetails?.telefono ?? row.telefono ?? null,
     rasgo_privado: privateDetails?.rasgo_privado ?? row.rasgo_privado ?? null,
   };
@@ -177,6 +185,7 @@ function registeredPetInsert(input: RegisteredPet) {
     placa_medalla: input.placa_medalla ?? null,
     contacto_preferido: input.contacto_preferido ?? "whatsapp",
     fotos: (input.fotos ?? []).slice(0, 3),
+    photo_urls: (input.fotos ?? []).slice(0, 3),
     foto_principal: input.foto_principal ?? input.foto_url ?? input.fotos?.[0] ?? null,
     foto_url: input.foto_url ?? input.foto_principal ?? input.fotos?.[0] ?? null,
     caracteristicas: input.caracteristicas ?? [],
@@ -205,7 +214,7 @@ function registeredPetPatch(input: Partial<RegisteredPet>) {
   if (input.esterilizado !== undefined) patch.esterilizado = input.esterilizado;
   if (input.placa_medalla !== undefined) patch.placa_medalla = input.placa_medalla;
   if (input.contacto_preferido !== undefined) patch.contacto_preferido = input.contacto_preferido;
-  if (input.fotos !== undefined) patch.fotos = (input.fotos ?? []).slice(0, 3);
+  if (input.fotos !== undefined) { patch.fotos = (input.fotos ?? []).slice(0, 3); patch.photo_urls = (input.fotos ?? []).slice(0, 3); }
   if (input.foto_principal !== undefined) patch.foto_principal = input.foto_principal;
   if (input.foto_url !== undefined) patch.foto_url = input.foto_url;
   if (input.caracteristicas !== undefined) patch.caracteristicas = input.caracteristicas;
@@ -223,7 +232,8 @@ function lostReportToReport(row: LostReportRow): Report {
     estado: statusToLegacy(row.status),
     distrito: row.district,
     descripcion: row.description ?? "",
-    foto_url: petPhoto(row.pet),
+    foto_url: row.photo_urls?.[0] ?? petPhoto(row.pet),
+    photos: (row.photo_urls?.length ? row.photo_urls : row.pet?.fotos ?? [petPhoto(row.pet)].filter(Boolean)).slice(0, 3),
     whatsapp: row.private_contact?.contact_whatsapp ?? row.private_contact?.contact_phone ?? null,
     latitude: row.latitude,
     longitude: row.longitude,
@@ -247,6 +257,7 @@ function reportToLostInsert(report: Report, ownerId: string) {
     district: report.distrito,
     approximate_address: report.distrito,
     description: report.descripcion,
+    photo_urls: (report.photos?.length ? report.photos : [report.foto_url].filter(Boolean)).slice(0, 3),
     reward_text: report.reward_text ?? null,
     latitude: report.latitude,
     longitude: report.longitude,
@@ -270,6 +281,7 @@ function reportToLostPatch(input: Partial<Report>) {
   }
   if (input.distrito !== undefined) patch.district = input.distrito;
   if (input.descripcion !== undefined) patch.description = input.descripcion;
+  if (input.photos !== undefined) patch.photo_urls = input.photos.slice(0, 3);
   if (input.reward_text !== undefined) patch.reward_text = input.reward_text;
   if (input.latitude !== undefined) patch.latitude = input.latitude;
   if (input.longitude !== undefined) patch.longitude = input.longitude;
@@ -398,8 +410,18 @@ export async function updateRegisteredPet(id: string, input: Partial<RegisteredP
 export async function deleteRegisteredPet(id: string) {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
     const user = await getCurrentUser();
+    const { data: storedPet, error: readError } = await supabase.from("pets").select("photo_urls, fotos, foto_principal, foto_url").eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`).maybeSingle();
+    if (readError) throw readError;
     const { error } = await supabase.from("pets").delete().eq("id", id).or(`user_id.eq.${user?.id},owner_id.eq.${user?.id}`);
     if (error) throw error;
+    const urls = [...(storedPet?.photo_urls ?? []), ...(storedPet?.fotos ?? []), storedPet?.foto_principal, storedPet?.foto_url].filter((value): value is string => Boolean(value));
+    const marker = "/storage/v1/object/public/pet-photos/";
+    const paths = Array.from(new Set(urls.flatMap((url) => url.includes(marker) ? [decodeURIComponent(url.split(marker)[1].split("?")[0])] : [])));
+    try {
+      await removePublicImages("pet-photos", paths);
+    } catch (caught) {
+      console.error("[HUELLA] La mascota se eliminó, pero alguna fotografía no pudo retirarse del almacenamiento.", caught);
+    }
   }
   writeLocal(REGISTERED_PETS_KEY, readLocal<RegisteredPet[]>(REGISTERED_PETS_KEY, []).filter((pet) => pet.id !== id));
 }
@@ -586,7 +608,7 @@ export function reportToLegacyPet(report: Report): LegacyPet {
     longitud: report.longitude ?? -77.03,
     whatsapp: report.whatsapp ?? "",
     foto_principal: report.pet?.foto_principal ?? report.pet?.foto_url ?? report.foto_url,
-    fotos: (report.pet?.fotos ?? [report.pet?.foto_principal ?? report.pet?.foto_url ?? report.foto_url].filter(Boolean)).slice(0, 3),
+    fotos: (report.photos?.length ? report.photos : report.pet?.fotos ?? [report.pet?.foto_principal ?? report.pet?.foto_url ?? report.foto_url].filter(Boolean)).slice(0, 3),
     alias: report.pet?.alias ? report.pet.alias.split(",").map((item) => item.trim()).filter(Boolean) : [],
     caracteristicas: report.pet?.caracteristicas ?? [],
     caracteristicas_personalizadas: report.pet?.caracteristicas_personalizadas ?? "",

@@ -1,13 +1,12 @@
 "use client";
 
-import type { ChangeEvent, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
+import { ArrowLeft, MapPin, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { CameraCapture } from "@/components/camera-capture";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { LocationPicker } from "@/components/location-picker";
-import { ImageCropper } from "@/components/image-cropper";
 import { createRegisteredPet, createReport, listMyRegisteredPets, reportToLegacyPet, type RegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
 import { PosterButton, ShareButton } from "@/components/report-actions";
 import type { Pet } from "@/lib/demo-data";
@@ -16,7 +15,7 @@ import type { CaseMatch } from "@/lib/cases";
 import { formatDistance } from "@/lib/utils";
 import { defaultPeruCoords, getCurrentLocationDetails, locationDetailsFromCoords, searchPeruLocation, type LocationDetails } from "@/lib/location";
 import { FriendlyError } from "@/components/feedback";
-import { friendlyError, operationError, requiredText, validateImageFile, validateNotFuture } from "@/lib/form-validation";
+import { friendlyError, operationError, requiredText, validateImageFiles, validateNotFuture } from "@/lib/form-validation";
 import { isValidPeruWhatsapp, normalizePeruWhatsapp } from "@/lib/whatsapp";
 
 const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
@@ -42,12 +41,10 @@ export default function EmergencyReportPage() {
   const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [publishedPet, setPublishedPet] = useState<Pet | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [retainedPhotoUrls, setRetainedPhotoUrls] = useState<string[]>([]);
   const [matches, setMatches] = useState<CaseMatch[]>([]);
   const [reviewedMatches, setReviewedMatches] = useState(false);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -114,32 +111,6 @@ export default function EmergencyReportPage() {
     }
   }
 
-  async function handlePhoto(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0] ?? null;
-    const validationError = validateImageFile(file);
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
-    if (file) {
-      setCropFile(file);
-      setError("");
-    }
-  }
-
-  function removePhoto() {
-    setPhotoFile(null);
-    setPhotoPreview(null);
-    if (galleryInputRef.current) galleryInputRef.current.value = "";
-  }
-
-  function handleCameraPhoto(file: File) {
-    const validationError = validateImageFile(file);
-    if (validationError) return setError(validationError);
-    setCropFile(file);
-    setError("");
-  }
-
   function showFieldErrors(errors: FieldErrors) {
     setFieldErrors(errors);
     const first = Object.keys(errors)[0];
@@ -156,7 +127,7 @@ export default function EmergencyReportPage() {
     event.preventDefault();
     if (saving) return;
     const form = new FormData(event.currentTarget);
-    const file = photoFile;
+    const files = photoFiles;
     const fecha = String(form.get("fecha") || new Date().toISOString().slice(0, 10));
     const hora = String(form.get("hora") || "");
     const errors: FieldErrors = {};
@@ -177,7 +148,7 @@ export default function EmergencyReportPage() {
     if (notesError) errors.observaciones = notesError;
     const dateError = validateNotFuture(`${fecha}T${hora || "00:00"}`, "La fecha de perdida");
     if (dateError) errors.fecha = dateError;
-    const imageError = validateImageFile(file);
+    const imageError = validateImageFiles(files);
     if (imageError) errors.foto = imageError;
     if (showFieldErrors(errors)) {
       setError("");
@@ -204,16 +175,18 @@ export default function EmergencyReportPage() {
         if (found.length) return;
       }
 
-      let fotoUrl = fallbackPhoto;
+      let uploadedPhotoUrls: string[] = [];
       const selectedPet = registeredPets.find((item) => item.id === selectedPetId);
       let pet = selectedPet;
-      if (file?.size) {
+      if (files.length) {
         try {
-          fotoUrl = await uploadMascotaImage(file, "mascotas");
+          uploadedPhotoUrls = await Promise.all(files.slice(0, 3).map((file) => uploadMascotaImage(file, "mascotas")));
         } catch (caught) {
           throw new Error(operationError(caught, "subir fotografia de busqueda", "Error al subir la fotografia"));
         }
       }
+      const photoUrls = [...retainedPhotoUrls, ...uploadedPhotoUrls].slice(0, 3);
+      const fotoUrl = photoUrls[0] ?? selectedPet?.foto_principal ?? selectedPet?.foto_url ?? fallbackPhoto;
       if (!pet) {
         const petDescription = String(form.get("descripcion_mascota") || "").trim();
         try {
@@ -233,7 +206,7 @@ export default function EmergencyReportPage() {
           caracteristicas_personalizadas: petDescription,
           telefono: whatsapp ? normalizePeruWhatsapp(whatsapp) : "",
           contacto_preferido: "whatsapp",
-          fotos: [fotoUrl],
+          fotos: photoUrls.length ? photoUrls : [fotoUrl],
           foto_principal: fotoUrl,
           foto_url: fotoUrl,
           });
@@ -252,7 +225,8 @@ export default function EmergencyReportPage() {
         distrito: locationLabel(locationDetails, address),
         descripcion: careNotes,
         reward_text: String(form.get("recompensa") || "").trim() || null,
-        foto_url: file?.size ? fotoUrl : pet.foto_principal ?? pet.foto_url,
+        foto_url: fotoUrl,
+        photos: photoUrls.length ? photoUrls : (pet.fotos ?? [fotoUrl]).slice(0, 3),
         whatsapp: whatsapp ? normalizePeruWhatsapp(whatsapp) : "",
         latitude: coords.latitude,
         longitude: coords.longitude,
@@ -284,15 +258,10 @@ export default function EmergencyReportPage() {
   );
 
   const selectedRegisteredPet = registeredPets.find((pet) => pet.id === selectedPetId);
-  const registeredPhotoCount = selectedRegisteredPet ? Array.from(new Set([selectedRegisteredPet.foto_principal, selectedRegisteredPet.foto_url, ...(selectedRegisteredPet.fotos ?? [])].filter(Boolean))).length : 0;
+  const registeredPhotoUrls = selectedRegisteredPet ? Array.from(new Set([selectedRegisteredPet.foto_principal, selectedRegisteredPet.foto_url, ...(selectedRegisteredPet.fotos ?? [])].filter((url): url is string => Boolean(url)))).slice(0, 3) : [];
 
   return (
     <main className="container py-6">
-      {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onApply={(file, previewUrl) => {
-        setPhotoFile(file);
-        setPhotoPreview(previewUrl);
-        setCropFile(null);
-      }} />}
       <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Inicio</Link>
       <form ref={formRef} onSubmit={submit} className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
@@ -301,16 +270,8 @@ export default function EmergencyReportPage() {
           {error && <FriendlyError message={error} />}
           {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{petOptionLabel(pet)}</option>)}<option value="">No esta registrada</option></select></div>}
           {selectedRegisteredPet && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]"><strong>Usaremos las fotografías registradas de {selectedRegisteredPet.nombre}.</strong><span className="mt-1 block">Puedes agregar una fotografía reciente de forma opcional si aún no alcanzaste el máximo de 3.</span></div>}
-          <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
-          {(!selectedRegisteredPet || registeredPhotoCount < 3) && <div className="grid gap-2 min-[390px]:grid-cols-2">
-            <CameraCapture disabled={saving} onCapture={handleCameraPhoto} />
-            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />{selectedRegisteredPet ? "Agregar desde galería" : "Elegir desde galería"}</Button>
-          </div>}
+          <div data-field="foto"><label className="label">Fotografías (máximo 3)</label><PhotoUploader key={selectedPetId || "unregistered"} initialUrls={registeredPhotoUrls} disabled={saving} onChange={(files, urls) => { setPhotoFiles(files); setRetainedPhotoUrls(urls); }} onError={setError} /></div>
           {fieldErrors.foto && <p className="text-sm font-semibold text-[#B42318]">{fieldErrors.foto}</p>}
-          {photoPreview ? <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-3">
-            <img src={photoPreview} alt="Foto recortada" className="max-h-64 w-full rounded-xl bg-white object-contain" />
-            <Button type="button" variant="outline" className="mt-3 w-full" onClick={removePhoto}>Eliminar foto</Button>
-          </div> : !selectedRegisteredPet ? <p className="rounded-xl bg-[#F8F7F4] p-3 text-sm text-[#6B6860]">La foto se podrá recortar antes de guardar.</p> : null}
           {!selectedPetId && <>
             <div><label className="label">Nombre *</label><input required maxLength={120} className="field" name="nombre" placeholder="Luna" aria-invalid={Boolean(fieldErrors.nombre)} />{fieldErrors.nombre && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.nombre}</p>}</div>
             <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño *</label><select className="select" name="tamano"><option value="Pequeno">Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>

@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Bell,
   ChevronDown,
   ClipboardList,
   Heart,
@@ -14,7 +13,6 @@ import {
   MapPin,
   Menu,
   PawPrint,
-  Settings,
   Share2,
   UserCircle,
   X,
@@ -31,20 +29,18 @@ const mainNav = [
 
 const mobileNav = [
   ...mainNav.slice(0, 2),
-  { href: "/mis-mascotas", label: "Mis mascotas", icon: Heart },
+  { href: "/mis-mascotas", label: "Mis mascotas", icon: PawPrint },
   { href: "/mis-busquedas", label: "Mis búsquedas", icon: ClipboardList },
-  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: PawPrint },
+  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: MapPin },
   ...mainNav.slice(2),
-  { href: "/notificaciones", label: "Notificaciones", icon: Bell },
   { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
-  { href: "/auth", label: "Configuración", icon: Settings },
+  { href: "/auth", label: "Perfil", icon: UserCircle },
 ];
 
 const moreNav = [
-  { href: "/mis-mascotas", label: "Mis mascotas", icon: Heart },
+  { href: "/mis-mascotas", label: "Mis mascotas", icon: PawPrint },
   { href: "/mis-busquedas", label: "Mis búsquedas", icon: ClipboardList },
-  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: PawPrint },
-  { href: "/notificaciones", label: "Notificaciones", icon: Bell },
+  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: MapPin },
   { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
   { href: "/auth", label: "Perfil", icon: UserCircle },
 ];

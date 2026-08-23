@@ -146,7 +146,7 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
           <img
             src={objectUrl}
             alt="Vista previa del recorte"
-            className="h-full w-full select-none object-cover"
+            className="h-full w-full select-none object-contain"
             draggable={false}
             style={{ transform: `translate(${offset.x}%, ${offset.y}%) scale(${zoom})`, transformOrigin: "center" }}
           />

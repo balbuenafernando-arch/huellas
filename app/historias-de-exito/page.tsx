@@ -49,7 +49,7 @@ export default function SuccessStoriesPage() {
           const story = stories[report.id] ?? (report.pet_id ? stories[report.pet_id] : undefined);
           return (
             <article key={report.id} className="pet-card block">
-              {story?.photoUrl ? <img src={story.photoUrl} alt={`Reencuentro de ${report.pet?.nombre ?? "la mascota"}`} className="pet-photo" loading="lazy" /> : report.foto_url ? <img src={report.foto_url} alt={report.pet?.nombre ?? "Mascota reunida"} className="pet-photo" loading="lazy" /> : <div className="grid h-48 place-items-center bg-[#E1F5EE] text-sm font-semibold text-[#085041]">Sin fotografía</div>}
+              {(story?.photoUrls?.[0] ?? story?.photoUrl) ? <div className="grid grid-cols-3 gap-1 bg-[#F8F7F4]">{(story?.photoUrls?.length ? story.photoUrls : [story.photoUrl!]).slice(0, 3).map((url) => <img key={url} src={url} alt={`Reencuentro de ${report.pet?.nombre ?? "la mascota"}`} className="h-48 w-full object-contain" loading="lazy" />)}</div> : report.foto_url ? <img src={report.foto_url} alt={report.pet?.nombre ?? "Mascota reunida"} className="pet-photo" loading="lazy" /> : <div className="grid h-48 place-items-center bg-[#E1F5EE] text-sm font-semibold text-[#085041]">Sin fotografía</div>}
               <div className="space-y-2 p-4">
                 <div className="flex items-center gap-3">{story?.photoUrl && report.foto_url && <img src={report.foto_url} alt={report.pet?.nombre ?? "Mascota reunida"} className="h-14 w-14 rounded-full bg-[#F8F7F4] object-cover" />}<h2 className="font-bold">{report.pet?.nombre ?? "Mascota reunida"}</h2></div>
                 <p className="text-sm text-[#7A7871]">{report.distrito}</p>

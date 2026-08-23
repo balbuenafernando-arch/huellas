@@ -2,12 +2,13 @@
 
 import type { FormEvent } from "react";
 import { useState } from "react";
-import { Camera, Send } from "lucide-react";
+import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FriendlyError } from "@/components/feedback";
+import { PhotoUploader } from "@/components/photo-uploader";
 import { submitFeedback, type FeedbackType } from "@/lib/feedback";
 import { uploadImage } from "@/services/image-service";
-import { friendlyError, validateImageFile } from "@/lib/form-validation";
+import { friendlyError, validateImageFiles } from "@/lib/form-validation";
 
 const feedbackTypes: FeedbackType[] = ["Sugerencia", "Error", "Algo no se entiende", "Experiencia"];
 
@@ -16,14 +17,14 @@ export default function FeedbackPage() {
   const [saving, setSaving] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
     const form = new FormData(event.currentTarget);
     const comentario = String(form.get("comentario") ?? "").trim();
-    const screenshot = form.get("screenshot") as File | null;
-    const validation = validateImageFile(screenshot);
+    const validation = validateImageFiles(photoFiles);
     if (!comentario) {
       setError("Cuéntanos qué pasó o qué podemos mejorar.");
       return;
@@ -35,9 +36,10 @@ export default function FeedbackPage() {
     setSaving(true);
     setError("");
     try {
-      const screenshotUrl = screenshot?.size ? await uploadImage(screenshot) : null;
-      await submitFeedback({ tipo, comentario: comentario.slice(0, 1200), screenshot_url: screenshotUrl });
+      const photoUrls = await Promise.all(photoFiles.slice(0, 3).map((photo) => uploadImage(photo)));
+      await submitFeedback({ tipo, comentario: comentario.slice(0, 1200), photo_urls: photoUrls });
       setSent(true);
+      setPhotoFiles([]);
       event.currentTarget.reset();
     } catch (caught) {
       setError(friendlyError(caught, "No se pudo enviar el feedback. Inténtalo otra vez."));
@@ -65,7 +67,7 @@ export default function FeedbackPage() {
             </div>
           </div>
           <div><label className="label">Comentario</label><textarea className="textarea min-h-32" name="comentario" maxLength={1200} required /></div>
-          <div><label className="label flex items-center gap-2"><Camera size={16} />Captura opcional</label><input className="field" name="screenshot" type="file" accept="image/*" /></div>
+          <div><label className="label">Capturas opcionales (máximo 3)</label><PhotoUploader disabled={saving} onChange={(files) => setPhotoFiles(files)} onError={setError} /></div>
           <Button disabled={saving}><Send size={18} />{saving ? "Enviando..." : "Enviar"}</Button>
         </form>
       </section>

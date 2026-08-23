@@ -2,16 +2,22 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import { listNotifications, type AppNotification } from "@/lib/notifications";
 
 export function NotificationsBell() {
+  const pathname = usePathname();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const unread = notifications.filter((item) => !item.read).length;
 
   useEffect(() => {
-    listNotifications().then(setNotifications);
-  }, []);
+    let active = true;
+    function load() { listNotifications().then((items) => { if (active) setNotifications(items); }).catch(() => { if (active) setNotifications([]); }); }
+    load();
+    window.addEventListener("huella:notifications-updated", load);
+    return () => { active = false; window.removeEventListener("huella:notifications-updated", load); };
+  }, [pathname]);
 
   return (
     <Link href="/notificaciones" className="relative grid h-11 w-11 place-items-center rounded-full border border-black/10 bg-white text-[#6B6860] hover:bg-[#F8F7F4]" aria-label="Notificaciones">

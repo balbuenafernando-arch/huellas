@@ -373,7 +373,7 @@ export default function NearbySearchPage() {
               <LocateFixed size={18} />
               <span className="sr-only">Ir a mi ubicación</span>
             </Button>
-            <div className="absolute inset-x-0 bottom-0 z-[400] max-h-[46%] overflow-y-auto rounded-t-3xl border border-black/10 bg-white/95 p-3 shadow-[0_-12px_28px_rgba(0,0,0,.12)] backdrop-blur">
+            <div className="absolute inset-x-0 bottom-[calc(64px+env(safe-area-inset-bottom))] z-40 max-h-[42%] overflow-y-auto rounded-t-3xl border border-black/10 bg-white/95 p-3 shadow-[0_-12px_28px_rgba(0,0,0,.12)] backdrop-blur">
               <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-black/20" />
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div>

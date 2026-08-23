@@ -15,6 +15,7 @@ export type PetRow = {
   tamano: string | null;
   color: string | null;
   foto_principal: string | null;
+  photo_urls: string[];
   is_public: boolean;
   created_at: string;
   updated_at: string;
@@ -28,6 +29,7 @@ export type LostReportRow = {
   district: string;
   approximate_address: string | null;
   description: string | null;
+  photo_urls: string[];
   latitude: number | null;
   longitude: number | null;
   lost_at: string | null;
@@ -49,6 +51,7 @@ export type SightingRow = {
   approximate_address: string | null;
   description: string | null;
   photo_url: string | null;
+  photo_urls: string[];
   latitude: number | null;
   longitude: number | null;
   observed_at: string | null;
@@ -57,17 +60,23 @@ export type SightingRow = {
   updated_at: string;
 };
 
-export type ReportImageRow = {
+export type ReunionStoryRow = {
   id: string;
-  report_id: string | null;
-  pet_id: string | null;
-  sighting_id: string | null;
-  owner_id: string | null;
-  bucket: string;
-  storage_path: string;
-  public_url: string;
-  mime_type: string;
-  file_size: number;
-  sort_order: number;
+  report_id: string;
+  owner_id: string;
+  story: string | null;
+  photo_url: string | null;
+  photo_urls: string[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type FeedbackRow = {
+  id: string;
+  user_id: string | null;
+  tipo: string | null;
+  comentario: string | null;
+  screenshot_url: string | null;
+  photo_urls: string[];
   created_at: string;
 };

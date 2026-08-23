@@ -8,10 +8,8 @@ import { Button } from "@/components/ui/button";
 import { CameraCapture } from "@/components/camera-capture";
 import { ImageCropper } from "@/components/image-cropper";
 import { FriendlyError, PageSkeleton } from "@/components/feedback";
-import type { Sighting } from "@/lib/demo-data";
-import { getSightings } from "@/lib/pet-store";
 import { listMyCases, type CaseRecord } from "@/lib/cases";
-import { createRegisteredPet, deleteRegisteredPet, listMyRegisteredPets, type RegisteredPet, updateRegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
+import { deleteRegisteredPet, listMyRegisteredPets, type RegisteredPet, updateRegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
 import { friendlyError, operationError, requiredText, validateImageFiles } from "@/lib/form-validation";
 
 type FieldErrors = Record<string, string>;
@@ -22,8 +20,6 @@ type FormPhoto = {
   file?: File;
   persistedUrl?: string;
 };
-
-const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=900&q=80";
 
 function formatDate(value?: string | null) {
   if (!value) return "Sin fecha";
@@ -49,7 +45,6 @@ export default function MisMascotasPage() {
   const [detailPetId, setDetailPetId] = useState<string | null>(null);
   const [deletePet, setDeletePet] = useState<RegisteredPet | null>(null);
   const [cases, setCases] = useState<CaseRecord[]>([]);
-  const [sightings, setSightings] = useState<Sighting[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -68,10 +63,9 @@ export default function MisMascotasPage() {
 
   async function load() {
     try {
-      const [registeredPets, myCases, allSightings] = await Promise.all([listMyRegisteredPets(), listMyCases(), getSightings()]);
+      const [registeredPets, myCases] = await Promise.all([listMyRegisteredPets(), listMyCases()]);
       setPets(registeredPets);
       setCases(myCases);
-      setSightings(allSightings);
       setError("");
     } catch (caught) {
       setError(friendlyError(caught, "No se pudieron cargar tus mascotas. Revisa tu conexion e intentalo otra vez."));
@@ -82,18 +76,23 @@ export default function MisMascotasPage() {
 
   useEffect(() => { load(); }, []);
   useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("registrada") !== "1") return;
+    setSuccessMessage("Mascota registrada correctamente.");
+    window.history.replaceState(null, "", "/mis-mascotas");
+  }, []);
+  useEffect(() => {
     if (!successMessage) return;
     const timer = window.setTimeout(() => setSuccessMessage(""), 4000);
     return () => window.clearTimeout(timer);
   }, [successMessage]);
 
-  function openForm(pet?: RegisteredPet) {
+  function openForm(pet: RegisteredPet) {
     const existingPhotos = petPhotos(pet);
     const photos = existingPhotos.map((url) => ({ id: photoId(), previewUrl: url, persistedUrl: url }));
-    setEditing(pet ?? null);
+    setEditing(pet);
     setShowForm(true);
     setFormPhotos(photos);
-    setPrincipalPhotoId(photos.find((photo) => photo.persistedUrl === (pet?.foto_principal ?? pet?.foto_url))?.id ?? photos[0]?.id ?? "");
+    setPrincipalPhotoId(photos.find((photo) => photo.persistedUrl === (pet.foto_principal ?? pet.foto_url))?.id ?? photos[0]?.id ?? "");
     setCropFile(null);
     setError("");
     setSuccessMessage("");
@@ -217,7 +216,7 @@ export default function MisMascotasPage() {
         }
       }));
       const fotos = uploadResults.map((photo) => photo.url).slice(0, 3);
-      const principal = uploadResults.find((photo) => photo.id === principalPhotoId)?.url ?? fotos[0] ?? fallbackPhoto;
+      const principal = uploadResults.find((photo) => photo.id === principalPhotoId)?.url ?? fotos[0] ?? editing?.foto_principal ?? editing?.foto_url ?? "";
       const payload = {
         nombre: fieldValue(form, "nombre"),
         alias: editing?.alias ?? "",
@@ -240,14 +239,14 @@ export default function MisMascotasPage() {
         foto_url: principal,
         rasgo_privado: editing?.rasgo_privado ?? "",
       };
-      if (editing) await updateRegisteredPet(editing.id, payload);
-      else await createRegisteredPet(payload);
+      if (!editing) throw new Error("No se encontró la mascota que deseas editar.");
+      await updateRegisteredPet(editing.id, payload);
       closeForm();
       formElement.reset();
       await load();
-      setSuccessMessage(editing ? "Mascota actualizada correctamente." : "Mascota registrada correctamente.");
+      setSuccessMessage("Mascota actualizada correctamente.");
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : operationError(caught, editing ? "actualizar mascota" : "guardar mascota"));
+      setError(caught instanceof Error ? caught.message : operationError(caught, "actualizar mascota"));
     } finally {
       setSaving(false);
     }
@@ -309,7 +308,7 @@ export default function MisMascotasPage() {
           <h1 className="font-serif text-4xl">Mis mascotas</h1>
           <p className="mt-2 text-[#6B6860]">Gestiona las fichas de tus mascotas y sus fotografías.</p>
         </div>
-        <Button type="button" onClick={() => openForm()} disabled={saving || deleting}><Plus size={18} />Registrar mascota</Button>
+        <Button asChild><Link href="/mis-mascotas/nueva"><Plus size={18} />Registrar mascota</Link></Button>
       </div>
 
       {successMessage && (
@@ -327,7 +326,7 @@ export default function MisMascotasPage() {
             <div className="form-card empty-state text-sm">
               <span className="text-4xl" aria-hidden="true">🐾</span>
               <strong>Aún no has registrado ninguna mascota.</strong>
-              <Button type="button" onClick={() => openForm()}><Plus size={18} />Registrar mascota</Button>
+              <Button asChild><Link href="/mis-mascotas/nueva"><Plus size={18} />Registrar mascota</Link></Button>
             </div>
           )}
           {pets.map((pet) => {
@@ -360,7 +359,7 @@ export default function MisMascotasPage() {
 
         {showForm ? (
           <form ref={formRef} onSubmit={submit} className="form-card scroll-mt-24 space-y-4">
-            <h2 className="text-xl font-bold">{editing ? "Editar mascota" : "Registrar mascota"}</h2>
+            <h2 className="text-xl font-bold">Editar mascota</h2>
             <p className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">Puedes subir hasta un máximo de 3 fotografías por mascota.</p>
             <div className="rounded-xl bg-[#F8F7F4] p-3 text-sm leading-6 text-[#4D4A43]">
               <strong className="block">Normas para las fotografías</strong>
@@ -401,7 +400,7 @@ export default function MisMascotasPage() {
             <div><label className="label">Teléfono (opcional)</label><input className="field" name="telefono" type="tel" maxLength={40} defaultValue={editing?.telefono ?? ""} placeholder="+51 987 654 321" /></div>
             <p className="text-xs font-semibold text-[#6B6860]">(*) Campos obligatorios.</p>
             <div className="grid gap-2 min-[390px]:flex">
-              <Button disabled={saving}><Plus size={18} className={saving ? "animate-spin" : ""} />{saving ? "Guardando..." : editing ? "Guardar cambios" : "Registrar mascota"}</Button>
+              <Button disabled={saving}><Plus size={18} className={saving ? "animate-spin" : ""} />{saving ? "Guardando..." : "Guardar cambios"}</Button>
               <Button type="button" variant="outline" onClick={closeForm} disabled={saving}>Cancelar</Button>
             </div>
           </form>
@@ -432,18 +431,7 @@ export default function MisMascotasPage() {
             </div>
           </aside>
         ) : (
-          <aside className="space-y-4">
-            <div className="form-card text-sm text-[#6B6860]">Una ficha clara ahora puede hacer más rápida una búsqueda después.</div>
-            <div className="form-card">
-              <h2 className="mb-3 font-bold">Resumen de búsqueda</h2>
-              <div className="grid grid-cols-2 gap-2 text-center text-sm">
-                <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-xl">{cases.filter((item) => item.status !== "reunido").length}</strong>casos activos</div>
-                <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-xl">{cases.filter((item) => item.status === "reunido").length}</strong>historial</div>
-                <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-xl">{sightings.length}</strong>avistamientos</div>
-                <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-xl">{sightings.filter((item) => (item.estado_avistamiento ?? item.estado) === "confirmado").length}</strong>confirmados</div>
-              </div>
-            </div>
-          </aside>
+          <aside className="form-card text-sm text-[#6B6860]">Selecciona una mascota para ver su ficha o usa “Registrar mascota” para abrir el formulario exclusivo.</aside>
         )}
       </div>
     </main>

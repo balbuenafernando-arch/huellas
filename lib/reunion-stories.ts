@@ -10,6 +10,7 @@ export type ReunionStory = {
   petId?: string | null;
   ownerId?: string | null;
   photoUrl?: string | null;
+  photoUrls?: string[];
   story?: string | null;
   reunitedAt: string;
   searchDurationDays?: number | null;
@@ -54,7 +55,8 @@ export async function listReunionStories(): Promise<Record<string, ReunionStory>
         reportId: item.report_id,
         petId: item.pet_id,
         ownerId: item.owner_id,
-        photoUrl: item.photo_url,
+        photoUrl: item.photo_urls?.[0] ?? item.photo_url,
+        photoUrls: (item.photo_urls?.length ? item.photo_urls : [item.photo_url].filter(Boolean)).slice(0, 3),
         story: item.story,
         reunitedAt: item.reunited_at,
         searchDurationDays: item.search_duration_days,
@@ -84,6 +86,7 @@ export async function saveReunionStory(caseId: string, story: Omit<ReunionStory,
       pet_id: payload.petId,
       owner_id: payload.ownerId,
       photo_url: payload.photoUrl,
+      photo_urls: (payload.photoUrls?.length ? payload.photoUrls : [payload.photoUrl].filter(Boolean)).slice(0, 3),
       story: payload.story,
       reunited_at: payload.reunitedAt,
       search_duration_days: payload.searchDurationDays,

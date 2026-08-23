@@ -40,6 +40,7 @@ type PetRow = {
   foto_url?: string | null;
   foto_principal?: string | null;
   fotos?: string[] | null;
+  photo_urls?: string[] | null;
   caracteristicas?: string[] | null;
   caracteristicas_personalizadas?: string | null;
   condiciones_especiales?: string[] | null;
@@ -61,6 +62,7 @@ type SightingRow = {
   approximate_address?: string | null;
   description?: string | null;
   photo_url?: string | null;
+  photo_urls?: string[] | null;
   latitude?: number | null;
   longitude?: number | null;
   observed_at?: string | null;
@@ -165,8 +167,8 @@ function normalizePet(row: PetRow): Pet {
     latitud: -12.105,
     longitud: -77.03,
     whatsapp: "",
-    foto_principal: row.foto_principal ?? row.foto_url ?? row.fotos?.[0] ?? "",
-    fotos: row.fotos ?? [row.foto_principal ?? row.foto_url ?? ""].filter(Boolean),
+    foto_principal: row.photo_urls?.[0] ?? row.foto_principal ?? row.foto_url ?? row.fotos?.[0] ?? "",
+    fotos: (row.photo_urls?.length ? row.photo_urls : row.fotos ?? [row.foto_principal ?? row.foto_url ?? ""].filter(Boolean)).slice(0, 3),
     caracteristicas: row.caracteristicas ?? [],
     caracteristicas_personalizadas: row.caracteristicas_personalizadas ?? "",
     condiciones_especiales: row.condiciones_especiales ?? [],
@@ -188,7 +190,8 @@ function normalizeSighting(row: SightingRow): Sighting {
     color: row.color ?? null,
     distrito: row.district ?? null,
     comentario: row.description ?? "",
-    foto: row.photo_url ?? null,
+    foto: row.photo_urls?.[0] ?? row.photo_url ?? null,
+    fotos: (row.photo_urls?.length ? row.photo_urls : [row.photo_url].filter(Boolean) as string[]).slice(0, 3),
     latitud: row.latitude ?? null,
     longitud: row.longitude ?? null,
     ubicacion: row.approximate_address ?? row.district ?? null,
@@ -219,7 +222,8 @@ function petToInsert(input: Pet, userId: string | null) {
     color: input.raza,
     foto_url: input.foto_principal,
     foto_principal: input.foto_principal,
-    fotos: input.fotos ?? [input.foto_principal].filter(Boolean),
+    fotos: (input.fotos ?? [input.foto_principal].filter(Boolean)).slice(0, 3),
+    photo_urls: (input.fotos ?? [input.foto_principal].filter(Boolean)).slice(0, 3),
     caracteristicas: input.caracteristicas ?? [],
     caracteristicas_personalizadas: input.caracteristicas_personalizadas ?? input.descripcion,
     condiciones_especiales: input.condiciones_especiales ?? [],
@@ -243,7 +247,7 @@ function petPatch(input: Partial<Pet>, userId: string | null) {
     patch.foto_principal = input.foto_principal;
     patch.foto_url = input.foto_principal;
   }
-  if (input.fotos !== undefined) patch.fotos = input.fotos;
+  if (input.fotos !== undefined) { patch.fotos = input.fotos.slice(0, 3); patch.photo_urls = input.fotos.slice(0, 3); }
   if (input.caracteristicas !== undefined) patch.caracteristicas = input.caracteristicas;
   if (input.caracteristicas_personalizadas !== undefined) patch.caracteristicas_personalizadas = input.caracteristicas_personalizadas;
   if (input.condiciones_especiales !== undefined) patch.condiciones_especiales = input.condiciones_especiales;
@@ -263,7 +267,8 @@ function sightingToInsert(input: Sighting, reporterId: string | null) {
     district: input.distrito ?? null,
     approximate_address: input.ubicacion ?? null,
     description: input.comentario,
-    photo_url: input.foto,
+    photo_url: input.fotos?.[0] ?? input.foto,
+    photo_urls: (input.fotos?.length ? input.fotos : [input.foto].filter(Boolean) as string[]).slice(0, 3),
     latitude: input.latitud,
     longitude: input.longitud,
     observed_at: input.visto_en ?? input.creado_en,
@@ -284,6 +289,10 @@ function sightingPatch(input: Partial<Sighting>) {
   if (input.ubicacion !== undefined) patch.approximate_address = input.ubicacion;
   if (input.comentario !== undefined) patch.description = input.comentario;
   if (input.foto !== undefined) patch.photo_url = input.foto;
+  if (input.fotos !== undefined) {
+    patch.photo_urls = input.fotos.slice(0, 3);
+    patch.photo_url = input.fotos[0] ?? null;
+  }
   if (input.latitud !== undefined) patch.latitude = input.latitud;
   if (input.longitud !== undefined) patch.longitude = input.longitud;
   if (input.visto_en !== undefined) patch.observed_at = input.visto_en;
