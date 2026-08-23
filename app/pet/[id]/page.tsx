@@ -158,7 +158,7 @@ export default function PetDetailPage() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [photoViewerOpen]);
 
-  const photos = useMemo(() => pet ? Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? [])])).slice(0, 5) : [], [pet]);
+  const photos = useMemo(() => pet ? Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? [])])).slice(0, 3) : [], [pet]);
   const confirmedLast = useMemo(() => sightings.find((item) => (item.estado_avistamiento ?? item.estado) === "confirmado"), [sightings]);
   const latestSighting = useMemo(() => sightings.slice().sort((a, b) => new Date(b.visto_en ?? b.creado_en).getTime() - new Date(a.visto_en ?? a.creado_en).getTime())[0], [sightings]);
   const collaboratorStats = useMemo(() => {
@@ -178,19 +178,19 @@ export default function PetDetailPage() {
   }, [allPets, pet]);
   const timeline = useMemo<TimelineItem[]>(() => {
     const creator = report ? `Abierto por ${report.reporter_is_anonymous ? "Usuario anónimo" : report.reporter_name || "Usuario HUELLA"}` : undefined;
-    const base = caseRecord?.timeline?.map((item, index) => ({
+    const base = caseRecord?.timeline?.filter((item) => item.kind === "caso_creado").map((item, index) => ({
       id: `case-${caseRecord.id}-${index}-${item.date}`,
       date: item.date,
       label: item.label,
-      type: "Caso",
+      type: "Caso creado",
       icon: "●",
       location: caseRecord.district,
       source: item.kind === "caso_creado" ? creator : undefined,
     })) ?? (pet ? [{
       id: `pet-${pet.id}-created`,
       date: pet.creado_en,
-      label: "Caso creado",
-      type: "Caso",
+      label: "Búsqueda publicada",
+      type: "Caso creado",
       icon: "●",
       location: pet.distrito,
       source: creator,
@@ -214,8 +214,7 @@ export default function PetDetailPage() {
       location: null,
     }));
     const closedAt = report?.reunited_at ?? pet?.cerrado_en ?? caseRecord?.reunitedAt;
-    const reunionEvents = closedAt ? [
-      {
+    const reunionEvents = closedAt ? [{
         id: `reunion-${report?.id ?? pet?.id ?? caseRecord?.id}`,
         date: closedAt,
         label: "Mascota reunida",
@@ -223,17 +222,7 @@ export default function PetDetailPage() {
         icon: "●",
         location: pet?.distrito ?? report?.distrito ?? caseRecord?.district,
         source: creator,
-      },
-      {
-        id: `closed-${report?.id ?? pet?.id ?? caseRecord?.id}`,
-        date: closedAt,
-        label: "Caso cerrado",
-        type: "Estado",
-        icon: "●",
-        location: pet?.distrito ?? report?.distrito ?? caseRecord?.district,
-        source: creator,
-      },
-    ] : [];
+      }] : [];
     const regularEvents = [...base, ...sightingEvents, ...contactEvents].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     return [...regularEvents, ...reunionEvents];
   }, [caseRecord, contactRequests, pet, report, sightings]);
@@ -362,6 +351,7 @@ export default function PetDetailPage() {
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#1D9E75]">{sightings.length}</strong>avistamientos registrados</div>
             </div>
             {pet.alias?.length ? <p className="mt-2 text-sm text-[#6B6860]">También responde a: {pet.alias.join(", ")}</p> : null}
+            {report && <p className="mt-2 text-sm text-[#6B6860]">Caso creado por: <strong>{report.reporter_is_anonymous ? "Usuario anónimo" : report.reporter_name || "Usuario HUELLA"}</strong></p>}
             {latestSighting && <p className="mt-2 text-sm font-semibold text-[#1D9E75]">Último avistamiento: {timeAgo(latestSighting.visto_en ?? latestSighting.creado_en)}</p>}
             <p className="mt-2 text-sm text-[#6B6860]">Última actualización: {timeAgo(report?.updated_at ?? caseRecord?.updatedAt ?? pet.creado_en)}</p>
             {owned && pendingContactRequests > 0 && <div className="mt-3 rounded-2xl bg-[#FAEEDA] p-4 text-sm text-[#6B4A10]"><strong className="block">❤️ Tienes personas intentando ayudarte.</strong><p>{pendingContactRequests} solicitud{pendingContactRequests === 1 ? "" : "es"} pendiente{pendingContactRequests === 1 ? "" : "s"}.</p><a href="#solicitudes-contacto" className="mt-2 inline-block font-bold text-[#6B4A10]">Revisar solicitudes</a></div>}
@@ -386,7 +376,7 @@ export default function PetDetailPage() {
             </div>}
             <div className="mt-3"><ContentReportButton targetType="pet" targetId={pet.id} /></div>
             {owned && <div className="mt-3 grid gap-2 border-t border-black/10 pt-3 min-[390px]:flex min-[390px]:flex-wrap">
-              <Button variant="outline" asChild><Link href={`/pet/${pet.id}/editar`}><Edit size={17} />Editar caso</Link></Button>
+              <Button variant="outline" asChild><Link href={isClosed ? `/historias-de-exito/${report?.id ?? pet.id}/editar` : `/pet/${pet.id}/editar`}><Edit size={17} />{isClosed ? "Editar historia" : "Editar caso"}</Link></Button>
               {report?.pet_id && <Button variant="outline" asChild><Link href={`/mascota/${report.pet_id}/historial`}>Ver historial completo del caso</Link></Button>}
               {!isClosed && <Button variant="outline" onClick={() => setShowCloseConfirm(true)}><CheckCircle size={17} />❤️ Mi mascota volvió a casa</Button>}
               {report?.estado === "reunido" && <Button variant="outline" onClick={reopenReport}>Reabrir búsqueda</Button>}

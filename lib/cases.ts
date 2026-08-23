@@ -68,7 +68,7 @@ function normalizeCaseStatus(report?: Report | null, pet?: Pet): CaseStatus {
 }
 
 function uniquePhotos(pet: Pet, report?: Report | null) {
-  return Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? []), report?.foto_url].filter(Boolean) as string[])).slice(0, 5);
+  return Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? []), report?.foto_url].filter(Boolean) as string[])).slice(0, 3);
 }
 
 export function buildCaseTimeline(caseRecord: Pick<CaseRecord, "id" | "pet" | "createdAt" | "reunitedAt" | "sightings">): CaseTimelineItem[] {

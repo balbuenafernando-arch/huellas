@@ -54,9 +54,9 @@ export default function EditPetPage() {
     const place = areaName || address || pet.distrito;
     const recompensaTexto = String(form.get("recompensa") || "").trim();
     const recompensaMonto = Number(recompensaTexto.replace(/[^0-9.,]/g, "").replace(",", "."));
-    const files = form.getAll("fotos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 5);
+    const files = form.getAll("fotos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 3);
     let fotoPrincipal = pet.foto_principal;
-    let fotos = pet.fotos?.length ? pet.fotos.slice(0, 5) : [fotoPrincipal];
+    let fotos = pet.fotos?.length ? pet.fotos.slice(0, 3) : [fotoPrincipal];
 
     const validationMessage =
       requiredText(form.get("nombre"), "El nombre", 120) ||
@@ -105,7 +105,7 @@ export default function EditPetPage() {
         longitud: longitude,
         whatsapp: String(form.get("whatsapp")),
         foto_principal: fotoPrincipal,
-        fotos: Array.from(new Set([fotoPrincipal, ...fotos])).slice(0, 5),
+        fotos: Array.from(new Set([fotoPrincipal, ...fotos])).slice(0, 3),
         condiciones_especiales: form.getAll("condiciones_especiales").map(String),
         alias: pet.alias ?? [],
         caracteristicas: [],
@@ -180,8 +180,8 @@ export default function EditPetPage() {
         </section>
         <section className="form-card space-y-4">
           <img src={pet.foto_principal} alt={pet.nombre} className="h-52 w-full rounded-xl bg-[#F8F7F4] object-contain" />
-          <div className="grid grid-cols-3 gap-2 min-[390px]:grid-cols-5">{(pet.fotos?.length ? pet.fotos : [pet.foto_principal]).slice(0, 5).map((foto) => <img key={foto} src={foto} alt="Foto actual" className="h-16 w-full rounded-lg object-contain bg-[#F8F7F4]" />)}</div>
-          <div><label className="label">Reemplazar fotos (máximo 5)</label><input className="field" name="fotos" type="file" accept="image/*" multiple /></div>
+          <div className="grid grid-cols-3 gap-2">{(pet.fotos?.length ? pet.fotos : [pet.foto_principal]).slice(0, 3).map((foto) => <img key={foto} src={foto} alt="Foto actual" className="h-16 w-full rounded-lg object-contain bg-[#F8F7F4]" />)}</div>
+          <div><label className="label">Reemplazar fotos (máximo 3)</label><input className="field" name="fotos" type="file" accept="image/*" multiple /></div>
           <div>
             <label className="label">Dirección</label>
             <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">

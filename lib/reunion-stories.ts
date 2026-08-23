@@ -73,7 +73,7 @@ export async function saveReunionStory(caseId: string, story: Omit<ReunionStory,
     caseId,
     reportId: story.reportId ?? caseId,
     ownerId: story.ownerId ?? user?.id ?? null,
-    story: story.story?.trim().slice(0, 200) || null,
+    story: story.story?.trim().slice(0, 500) || null,
     reunitedAt,
     createdAt: story.createdAt ?? new Date().toISOString(),
   };

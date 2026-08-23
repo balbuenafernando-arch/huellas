@@ -80,7 +80,7 @@ export function validateImageFile(file?: File | null) {
 }
 
 export function validateImageFiles(files: File[]) {
-  if (files.length > 5) return "Puedes subir hasta 5 fotos.";
+  if (files.length > 3) return "Puedes subir hasta 3 fotografías.";
   for (const file of files) {
     const error = validateImageFile(file);
     if (error) return error;

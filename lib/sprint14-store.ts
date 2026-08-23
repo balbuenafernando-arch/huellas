@@ -176,7 +176,7 @@ function registeredPetInsert(input: RegisteredPet) {
     esterilizado: Boolean(input.esterilizado),
     placa_medalla: input.placa_medalla ?? null,
     contacto_preferido: input.contacto_preferido ?? "whatsapp",
-    fotos: input.fotos ?? [],
+    fotos: (input.fotos ?? []).slice(0, 3),
     foto_principal: input.foto_principal ?? input.foto_url ?? input.fotos?.[0] ?? null,
     foto_url: input.foto_url ?? input.foto_principal ?? input.fotos?.[0] ?? null,
     caracteristicas: input.caracteristicas ?? [],
@@ -205,7 +205,7 @@ function registeredPetPatch(input: Partial<RegisteredPet>) {
   if (input.esterilizado !== undefined) patch.esterilizado = input.esterilizado;
   if (input.placa_medalla !== undefined) patch.placa_medalla = input.placa_medalla;
   if (input.contacto_preferido !== undefined) patch.contacto_preferido = input.contacto_preferido;
-  if (input.fotos !== undefined) patch.fotos = input.fotos;
+  if (input.fotos !== undefined) patch.fotos = (input.fotos ?? []).slice(0, 3);
   if (input.foto_principal !== undefined) patch.foto_principal = input.foto_principal;
   if (input.foto_url !== undefined) patch.foto_url = input.foto_url;
   if (input.caracteristicas !== undefined) patch.caracteristicas = input.caracteristicas;
@@ -586,7 +586,7 @@ export function reportToLegacyPet(report: Report): LegacyPet {
     longitud: report.longitude ?? -77.03,
     whatsapp: report.whatsapp ?? "",
     foto_principal: report.pet?.foto_principal ?? report.pet?.foto_url ?? report.foto_url,
-    fotos: report.pet?.fotos ?? [report.pet?.foto_principal ?? report.pet?.foto_url ?? report.foto_url].filter(Boolean),
+    fotos: (report.pet?.fotos ?? [report.pet?.foto_principal ?? report.pet?.foto_url ?? report.foto_url].filter(Boolean)).slice(0, 3),
     alias: report.pet?.alias ? report.pet.alias.split(",").map((item) => item.trim()).filter(Boolean) : [],
     caracteristicas: report.pet?.caracteristicas ?? [],
     caracteristicas_personalizadas: report.pet?.caracteristicas_personalizadas ?? "",

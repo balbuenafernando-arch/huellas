@@ -283,6 +283,9 @@ export default function EmergencyReportPage() {
     </main>
   );
 
+  const selectedRegisteredPet = registeredPets.find((pet) => pet.id === selectedPetId);
+  const registeredPhotoCount = selectedRegisteredPet ? Array.from(new Set([selectedRegisteredPet.foto_principal, selectedRegisteredPet.foto_url, ...(selectedRegisteredPet.fotos ?? [])].filter(Boolean))).length : 0;
+
   return (
     <main className="container py-6">
       {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onApply={(file, previewUrl) => {
@@ -297,16 +300,17 @@ export default function EmergencyReportPage() {
           <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Primero revisamos coincidencias cercanas. La búsqueda se guarda recién cuando confirmas.</p></div>
           {error && <FriendlyError message={error} />}
           {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{petOptionLabel(pet)}</option>)}<option value="">No esta registrada</option></select></div>}
+          {selectedRegisteredPet && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]"><strong>Usaremos las fotografías registradas de {selectedRegisteredPet.nombre}.</strong><span className="mt-1 block">Puedes agregar una fotografía reciente de forma opcional si aún no alcanzaste el máximo de 3.</span></div>}
           <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
-          <div className="grid gap-2 min-[390px]:grid-cols-2">
+          {(!selectedRegisteredPet || registeredPhotoCount < 3) && <div className="grid gap-2 min-[390px]:grid-cols-2">
             <CameraCapture disabled={saving} onCapture={handleCameraPhoto} />
-            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galería</Button>
-          </div>
+            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />{selectedRegisteredPet ? "Agregar desde galería" : "Elegir desde galería"}</Button>
+          </div>}
           {fieldErrors.foto && <p className="text-sm font-semibold text-[#B42318]">{fieldErrors.foto}</p>}
           {photoPreview ? <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-3">
             <img src={photoPreview} alt="Foto recortada" className="max-h-64 w-full rounded-xl bg-white object-contain" />
             <Button type="button" variant="outline" className="mt-3 w-full" onClick={removePhoto}>Eliminar foto</Button>
-          </div> : <p className="rounded-xl bg-[#F8F7F4] p-3 text-sm text-[#6B6860]">La foto se podrá recortar antes de guardar.</p>}
+          </div> : !selectedRegisteredPet ? <p className="rounded-xl bg-[#F8F7F4] p-3 text-sm text-[#6B6860]">La foto se podrá recortar antes de guardar.</p> : null}
           {!selectedPetId && <>
             <div><label className="label">Nombre *</label><input required maxLength={120} className="field" name="nombre" placeholder="Luna" aria-invalid={Boolean(fieldErrors.nombre)} />{fieldErrors.nombre && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.nombre}</p>}</div>
             <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño *</label><select className="select" name="tamano"><option value="Pequeno">Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
@@ -315,7 +319,7 @@ export default function EmergencyReportPage() {
           </>}
         </section>
         <section className="form-card space-y-4">
-          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 2 - ¿Dónde se perdió?</div>
+          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 2 - ¿Dónde se perdió tu mascota?</div>
           <div>
             <label className="label">Dirección o referencia *</label>
             <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">

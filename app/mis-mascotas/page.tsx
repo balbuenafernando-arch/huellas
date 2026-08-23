@@ -98,6 +98,7 @@ export default function MisMascotasPage() {
     setError("");
     setSuccessMessage("");
     setFieldErrors({});
+    requestAnimationFrame(() => requestAnimationFrame(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })));
   }
 
   function closeForm() {
@@ -226,14 +227,14 @@ export default function MisMascotasPage() {
         color: fieldValue(form, "color"),
         sexo: fieldValue(form, "sexo"),
         edad: ageText,
-        salud: fieldValue(form, "descripcion"),
-        esterilizado: Boolean(editing?.esterilizado),
+        salud: fieldValue(form, "salud"),
+        esterilizado: form.get("esterilizado") === "on",
         placa_medalla: editing?.placa_medalla ?? "",
-        caracteristicas: editing?.caracteristicas ?? [],
-        caracteristicas_personalizadas: fieldValue(form, "rasgos_distintivos"),
+        caracteristicas: [],
+        caracteristicas_personalizadas: fieldValue(form, "descripcion"),
         condiciones_especiales: editing?.condiciones_especiales ?? [],
-        telefono: editing?.telefono ?? "",
-        contacto_preferido: editing?.contacto_preferido ?? "whatsapp",
+        telefono: fieldValue(form, "telefono"),
+        contacto_preferido: null,
         fotos,
         foto_principal: principal,
         foto_url: principal,
@@ -358,7 +359,7 @@ export default function MisMascotasPage() {
         </section>
 
         {showForm ? (
-          <form ref={formRef} onSubmit={submit} className="form-card space-y-4">
+          <form ref={formRef} onSubmit={submit} className="form-card scroll-mt-24 space-y-4">
             <h2 className="text-xl font-bold">{editing ? "Editar mascota" : "Registrar mascota"}</h2>
             <p className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]">Puedes subir hasta un máximo de 3 fotografías por mascota.</p>
             <div className="rounded-xl bg-[#F8F7F4] p-3 text-sm leading-6 text-[#4D4A43]">
@@ -394,8 +395,10 @@ export default function MisMascotasPage() {
             <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Raza</label><input className="field" name="raza" defaultValue={editing?.raza} /></div><div><label className="label">Sexo</label><select className="select" name="sexo" defaultValue={editing?.sexo ?? ""}><option value="">No indicado</option><option>Hembra</option><option>Macho</option></select></div></div>
             <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Tamaño</label><select className="select" name="tamano" defaultValue={editing?.tamano ?? "Mediano"}><option value="Pequeno">Pequeño</option><option>Mediano</option><option>Grande</option></select></div><div><label className="label">Edad</label><input className="field" name="edad" type="number" min="0" defaultValue={editing?.edad} />{fieldErrors.edad && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.edad}</p>}</div></div>
             <div><label className="label">Color</label><input className="field" name="color" defaultValue={editing?.color} /></div>
-            <div><label className="label">Descripción</label><textarea className="field min-h-28" name="descripcion" maxLength={1000} defaultValue={editing?.salud || ""} /></div>
-            <div><label className="label">Otros rasgos distintivos</label><input className="field" name="rasgos_distintivos" maxLength={240} defaultValue={editing?.caracteristicas_personalizadas ?? ""} placeholder="Manchas, cicatrices, collar, placa u otros detalles visibles" /></div>
+            <div><label className="label">Descripción de la mascota</label><textarea className="field min-h-28" name="descripcion" maxLength={1000} defaultValue={editing?.caracteristicas_personalizadas ?? ""} placeholder="Describe su apariencia y aquello que permite reconocerla." /></div>
+            <div><label className="label">Salud</label><input className="field" name="salud" maxLength={240} defaultValue={editing?.salud ?? ""} placeholder="Alergias, medicación o cuidados importantes" /></div>
+            <label className="flex min-h-11 items-center gap-3 rounded-xl border border-black/10 p-3 text-sm font-semibold"><input type="checkbox" name="esterilizado" defaultChecked={Boolean(editing?.esterilizado)} />Esterilizado</label>
+            <div><label className="label">Teléfono (opcional)</label><input className="field" name="telefono" type="tel" maxLength={40} defaultValue={editing?.telefono ?? ""} placeholder="+51 987 654 321" /></div>
             <p className="text-xs font-semibold text-[#6B6860]">(*) Campos obligatorios.</p>
             <div className="grid gap-2 min-[390px]:flex">
               <Button disabled={saving}><Plus size={18} className={saving ? "animate-spin" : ""} />{saving ? "Guardando..." : editing ? "Guardar cambios" : "Registrar mascota"}</Button>
@@ -420,8 +423,8 @@ export default function MisMascotasPage() {
               <div><dt className="font-bold">Color</dt><dd>{detailPet.color || "No indicado"}</dd></div>
               <div><dt className="font-bold">Fecha de registro</dt><dd className="flex items-center gap-2"><CalendarDays size={15} />{formatDate(detailPet.created_at)}</dd></div>
             </dl>
-            <div><h3 className="font-bold">Descripción</h3><p className="mt-1 text-sm text-[#6B6860]">{detailPet.salud || "Sin descripción."}</p></div>
-            <div><h3 className="font-bold">Otros rasgos distintivos</h3><p className="mt-1 text-sm text-[#6B6860]">{detailPet.caracteristicas_personalizadas || "Sin rasgos adicionales."}</p></div>
+            <div><h3 className="font-bold">Descripción de la mascota</h3><p className="mt-1 text-sm text-[#6B6860]">{detailPet.caracteristicas_personalizadas || "Sin descripción."}</p></div>
+            <div><h3 className="font-bold">Salud</h3><p className="mt-1 text-sm text-[#6B6860]">{detailPet.salud || "Sin información de salud."}</p></div>
             <div className="grid gap-2 min-[390px]:grid-cols-2">
               <Button type="button" variant="outline" onClick={() => openForm(detailPet)}><Edit size={18} />Editar</Button>
               {(() => { const activeCase = cases.find((item) => item.petId === detailPet.id && item.status !== "reunido" && item.status !== "archivado"); return activeCase ? <Button asChild><Link href={`/pet/${activeCase.id}`}>Ver centro de búsqueda</Link></Button> : <Button asChild><Link href={`/perdi-mi-mascota?petId=${detailPet.id}`}>Reportar pérdida</Link></Button>; })()}
