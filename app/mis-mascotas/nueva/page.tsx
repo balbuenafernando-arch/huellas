@@ -1,5 +1,4 @@
 "use client";
-
 import type { FormEvent } from "react";
 import { useRef, useState } from "react";
 import Link from "next/link";
@@ -10,59 +9,11 @@ import { PhotoUploader } from "@/components/photo-uploader";
 import { FriendlyError } from "@/components/feedback";
 import { createRegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
 import { operationError, requiredText, validateImageFiles } from "@/lib/form-validation";
-
 type FieldErrors = Record<string, string>;
-
 export default function NewRegisteredPetPage() {
-  const router = useRouter();
-  const formRef = useRef<HTMLFormElement>(null);
-  const [photos, setPhotos] = useState<File[]>([]);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
-  function showErrors(errors: FieldErrors) {
-    setFieldErrors(errors);
-    const first = Object.keys(errors)[0];
-    if (!first) return false;
-    requestAnimationFrame(() => {
-      const target = formRef.current?.querySelector<HTMLElement>(`[name="${first}"], [data-field="${first}"]`);
-      target?.focus();
-      target?.scrollIntoView({ behavior: "smooth", block: "center" });
-    });
-    return true;
-  }
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (saving) return;
-    const form = new FormData(event.currentTarget);
-    const errors: FieldErrors = {};
-    for (const [name, label] of [["nombre", "El nombre"], ["especie", "La especie"], ["raza", "La raza"], ["color", "El color"]] as const) {
-      const validation = requiredText(form.get(name), label, 120);
-      if (validation) errors[name] = validation;
-    }
-    if (!photos.length) errors.fotos = "Agrega al menos una fotografía.";
-    const age = String(form.get("edad") ?? "");
-    if (age && Number(age) < 0) errors.edad = "La edad no puede ser negativa.";
-    if (showErrors(errors)) return;
-    setSaving(true);
-    setError("");
-    try {
-      const imageError = validateImageFiles(photos);
-      if (imageError) throw new Error(imageError);
-      const urls = await Promise.all(photos.slice(0, 3).map((photo) => uploadMascotaImage(photo)));
-      await createRegisteredPet({
-        nombre: String(form.get("nombre")).trim(), alias: "", especie: String(form.get("especie")), raza: String(form.get("raza")).trim(), tamano: "", color: String(form.get("color")).trim(), sexo: String(form.get("sexo") || ""), edad: age, salud: String(form.get("salud") || "").trim(), esterilizado: form.get("esterilizado") === "on", placa_medalla: String(form.get("placa_medalla") || "").trim(), telefono: String(form.get("telefono") || "").trim(), contacto_preferido: null, fotos: urls, foto_principal: urls[0], foto_url: urls[0], caracteristicas: [], caracteristicas_personalizadas: "", condiciones_especiales: [], rasgo_privado: "",
-      });
-      router.push("/mis-mascotas?registrada=1");
-      router.refresh();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : operationError(caught, "registrar mascota"));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return <main className="container py-6"><Link href="/mis-mascotas" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Volver a Mis mascotas</Link><form ref={formRef} onSubmit={submit} className="form-card mx-auto max-w-2xl space-y-4"><div><h1 className="font-serif text-4xl">Registrar mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Crea su ficha preventiva. Registrar una pérdida es un flujo separado.</p></div>{error && <FriendlyError message={error} />}<div data-field="fotos"><label className="label">Fotografías * (máximo 3)</label><PhotoUploader disabled={saving} onChange={(files) => setPhotos(files)} onError={setError} />{fieldErrors.fotos && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.fotos}</p>}</div><div><label className="label">Nombre *</label><input className="field" name="nombre" maxLength={120} aria-invalid={Boolean(fieldErrors.nombre)} />{fieldErrors.nombre && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.nombre}</p>}</div><div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie" defaultValue="Perro"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Raza *</label><input className="field" name="raza" maxLength={120} aria-invalid={Boolean(fieldErrors.raza)} />{fieldErrors.raza && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.raza}</p>}</div></div><div className="grid gap-3 md:grid-cols-2"><div><label className="label">Sexo</label><select className="select" name="sexo" defaultValue=""><option value="">No indicado</option><option>Hembra</option><option>Macho</option></select></div><div><label className="label">Edad</label><input className="field" name="edad" type="number" min="0" aria-invalid={Boolean(fieldErrors.edad)} />{fieldErrors.edad && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.edad}</p>}</div></div><div><label className="label">Color *</label><input className="field" name="color" maxLength={120} aria-invalid={Boolean(fieldErrors.color)} />{fieldErrors.color && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.color}</p>}</div><div><label className="label">Estado de salud</label><input className="field" name="salud" maxLength={240} /></div><label className="flex min-h-11 items-center gap-3 rounded-xl border border-black/10 p-3 text-sm font-semibold"><input type="checkbox" name="esterilizado" />Esterilizado</label><div><label className="label">Placa o medalla (opcional)</label><input className="field" name="placa_medalla" maxLength={120} /></div><div><label className="label">Teléfono de contacto (opcional)</label><input className="field" name="telefono" type="tel" maxLength={40} /></div><div className="grid gap-2 min-[390px]:flex"><Button disabled={saving}><Save size={18} />{saving ? "Registrando..." : "Registrar mascota"}</Button><Button type="button" variant="outline" asChild><Link href="/mis-mascotas">Cancelar</Link></Button></div></form></main>;
+ const router=useRouter(), formRef=useRef<HTMLFormElement>(null); const [photos,setPhotos]=useState<File[]>([]),[saving,setSaving]=useState(false),[error,setError]=useState(""),[fieldErrors,setFieldErrors]=useState<FieldErrors>({});
+ function showErrors(errors:FieldErrors){setFieldErrors(errors);const first=Object.keys(errors)[0];if(!first)return false;requestAnimationFrame(()=>{const target=formRef.current?.querySelector<HTMLElement>(`[name="${first}"],[data-field="${first}"]`);target?.focus();target?.scrollIntoView({behavior:"smooth",block:"center"});});return true;}
+ async function submit(event:FormEvent<HTMLFormElement>){event.preventDefault();if(saving)return;const form=new FormData(event.currentTarget),errors:FieldErrors={};for(const [name,label] of [["nombre","El nombre"],["especie","La especie"],["raza","La raza"],["color","El color"],["descripcion","La descripción"]] as const){const validation=requiredText(form.get(name),label,name==="descripcion"?1000:120);if(validation)errors[name]=validation;}if(!photos.length)errors.fotos="Agrega al menos una fotografía.";const imageError=validateImageFiles(photos);if(imageError)errors.fotos=imageError;const age=String(form.get("edad")??"");if(age&&Number(age)<0)errors.edad="La edad no puede ser negativa.";if(showErrors(errors))return;setSaving(true);setError("");try{const urls=await Promise.all(photos.slice(0,3).map((photo)=>uploadMascotaImage(photo)));await createRegisteredPet({nombre:String(form.get("nombre")).trim(),alias:"",especie:String(form.get("especie")),raza:String(form.get("raza")).trim(),tamano:"",color:String(form.get("color")).trim(),sexo:String(form.get("sexo")||""),edad:age,salud:String(form.get("salud")||"").trim(),esterilizado:form.get("esterilizado")==="on",placa_medalla:String(form.get("placa_medalla")||"").trim(),telefono:String(form.get("telefono")||"").trim(),contacto_preferido:null,fotos:urls,foto_principal:urls[0],foto_url:urls[0],caracteristicas:[],caracteristicas_personalizadas:String(form.get("descripcion")).trim(),condiciones_especiales:[],rasgo_privado:""});router.push("/mis-mascotas?registrada=1");router.refresh();}catch(caught){setError(caught instanceof Error?caught.message:operationError(caught,"registrar mascota"));}finally{setSaving(false);}}
+ const msg=(name:string)=>fieldErrors[name]&&<p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors[name]}</p>;
+ return <main className="container py-6"><Link href="/mis-mascotas" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17}/>Volver a Mis mascotas</Link><form ref={formRef} onSubmit={submit} className="form-card mx-auto max-w-2xl space-y-4"><div><h1 className="font-serif text-4xl">Registrar mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Crea su ficha preventiva. Registrar una pérdida es un flujo separado.</p></div>{error&&<FriendlyError message={error}/>}<div data-field="fotos"><label className="label">Fotografías * (máximo 3)</label><PhotoUploader disabled={saving} onChange={setPhotos} onError={setError}/>{msg("fotos")}</div><div><label className="label">Nombre *</label><input className="field" name="nombre" maxLength={120}/>{msg("nombre")}</div><div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie" defaultValue="Perro"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Raza *</label><input className="field" name="raza" maxLength={120}/>{msg("raza")}</div></div><div className="grid gap-3 md:grid-cols-2"><div><label className="label">Sexo</label><select className="select" name="sexo" defaultValue=""><option value="">No indicado</option><option>Hembra</option><option>Macho</option></select></div><div><label className="label">Edad</label><input className="field" name="edad" type="number" min="0"/>{msg("edad")}</div></div><div><label className="label">Color *</label><input className="field" name="color" maxLength={120}/>{msg("color")}</div><div><label className="label">Descripción *</label><textarea className="textarea min-h-24" name="descripcion" maxLength={1000}/>{msg("descripcion")}</div><div><label className="label">Salud</label><input className="field" name="salud" maxLength={240}/></div><label className="flex min-h-11 items-center gap-3 rounded-xl border border-black/10 p-3 text-sm font-semibold"><input type="checkbox" name="esterilizado"/>Esterilizado</label><div><label className="label">Placa o medalla (opcional)</label><input className="field" name="placa_medalla" maxLength={120}/></div><div><label className="label">Teléfono (opcional)</label><input className="field" name="telefono" type="tel" maxLength={40}/></div><div className="grid gap-2 min-[390px]:flex"><Button disabled={saving}><Save size={18}/>{saving?"Registrando...":"Registrar mascota"}</Button><Button type="button" variant="outline" asChild><Link href="/mis-mascotas">Cancelar</Link></Button></div></form></main>;
 }

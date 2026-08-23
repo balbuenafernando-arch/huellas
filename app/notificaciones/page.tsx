@@ -6,7 +6,6 @@ import { Bell, CheckCheck, HeartHandshake, PawPrint, Radar, ShieldCheck } from "
 import { Button } from "@/components/ui/button";
 import { FriendlyError, PageSkeleton } from "@/components/feedback";
 import { listNotifications, markAllNotificationsRead, type AppNotification } from "@/lib/notifications";
-import { getNotificationPreferences, saveNotificationPreferences, type NotificationPreferences } from "@/lib/notification-preferences";
 import { formatDateTime } from "@/lib/utils";
 import { friendlyError } from "@/lib/form-validation";
 
@@ -20,7 +19,6 @@ function iconFor(type: string) {
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [preferences, setPreferences] = useState<NotificationPreferences>({ notifyByEmail: true, notifyByWhatsapp: false });
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -38,7 +36,6 @@ export default function NotificationsPage() {
   }
 
   useEffect(() => { load(); }, []);
-  useEffect(() => { getNotificationPreferences().then(setPreferences).catch(() => undefined); }, []);
 
   async function markAllRead() {
     if (saving) return;
@@ -54,15 +51,6 @@ export default function NotificationsPage() {
   }
 
   const unread = notifications.filter((item) => !item.read).length;
-
-  async function updatePreference(next: NotificationPreferences) {
-    setPreferences(next);
-    try {
-      await saveNotificationPreferences(next);
-    } catch (caught) {
-      setError(friendlyError(caught, "No se pudieron guardar tus preferencias."));
-    }
-  }
 
   if (loading) return <PageSkeleton />;
 
@@ -97,18 +85,6 @@ export default function NotificationsPage() {
             </article>
           );
         })}
-      </section>
-      <section className="form-card mt-5 space-y-3">
-        <h2 className="font-bold">Preferencias</h2>
-        <p className="text-sm text-[#6B6860]">Elige cómo quieres enterarte de novedades importantes de tus casos.</p>
-        <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-black/10 p-3 text-sm font-semibold">
-          Avisos por email
-          <input type="checkbox" checked={preferences.notifyByEmail} onChange={(event) => updatePreference({ ...preferences, notifyByEmail: event.target.checked })} />
-        </label>
-        <label className="flex min-h-11 items-center justify-between gap-3 rounded-xl border border-black/10 p-3 text-sm font-semibold">
-          Avisos por WhatsApp autorizados
-          <input type="checkbox" checked={preferences.notifyByWhatsapp} onChange={(event) => updatePreference({ ...preferences, notifyByWhatsapp: event.target.checked })} />
-        </label>
       </section>
     </main>
   );

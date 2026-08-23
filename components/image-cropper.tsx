@@ -50,6 +50,11 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
   const objectUrl = useMemo(() => URL.createObjectURL(file), [file]);
 
   useEffect(() => () => URL.revokeObjectURL(objectUrl), [objectUrl]);
+  useEffect(() => {
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, []);
 
   function updateOffset(nextX: number, nextY: number) {
     const limit = 24 * zoom;
@@ -105,8 +110,8 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
   }
 
   return (
-    <div className="fixed inset-0 z-[1200] grid place-items-center bg-black/70 p-3">
-      <section className="w-full max-w-xl rounded-2xl bg-white p-4 shadow-[0_24px_80px_rgba(0,0,0,.28)]">
+    <div className="fixed inset-0 z-[1200] grid place-items-center overflow-hidden bg-black/70 p-3" role="dialog" aria-modal="true" aria-label="Ajustar fotografía">
+      <section className="max-h-[calc(100dvh-24px)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-[0_24px_80px_rgba(0,0,0,.28)]">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className="font-bold">Ajustar foto</h2>
           <Button type="button" variant="outline" onClick={onCancel} disabled={applying}>Cancelar</Button>

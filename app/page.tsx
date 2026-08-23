@@ -81,6 +81,11 @@ export default function HomePage() {
         </Link>
       </section>
 
+      <section className="mt-6 grid gap-3 sm:grid-cols-2" aria-label="Tu actividad">
+        <Link href="/mis-busquedas" className="form-card block hover:border-[#9FE1CB]"><strong className="block text-lg">Mis búsquedas</strong><span className="mt-1 block text-sm text-[#6B6860]">Consulta exclusivamente los casos que publicaste como propietario.</span></Link>
+        <Link href="/mis-avistamientos" className="form-card block hover:border-[#9FE1CB]"><strong className="block text-lg">Mis avistamientos</strong><span className="mt-1 block text-sm text-[#6B6860]">Consulta exclusivamente los reportes que hiciste sobre mascotas de terceros.</span></Link>
+      </section>
+
       {activeCase && <section className="mt-6">
         <h2 className="mb-3 flex items-center gap-2 text-xl font-bold"><Heart size={19} fill="currentColor" className="text-[#D85A30]" />Estado de tu búsqueda</h2>
         <article className="form-card grid gap-4 min-[520px]:grid-cols-[150px_1fr]">
