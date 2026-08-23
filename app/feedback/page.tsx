@@ -1,7 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FriendlyError } from "@/components/feedback";
@@ -18,6 +18,8 @@ export default function FeedbackPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const formRef = useRef<HTMLFormElement>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,12 +27,17 @@ export default function FeedbackPage() {
     const form = new FormData(event.currentTarget);
     const comentario = String(form.get("comentario") ?? "").trim();
     const validation = validateImageFiles(photoFiles);
-    if (!comentario) {
-      setError("Cuéntanos qué pasó o qué podemos mejorar.");
-      return;
-    }
-    if (validation) {
-      setError(validation);
+    const errors: Record<string, string> = {};
+    if (!comentario) errors.comentario = "Cuéntanos qué pasó o qué podemos mejorar.";
+    if (validation) errors.fotos = validation;
+    setFieldErrors(errors);
+    const first = Object.keys(errors)[0];
+    if (first) {
+      requestAnimationFrame(() => {
+        const target = formRef.current?.querySelector<HTMLElement>(`[name="${first}"],[data-field="${first}"]`);
+        target?.focus();
+        target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
       return;
     }
     setSaving(true);
@@ -39,6 +46,7 @@ export default function FeedbackPage() {
       const photoUrls = await Promise.all(photoFiles.slice(0, 3).map((photo) => uploadImage(photo)));
       await submitFeedback({ tipo, comentario: comentario.slice(0, 1200), photo_urls: photoUrls });
       setSent(true);
+      setFieldErrors({});
       setPhotoFiles([]);
       event.currentTarget.reset();
     } catch (caught) {
@@ -57,7 +65,7 @@ export default function FeedbackPage() {
         </div>
         {error && <FriendlyError message={error} />}
         {sent && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">Gracias. Recibimos tu comentario.</div>}
-        <form className="space-y-4" onSubmit={submit}>
+        <form ref={formRef} className="space-y-4" onSubmit={submit}>
           <div>
             <label className="label">Tipo</label>
             <div className="grid gap-2 min-[430px]:grid-cols-2">
@@ -66,8 +74,8 @@ export default function FeedbackPage() {
               ))}
             </div>
           </div>
-          <div><label className="label">Comentario</label><textarea className="textarea min-h-32" name="comentario" maxLength={1200} required /></div>
-          <div><label className="label">Capturas opcionales (máximo 3)</label><PhotoUploader disabled={saving} onChange={(files) => setPhotoFiles(files)} onError={setError} /></div>
+          <div><label className="label">Comentario</label><textarea className="textarea min-h-32" name="comentario" maxLength={1200} aria-invalid={Boolean(fieldErrors.comentario)} />{fieldErrors.comentario && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.comentario}</p>}</div>
+          <div data-field="fotos" tabIndex={-1}><label className="label">Capturas opcionales (máximo 3)</label><PhotoUploader disabled={saving} onChange={(files) => setPhotoFiles(files)} onError={(message) => setFieldErrors((current) => ({ ...current, fotos: message }))} />{fieldErrors.fotos && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.fotos}</p>}</div>
           <Button disabled={saving}><Send size={18} />{saving ? "Enviando..." : "Enviar"}</Button>
         </form>
       </section>

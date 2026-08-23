@@ -293,9 +293,6 @@ export default function EmergencyReportPage() {
           <div className="map-panel min-h-[320px] overflow-hidden rounded-2xl">
             <LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} />
           </div>
-          <div className="grid gap-2 min-[390px]:grid-cols-2">
-            <Button type="button" variant="outline" onClick={() => addressInputRef.current?.focus()} disabled={saving}>Cambiar ubicación</Button>
-          </div>
           <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. Las coordenadas del pin son la fuente principal.</p>
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha *</label><input required className="field" name="fecha" type="date" aria-invalid={Boolean(fieldErrors.fecha)} />{fieldErrors.fecha && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.fecha}</p>}</div><div><label className="label">Hora *</label><input required className="field" name="hora" type="time" /></div></div>
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 3 - Contacto</div>

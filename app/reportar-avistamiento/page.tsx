@@ -3,6 +3,7 @@
 import type { FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowLeft, MapPin, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhotoUploader } from "@/components/photo-uploader";
@@ -53,6 +54,7 @@ function locationLabel(details: LocationDetails | null, address: string) {
 }
 
 export default function ReportSightingPage() {
+  const requestedCaseId = useSearchParams().get("caseId") ?? "";
   const [draft, setDraft] = useState<SightingDraft>(defaultDraft);
   const [coords, setCoords] = useState(defaultPeruCoords());
   const [locationDetails, setLocationDetails] = useState<LocationDetails | null>(null);
@@ -233,10 +235,10 @@ export default function ReportSightingPage() {
       }
 
       const selectedMatch = matches.find((match) => match.caseId === selectedCaseId);
-      let reportId: string | null = selectedMatch?.caseId ?? null;
+      let reportId: string | null = selectedMatch?.caseId ?? (requestedCaseId || null);
       let petId: string | null = selectedMatch?.petId ?? null;
 
-      if (!selectedMatch && user) {
+      if (!selectedMatch && !requestedCaseId && user) {
         const photoUrl = fotos[0] ?? fallbackPhoto;
         let pet;
         try {
@@ -343,7 +345,7 @@ export default function ReportSightingPage() {
   return (
     <main className="container py-6">
       <Link href="/" className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-[#6B6860]"><ArrowLeft size={17} />Inicio</Link>
-      <div className="mb-5"><h1 className="font-serif text-4xl">Vi una mascota</h1><p className="mt-2 text-[#6B6860]">Primero buscamos si corresponde a un caso activo. Solo se guarda después de revisar coincidencias.</p></div>
+      <div className="mb-5"><h1 className="font-serif text-4xl">Vi una mascota</h1><p className="mt-2 text-[#6B6860]">{requestedCaseId ? "Este avistamiento se registrará directamente en el caso que estabas consultando." : "Primero buscamos si corresponde a un caso activo. Solo se guarda después de revisar coincidencias."}</p></div>
       <form ref={formRef} onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           {error && <FriendlyError message={error} />}
@@ -366,16 +368,13 @@ export default function ReportSightingPage() {
           <div className="map-panel min-h-[300px] overflow-hidden rounded-2xl">
             <LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} />
           </div>
-          <div className="grid gap-2 min-[390px]:grid-cols-2">
-            <Button type="button" variant="outline" onClick={() => addressInputRef.current?.focus()} disabled={saving}>Cambiar ubicación</Button>
-          </div>
           <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. El pin manda sobre la dirección.</p>
           <div><label className="label">Fecha y hora *</label><input required className="field" type="datetime-local" name="visto_en" value={draft.vistoEn} onChange={(event) => updateDraft("vistoEn", event.target.value)} aria-invalid={Boolean(fieldErrors.visto_en)} />{fieldErrors.visto_en && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.visto_en}</p>}</div>
           <div><label className="label">Situación observada</label><div className="grid gap-2 min-[390px]:grid-cols-2">{quickSituations.map(([value, label]) => <button key={value} type="button" onClick={() => updateDraft("situacion", value)} className={`min-h-11 rounded-xl border px-3 text-left text-sm font-semibold ${draft.situacion === value ? "border-[#1D9E75] bg-[#E1F5EE] text-[#085041]" : "border-black/10 bg-white text-[#4D4A43]"}`}>{label}</button>)}</div></div>
           <div><label className="label">Describe lo que observaste *</label><textarea required maxLength={1000} className="textarea min-h-24" name="comentario" value={draft.comentario} onChange={(event) => updateDraft("comentario", event.target.value)} placeholder="Describe brevemente dónde viste la mascota, cómo se comportaba o cualquier detalle que pueda ayudar al propietario." aria-invalid={Boolean(fieldErrors.comentario)} />{fieldErrors.comentario && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.comentario}</p>}</div>
-          {!reviewedMatches && <Button name="intent" value="search" disabled={saving}>{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Search size={18} />}{saving ? "Buscando coincidencias..." : "Buscar coincidencias"}</Button>}
+          {!reviewedMatches && <Button name="intent" value={requestedCaseId ? "associate" : "search"} disabled={saving}>{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Search size={18} />}{saving ? requestedCaseId ? "Registrando avistamiento..." : "Buscando coincidencias..." : requestedCaseId ? "Registrar avistamiento en este caso" : "Buscar coincidencias"}</Button>}
         </section>
-        <aside className="space-y-3">
+        {reviewedMatches && <aside className="space-y-3">
           <div className="form-card"><h2 className="font-bold">Coincidencias</h2><p className="mt-2 text-sm text-[#6B6860]">Se comparan especie, color, tamaño, fecha, detalles visibles y distancia geográfica.</p></div>
           {matches.map((match) => (
             <article id={`coincidencia-${match.caseId}`} key={match.caseId} className={`form-card ${selectedCaseId === match.caseId ? "border-[#1D9E75] bg-[#FAFDFB] ring-2 ring-[#E1F5EE]" : ""}`}>
@@ -394,7 +393,7 @@ export default function ReportSightingPage() {
           ))}
           {matches.length > 0 && <Button type="button" variant="outline" className="w-full" onClick={continueWithoutMatch}>Ninguna coincide</Button>}
           {noMatches && <div className="form-card space-y-3"><p className="font-semibold text-[#6B4A10]">No encontramos ninguna búsqueda activa compatible.</p><Button type="submit" name="intent" value="new" className="w-full" disabled={saving}>{saving ? "Registrando..." : "Registrar como nueva mascota vista"}</Button></div>}
-        </aside>
+        </aside>}
       </form>
     </main>
   );

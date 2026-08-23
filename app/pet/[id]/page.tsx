@@ -8,7 +8,6 @@ import { ArrowLeft, CheckCircle, Download, Edit, MapPin, Trash2, X } from "lucid
 import { Button } from "@/components/ui/button";
 import { PetMap } from "@/components/pet-map";
 import { PosterButton, ShareButton } from "@/components/report-actions";
-import { SightingForm } from "@/components/sighting-form";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { ContentReportButton } from "@/components/content-report-button";
 import { SafeContact } from "@/components/safe-contact";
@@ -38,17 +37,6 @@ function touchDistance(touches: { [index: number]: { clientX: number; clientY: n
   const [a, b] = [touches[0], touches[1]];
   return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 }
-
-type TimelineItem = {
-  id: string;
-  date: string;
-  label: string;
-  type: string;
-  icon: string;
-  location?: string | null;
-  sightingId?: string;
-  source?: string;
-};
 
 function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () => void }) {
   const [editing, setEditing] = useState(false);
@@ -161,7 +149,6 @@ export default function PetDetailPage() {
   }, [photoViewerOpen]);
 
   const photos = useMemo(() => pet ? Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? [])])).slice(0, 3) : [], [pet]);
-  const confirmedLast = useMemo(() => sightings.find((item) => (item.estado_avistamiento ?? item.estado) === "confirmado"), [sightings]);
   const latestSighting = useMemo(() => sightings.slice().sort((a, b) => new Date(b.visto_en ?? b.creado_en).getTime() - new Date(a.visto_en ?? a.creado_en).getTime())[0], [sightings]);
   const collaboratorStats = useMemo(() => {
     const sent = sightings.length;
@@ -178,56 +165,6 @@ export default function PetDetailPage() {
       .map(({ item }) => item)
       .slice(0, 5);
   }, [allPets, pet]);
-  const timeline = useMemo<TimelineItem[]>(() => {
-    const creator = report ? `Abierto por ${report.reporter_is_anonymous ? "Usuario anónimo" : report.reporter_name || "Usuario HUELLA"}` : undefined;
-    const base = caseRecord?.timeline?.filter((item) => item.kind === "caso_creado").map((item, index) => ({
-      id: `case-${caseRecord.id}-${index}-${item.date}`,
-      date: item.date,
-      label: item.label,
-      type: "Caso creado",
-      icon: "●",
-      location: caseRecord.district,
-      source: item.kind === "caso_creado" ? creator : undefined,
-    })) ?? (pet ? [{
-      id: `pet-${pet.id}-created`,
-      date: pet.creado_en,
-      label: "Búsqueda publicada",
-      type: "Caso creado",
-      icon: "●",
-      location: pet.distrito,
-      source: creator,
-    }] : []);
-    const sightingEvents = sightings.map((item) => ({
-      id: `sighting-${item.id}`,
-      date: item.visto_en ?? item.creado_en,
-      label: (item.estado_avistamiento ?? item.estado) === "confirmado" ? "Avistamiento confirmado" : "Avistamiento recibido",
-      type: "Avistamiento",
-      icon: "●",
-      location: item.ubicacion ?? item.distrito,
-      sightingId: item.id,
-      source: `Reportado por ${item.reporter_is_anonymous ? "Usuario anónimo" : item.reporter_name || "Usuario HUELLA"}`,
-    }));
-    const contactEvents = contactRequests.map((item) => ({
-      id: `contact-${item.id}-${item.status}`,
-      date: item.updated_at ?? item.created_at,
-      label: item.status === "autorizada" ? "Contacto autorizado" : item.status === "rechazada" ? "Solicitud de contacto rechazada" : "Solicitud de contacto recibida",
-      type: "Contacto seguro",
-      icon: "●",
-      location: null,
-    }));
-    const closedAt = report?.reunited_at ?? pet?.cerrado_en ?? caseRecord?.reunitedAt;
-    const reunionEvents = closedAt ? [{
-        id: `reunion-${report?.id ?? pet?.id ?? caseRecord?.id}`,
-        date: closedAt,
-        label: "Mascota reunida",
-        type: "Reencuentro",
-        icon: "●",
-        location: pet?.distrito ?? report?.distrito ?? caseRecord?.district,
-        source: creator,
-      }] : [];
-    const regularEvents = [...base, ...sightingEvents, ...contactEvents].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    return [...regularEvents, ...reunionEvents];
-  }, [caseRecord, contactRequests, pet, report, sightings]);
   const currentState = caseRecord ? searchState(caseRecord) : null;
   const isClosed = pet?.estado === "reunido" || report?.estado === "reunido" || caseRecord?.status === "reunido";
   useEffect(() => {
@@ -356,7 +293,7 @@ export default function PetDetailPage() {
             {isClosed && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">Mascota reunida</h2><p className="mt-1 font-semibold">Caso cerrado. {pet.nombre} volvió a casa.</p><p className="mt-1 text-sm">Gracias por confiar en HUELLA{closedDate ? ` · ${formatDate(closedDate)}` : ""}.</p></div>}
             <p className="mt-4 leading-7 text-[#4D4A43]">{pet.descripcion}</p>
             <div className="mt-4 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-              {!isClosed && !owned && <Button asChild><a href="#compartir-avistamiento">Compartir avistamiento</a></Button>}
+              {!isClosed && !owned && <Button asChild><Link href={`/reportar-avistamiento?caseId=${report?.id ?? pet.id}`}>Reportar avistamiento</Link></Button>}
               <ShareButton pet={pet} label={isClosed ? "Compartir historia" : "Compartir búsqueda"} />
               {!isClosed && <PosterButton pet={pet} />}
             </div>
@@ -448,32 +385,7 @@ export default function PetDetailPage() {
 
       <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <div className="space-y-4">
-          {confirmedLast && <article className="form-card border-[#9FE1CB] bg-[#FAFDFB]">
-            <h2 className="mb-2 font-bold text-[#085041]">Último avistamiento confirmado</h2>
-            {(confirmedLast.fotos?.length ? confirmedLast.fotos : [confirmedLast.foto].filter((url): url is string => Boolean(url))).length > 0 && <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{(confirmedLast.fotos?.length ? confirmedLast.fotos : [confirmedLast.foto].filter((url): url is string => Boolean(url))).slice(0, 3).map((url) => <img key={url} src={url} alt="Avistamiento confirmado" className="h-52 w-full rounded-xl bg-white object-contain" />)}</div>}
-            <p>{confirmedLast.comentario}</p>
-            <p className="mt-2 text-sm font-semibold text-[#085041]">{formatDate(confirmedLast.visto_en ?? confirmedLast.creado_en)} · {new Date(confirmedLast.visto_en ?? confirmedLast.creado_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</p>
-            <p className="text-sm text-[#7A7871]">{confirmedLast.ubicacion ?? "Ubicación no indicada"}</p>
-          </article>}
-
           {!isClosed && matches.length > 0 && <div className="form-card"><h2 className="mb-3 font-bold">Posibles coincidencias cercanas</h2><div className="space-y-3">{matches.map((match) => <Link key={match.id} href={`/pet/${match.id}`} className="flex gap-3 rounded-xl border border-black/10 p-2 hover:bg-[#F8F7F4]"><img src={match.foto_principal} alt={match.nombre} className="h-16 w-16 rounded-lg object-contain bg-[#F8F7F4]" /><div><div className="font-semibold">{match.nombre}</div><div className="text-sm text-[#7A7871]">{match.raza} · {match.distrito}</div></div></Link>)}</div></div>}
-
-          {!isClosed && <div className="form-card"><h2 className="mb-3 font-bold">Timeline del caso</h2><div className="space-y-3">{timeline.map((item) => {
-            const content = <><div className="w-20 text-sm font-semibold text-[#1D9E75]">{new Date(item.date).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</div><div className="border-l border-black/10 pl-3 text-sm"><span className="mr-2 text-[#1D9E75]" aria-hidden="true">{item.icon}</span><strong>{item.type}</strong><div>{item.label}</div><div className="text-xs text-[#7A7871]">{formatDate(item.date)}{item.location ? ` · ${item.location}` : ""}</div>{item.source && <div className="text-xs font-semibold text-[#6B6860]">{item.source}</div>}</div></>;
-            return item.sightingId ? <Link key={item.id} href={`/avistamiento/${item.sightingId}`} className="flex gap-3 rounded-xl p-1 hover:bg-[#F8F7F4]">{content}</Link> : <div key={item.id} className="flex gap-3">{content}</div>;
-          })}</div></div>}
-
-          {!isClosed && sightings.length > 0 && <div className="form-card space-y-3">
-            <h2 className="font-bold">Actividad reciente</h2>
-            <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Último avistamiento</strong>{(latestSighting?.ubicacion ?? latestSighting?.distrito) || "Ubicación aproximada"}</div>
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Cantidad de avistamientos</strong>{sightings.length}</div>
-              {latestSighting && <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Fecha</strong>{formatDate(latestSighting.visto_en ?? latestSighting.creado_en)}</div>}
-              {latestSighting && <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Hora</strong>{new Date(latestSighting.visto_en ?? latestSighting.creado_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</div>}
-            </div>
-            <p className="text-sm font-semibold text-[#085041]">Última actualización: {timeAgo(report?.updated_at ?? caseRecord?.updatedAt ?? latestSighting?.creado_en ?? pet.creado_en)}</p>
-            <Button size="sm" variant="outline" asChild><a href="#mapa-del-caso">Ver historial en el mapa</a></Button>
-          </div>}
 
           {!isClosed && <div className="space-y-3">
             <h2 className="text-xl font-bold">Avistamientos ({sightings.length})</h2>
@@ -496,7 +408,6 @@ export default function PetDetailPage() {
         </div>
 
         <aside className="space-y-5">
-          {!isClosed && !owned && <SightingForm petId={report?.pet_id ?? pet.id} reportId={report?.id ?? null} onCreated={load} />}
           {collaboratorStats.sent > 0 && <div className="form-card"><h2 className="mb-2 font-bold">Perfil de colaborador</h2><div className="grid grid-cols-1 gap-2 text-center text-sm min-[390px]:grid-cols-3"><div><strong className="block text-xl">{collaboratorStats.sent}</strong>enviados</div><div><strong className="block text-xl">{collaboratorStats.confirmed}</strong>confirmados</div><div><strong className="block text-xl">{collaboratorStats.rate}%</strong>confirmación</div></div></div>}
           <div id="mapa-del-caso" className="map-panel scroll-mt-24"><PetMap pets={allPets.length ? allPets : [pet]} selectedId={pet.id} sightings={sightings} /></div>
         </aside>
