@@ -1,7 +1,6 @@
 "use client";
 
 import type { Pet as LegacyPet, PetStatus } from "@/lib/demo-data";
-import { demoPets, demoSightings } from "@/lib/demo-data";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { uploadImage } from "@/services/image-service";
 import type { User } from "@supabase/supabase-js";
@@ -53,6 +52,7 @@ export type Report = {
   created_at: string;
   updated_at: string;
   fecha_reporte: string;
+  reward_text?: string | null;
   pet?: RegisteredPet | null;
 };
 
@@ -234,6 +234,7 @@ function lostReportToReport(row: LostReportRow): Report {
     created_at: row.created_at,
     updated_at: row.updated_at,
     fecha_reporte: row.lost_at ?? row.created_at,
+    reward_text: row.reward_text,
     pet: row.pet ?? null,
   };
 }
@@ -246,6 +247,7 @@ function reportToLostInsert(report: Report, ownerId: string) {
     district: report.distrito,
     approximate_address: report.distrito,
     description: report.descripcion,
+    reward_text: report.reward_text ?? null,
     latitude: report.latitude,
     longitude: report.longitude,
     lost_at: report.fecha_reporte,
@@ -268,6 +270,7 @@ function reportToLostPatch(input: Partial<Report>) {
   }
   if (input.distrito !== undefined) patch.district = input.distrito;
   if (input.descripcion !== undefined) patch.description = input.descripcion;
+  if (input.reward_text !== undefined) patch.reward_text = input.reward_text;
   if (input.latitude !== undefined) patch.latitude = input.latitude;
   if (input.longitude !== undefined) patch.longitude = input.longitude;
   if (input.fecha_reporte !== undefined) patch.lost_at = input.fecha_reporte;
@@ -410,11 +413,11 @@ export async function listReports(includeReunidos = false) {
     if (!includeReunidos) query = query.eq("status", "active");
     const { data, error } = await query;
     if (error) throw error;
-    if (data?.length) return (data as unknown as LostReportRow[]).map(lostReportToReport);
+    if (data) return (data as unknown as LostReportRow[]).map(lostReportToReport);
   }
   const local = readLocal<Report[]>(REPORTS_KEY, []);
   if (local.length) return includeReunidos ? local : local.filter((report) => report.estado === "activo");
-  return demoPets.filter((pet) => includeReunidos || pet.estado !== "reunido").map(legacyPetToReport);
+  return [];
 }
 
 export async function listMyReports() {
@@ -443,8 +446,7 @@ export async function getReport(id: string) {
   }
   const localReport = readLocal<Report[]>(REPORTS_KEY, []).find((report) => report.id === id);
   if (localReport) return localReport;
-  const demoPet = demoPets.find((pet) => pet.id === id);
-  return demoPet ? legacyPetToReport(demoPet) : undefined;
+  return undefined;
 }
 
 export async function incrementReportView(id: string) {
@@ -516,6 +518,19 @@ export async function updateReport(id: string, input: Partial<Report>) {
   writeLocal(REPORTS_KEY, readLocal<Report[]>(REPORTS_KEY, []).map((report) => report.id === id ? { ...report, ...patch } : report));
 }
 
+export async function deleteReport(id: string) {
+  const user = await getCurrentUser();
+  if (isSupabaseConfigured && supabase && isUuid(id)) {
+    const { error: sightingsError } = await supabase.from("sightings").delete().eq("report_id", id);
+    if (sightingsError) throw sightingsError;
+    const { error: storiesError } = await supabase.from("reunion_stories").delete().eq("report_id", id);
+    if (storiesError) throw storiesError;
+    const { error } = await supabase.from("lost_reports").delete().eq("id", id).eq("owner_id", user?.id);
+    if (error) throw error;
+  }
+  writeLocal(REPORTS_KEY, readLocal<Report[]>(REPORTS_KEY, []).filter((report) => report.id !== id));
+}
+
 export async function findPotentialDuplicateReports(input: { especie?: string; color?: string; distrito: string; latitude?: number | null; longitude?: number | null; fecha?: string }) {
   const reports = await listReports(true);
   const date = input.fecha ? new Date(input.fecha).getTime() : Date.now();
@@ -542,7 +557,7 @@ export async function getPetReportHistory(petId: string) {
 
 export async function getBasicMetrics() {
   const [pets, reports] = await Promise.all([listMyRegisteredPets(), listReports(true)]);
-  let sightingsCount = readLocal<typeof demoSightings>("huella:sightings", demoSightings).length;
+  let sightingsCount = 0;
   if (isSupabaseConfigured && supabase) {
     const { count, error } = await supabase.from("sightings").select("id", { count: "exact", head: true });
     if (error) throw error;
@@ -557,6 +572,7 @@ export async function getBasicMetrics() {
 }
 
 export function reportToLegacyPet(report: Report): LegacyPet {
+  const rewardAmount = Number(String(report.reward_text ?? "").replace(/[^0-9.,]/g, "").replace(",", "."));
   return {
     id: report.id,
     nombre: report.pet?.nombre ?? "Mascota perdida",
@@ -582,40 +598,8 @@ export function reportToLegacyPet(report: Report): LegacyPet {
     creado_en: report.created_at,
     owner_token: report.user_id,
     cerrado_en: report.reunited_at ?? null,
-  };
-}
-
-function legacyPetToReport(pet?: LegacyPet): Report {
-  const fallback = demoPets[0];
-  const source = pet ?? fallback;
-  return {
-    id: source.id,
-    user_id: source.owner_token ?? "demo-public",
-    pet_id: null,
-    tipo_reporte: source.estado === "encontrado" ? "encontrado" : "perdido",
-    estado: source.estado === "reunido" ? "reunido" : "activo",
-    distrito: source.distrito,
-    descripcion: source.descripcion,
-    foto_url: source.foto_principal,
-    whatsapp: source.whatsapp,
-    latitude: source.latitud,
-    longitude: source.longitud,
-    views_count: 0,
-    reunited_at: source.cerrado_en ?? null,
-    created_at: source.creado_en,
-    updated_at: source.creado_en,
-    fecha_reporte: source.fecha_reporte,
-    pet: {
-      id: source.id,
-      user_id: source.owner_token ?? "demo-public",
-      nombre: source.nombre,
-      especie: source.tipo,
-      raza: source.raza,
-      color: "",
-      sexo: "",
-      edad: "",
-      foto_url: source.foto_principal,
-      created_at: source.creado_en,
-    },
+    recompensa_ofrecida: Boolean(report.reward_text?.trim()),
+    recompensa_monto: Number.isFinite(rewardAmount) && rewardAmount > 0 ? rewardAmount : null,
+    recompensa_texto: report.reward_text ?? null,
   };
 }

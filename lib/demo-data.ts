@@ -17,6 +17,7 @@ export type Pet = {
   creado_en: string;
   recompensa_ofrecida?: boolean;
   recompensa_monto?: number | null;
+  recompensa_texto?: string | null;
   fotos?: string[];
   caracteristicas?: string[];
   caracteristicas_personalizadas?: string;

@@ -65,6 +65,7 @@ export function PosterButton({ pet }: { pet: Pet }) {
       link.download = `huella-${code}-${pet.nombre.toLowerCase()}-afiche.png`;
       link.href = cached;
       link.click();
+      alert("Afiche descargado correctamente.");
       return;
     }
 
@@ -125,6 +126,7 @@ export function PosterButton({ pet }: { pet: Pet }) {
     link.download = `huella-${code}-${pet.nombre.toLowerCase()}-afiche.png`;
     link.href = dataUrl;
     link.click();
+    alert("Afiche descargado correctamente.");
   }
 
   return <Button type="button" variant="outline" onClick={downloadPoster}><Download size={18} />Descargar afiche</Button>;

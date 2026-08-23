@@ -5,10 +5,12 @@ import Link from "next/link";
 import { Filter, List, LocateFixed, Map, MapPin, Search } from "lucide-react";
 import { SearchMap } from "@/components/search-map";
 import { Button } from "@/components/ui/button";
+import { PageSkeleton } from "@/components/feedback";
 import { listCases, type CaseRecord } from "@/lib/cases";
 import { publicCaseCode, searchState } from "@/lib/case-display";
 import { defaultPeruCoords, getCurrentLocationDetails, searchPeruLocation } from "@/lib/location";
 import { distanceKm, formatDistance, timeAgo } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/sprint14-store";
 
 type RadiusFilter = "0.5" | "1" | "2" | "5" | "20";
 type SpeciesFilter = "todos" | "perro" | "gato";
@@ -31,7 +33,7 @@ const radiusOptions: Array<{ value: RadiusFilter; label: string }> = [
 
 const stateOptions: Array<{ value: StateFilter; label: string }> = [
   { value: "todos", label: "Todos" },
-  { value: "recien", label: "Recien reportado" },
+  { value: "recien", label: "Recién reportado" },
   { value: "avistamiento", label: "Avistamiento reciente" },
   { value: "resguardado", label: "Resguardado" },
 ];
@@ -71,9 +73,10 @@ function CaseSearchCard({ item, selected, onSelect }: { item: CaseWithDistance; 
             <span className="text-xs font-bold text-[#1D9E75]">Caso {publicCaseCode(caseRecord.id)}</span>
           </div>
           <h3 className="truncate text-lg font-bold">{caseRecord.pet.nombre}</h3>
+          {caseRecord.pet.recompensa_ofrecida && <p className="truncate text-xs font-bold text-[#6B4A10]">💰 {caseRecord.pet.recompensa_texto || (caseRecord.pet.recompensa_monto ? `S/ ${caseRecord.pet.recompensa_monto}` : "Recompensa ofrecida")}</p>}
           <p className="truncate text-sm text-[#6B6860]">{caseRecord.pet.tipo} - {caseRecord.district}</p>
           <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs font-semibold text-[#7A7871]">
-            <span>{formatDistance(distance) ?? "Ubicacion aproximada"}</span>
+            <span>{formatDistance(distance) ?? "Ubicación aproximada"}</span>
             <span>{timeAgo(caseRecord.createdAt)}</span>
           </div>
         </div>
@@ -94,6 +97,8 @@ function FilterPanel({
   onSearchAddress,
   searchingAddress,
   addressSuggestions,
+  onApply,
+  onReset,
 }: {
   species: SpeciesFilter;
   setSpecies: (value: SpeciesFilter) => void;
@@ -106,10 +111,12 @@ function FilterPanel({
   onSearchAddress: () => void;
   searchingAddress: boolean;
   addressSuggestions: string[];
+  onApply: () => void;
+  onReset: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-black/10 bg-white p-3 shadow-soft">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid min-w-0 gap-3">
         <div>
           <span className="label">Especie</span>
           <div className="flex flex-wrap gap-2">
@@ -127,18 +134,22 @@ function FilterPanel({
         <div>
           <span className="label">Orden</span>
           <div className="flex flex-wrap gap-2">
-            <button type="button" className={`filter-tab ${sort === "cerca" ? "active" : ""}`} onClick={() => setSort("cerca")}>Mas cerca</button>
-            <button type="button" className={`filter-tab ${sort === "recientes" ? "active" : ""}`} onClick={() => setSort("recientes")}>Mas recientes</button>
+            <button type="button" className={`filter-tab ${sort === "cerca" ? "active" : ""}`} onClick={() => setSort("cerca")}>Más cerca</button>
+            <button type="button" className={`filter-tab ${sort === "recientes" ? "active" : ""}`} onClick={() => setSort("recientes")}>Más recientes</button>
           </div>
         </div>
         <label>
-          <span className="label">Direccion o referencia</span>
+          <span className="label">Dirección o referencia</span>
           <div className="grid gap-2">
             <input className="field" list="nearby-addresses" value={address} onChange={(event) => setAddress(event.target.value)} placeholder="Ej. parque, avenida o zona" />
             <datalist id="nearby-addresses">{addressSuggestions.map((item) => <option key={item} value={item} />)}</datalist>
-            <Button type="button" variant="outline" onClick={onSearchAddress} disabled={searchingAddress}><Search size={18} />{searchingAddress ? "Buscando..." : "Buscar direccion"}</Button>
+            <Button type="button" variant="outline" className="w-full" onClick={onSearchAddress} disabled={searchingAddress}><Search size={18} />{searchingAddress ? "Buscando..." : "Buscar dirección"}</Button>
           </div>
         </label>
+        <div className="grid gap-2 min-[390px]:grid-cols-2">
+          <Button type="button" onClick={onApply}>Aplicar filtros</Button>
+          <Button type="button" variant="outline" onClick={onReset}>Restablecer filtros</Button>
+        </div>
       </div>
     </div>
   );
@@ -154,15 +165,21 @@ export default function NearbySearchPage() {
   const [species, setSpecies] = useState<SpeciesFilter>("todos");
   const [stateFilter, setStateFilter] = useState<StateFilter>("todos");
   const [sort, setSort] = useState<SortFilter>("cerca");
+  const [draftSpecies, setDraftSpecies] = useState<SpeciesFilter>("todos");
+  const [draftStateFilter, setDraftStateFilter] = useState<StateFilter>("todos");
+  const [draftSort, setDraftSort] = useState<SortFilter>("cerca");
   const [view, setView] = useState<ViewMode>("mapa");
   const [showFilters, setShowFilters] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(20);
   const [recenterSignal, setRecenterSignal] = useState(0);
   const [searchingAddress, setSearchingAddress] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    listCases(false).then((items) => setCases(items.filter(isActiveCase)));
+    Promise.all([listCases(false), getCurrentUser()])
+      .then(([items, user]) => setCases(items.filter((item) => isActiveCase(item) && (!user || item.ownerId !== user.id))))
+      .finally(() => setLoading(false));
     getCurrentLocationDetails()
       .then((details) => {
         setCoords({ latitude: details.latitude, longitude: details.longitude });
@@ -201,6 +218,22 @@ export default function NearbySearchPage() {
     }
   }
 
+  async function goToCurrentLocation() {
+    setSearchingAddress(true);
+    setGeoDenied(false);
+    try {
+      const details = await getCurrentLocationDetails();
+      setCoords({ latitude: details.latitude, longitude: details.longitude });
+      setAddress(details.address);
+      setSelectedId(null);
+      setRecenterSignal((value) => value + 1);
+    } catch {
+      setGeoDenied(true);
+    } finally {
+      setSearchingAddress(false);
+    }
+  }
+
   const filteredCases = useMemo<CaseWithDistance[]>(() => {
     const normalizedQuery = normalize(query.trim());
     const radiusKm = Number(radius);
@@ -231,8 +264,34 @@ export default function NearbySearchPage() {
 
   const visibleItems = filteredCases.slice(0, visibleCount);
   const mappedCases = visibleItems.map((item) => item.caseRecord);
+  const activeFilterCount = Number(radius !== "2") + Number(species !== "todos") + Number(stateFilter !== "todos") + Number(sort !== "cerca");
 
-  const filterPanel = <FilterPanel species={species} setSpecies={setSpecies} stateFilter={stateFilter} setStateFilter={setStateFilter} sort={sort} setSort={setSort} address={address} setAddress={setAddress} onSearchAddress={searchAddress} searchingAddress={searchingAddress} addressSuggestions={addressSuggestions} />;
+  function openFilters() {
+    setDraftSpecies(species);
+    setDraftStateFilter(stateFilter);
+    setDraftSort(sort);
+    setShowFilters((value) => !value);
+  }
+
+  function applyFilters() {
+    setSpecies(draftSpecies);
+    setStateFilter(draftStateFilter);
+    setSort(draftSort);
+    setShowFilters(false);
+  }
+
+  function resetFilters() {
+    setRadius("2");
+    setSpecies("todos");
+    setStateFilter("todos");
+    setSort("cerca");
+    setDraftSpecies("todos");
+    setDraftStateFilter("todos");
+    setDraftSort("cerca");
+    setShowFilters(false);
+  }
+
+  const filterPanel = <FilterPanel species={draftSpecies} setSpecies={setDraftSpecies} stateFilter={draftStateFilter} setStateFilter={setDraftStateFilter} sort={draftSort} setSort={setDraftSort} address={address} setAddress={setAddress} onSearchAddress={searchAddress} searchingAddress={searchingAddress} addressSuggestions={addressSuggestions} onApply={applyFilters} onReset={resetFilters} />;
 
   const listContent = (
     <div className="space-y-3">
@@ -240,21 +299,25 @@ export default function NearbySearchPage() {
         <CaseSearchCard key={item.caseRecord.id} item={item} selected={item.caseRecord.id === selectedId} onSelect={() => setSelectedId(item.caseRecord.id)} />
       )) : (
         <div className="form-card empty-state text-sm">
-          <strong>Aun no hay resultados para mostrar.</strong>
+          <span className="text-4xl" aria-hidden="true">📍</span>
+          <strong>Aún no hay resultados para mostrar.</strong>
           <span>Prueba ampliar el radio o buscar por nombre.</span>
+          <Button asChild><Link href="/reportar-avistamiento">Reportar una mascota vista</Link></Button>
         </div>
       )}
       {visibleItems.length < filteredCases.length && (
-        <Button type="button" variant="outline" className="w-full" onClick={() => setVisibleCount((value) => value + 20)}>Cargar mas casos</Button>
+        <Button type="button" variant="outline" className="w-full" onClick={() => setVisibleCount((value) => value + 20)}>Cargar más casos</Button>
       )}
     </div>
   );
+
+  if (loading) return <PageSkeleton />;
 
   return (
     <main className="min-h-[calc(100dvh-64px)] pb-[calc(78px+env(safe-area-inset-bottom))] md:pb-0">
       <section className="container py-3 md:hidden">
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h1 className="text-xl font-bold">Buscar cerca de mi</h1>
+          <h1 className="text-xl font-bold">Buscar cerca de mí</h1>
           <div className="flex rounded-xl border border-black/10 bg-white p-1">
             <button type="button" className={`grid min-h-11 min-w-11 place-items-center rounded-lg ${view === "mapa" ? "bg-[#E1F5EE] text-[#085041]" : "text-[#6B6860]"}`} onClick={() => setView("mapa")} aria-label="Ver mapa"><Map size={20} /></button>
             <button type="button" className={`grid min-h-11 min-w-11 place-items-center rounded-lg ${view === "lista" ? "bg-[#E1F5EE] text-[#085041]" : "text-[#6B6860]"}`} onClick={() => setView("lista")} aria-label="Ver lista"><List size={20} /></button>
@@ -262,24 +325,24 @@ export default function NearbySearchPage() {
         </div>
         <div className="flex gap-2">
           <div className="search-box flex-1"><Search size={18} className="text-[#A8A49C]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nombre o caso" /></div>
-          <Button type="button" variant="outline" className="min-w-12 px-3" onClick={() => setShowFilters((value) => !value)} aria-label="Filtros"><Filter size={20} /></Button>
+          <Button type="button" variant="outline" className="min-w-12 px-3" onClick={openFilters} aria-label={`Filtros${activeFilterCount ? `, ${activeFilterCount} activos` : ""}`}><Filter size={20} />{activeFilterCount > 0 && <span>{activeFilterCount}</span>}</Button>
         </div>
         <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
           {radiusOptions.map((option) => <button key={option.value} type="button" className={`filter-tab shrink-0 ${radius === option.value ? "active" : ""}`} onClick={() => setRadius(option.value)}>{option.label}</button>)}
         </div>
-        {geoDenied && <p className="mt-2 text-xs text-[#6B6860]">No se pudo usar tu ubicacion. Puedes buscar una direccion o referencia.</p>}
+        {geoDenied && <p className="mt-2 text-xs text-[#6B6860]">No se pudo usar tu ubicación. Puedes buscar una dirección o referencia.</p>}
         {showFilters && <div className="mt-3">{filterPanel}</div>}
       </section>
 
       <section className="container hidden h-[calc(100dvh-64px)] grid-cols-[420px_1fr] gap-4 py-4 md:grid">
         <aside className="flex min-h-0 flex-col gap-3">
           <div>
-            <h1 className="text-2xl font-bold">Buscar cerca de mi</h1>
-            <p className="text-sm text-[#6B6860]">Explora busquedas activas por cercania real, direccion o codigo publico.</p>
+            <h1 className="text-2xl font-bold">Buscar cerca de mí</h1>
+            <p className="text-sm text-[#6B6860]">Explora búsquedas activas por cercanía real, dirección o código público.</p>
           </div>
           <div className="flex gap-2">
             <div className="search-box flex-1"><Search size={18} className="text-[#A8A49C]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nombre o caso" /></div>
-            <Button type="button" variant="outline" onClick={() => setShowFilters((value) => !value)}><Filter size={18} />Filtros</Button>
+            <Button type="button" variant="outline" onClick={openFilters}><Filter size={18} />Filtros{activeFilterCount ? ` (${activeFilterCount})` : ""}</Button>
           </div>
           <div className="flex flex-wrap gap-2">
             {radiusOptions.map((option) => <button key={option.value} type="button" className={`filter-tab ${radius === option.value ? "active" : ""}`} onClick={() => setRadius(option.value)}>{option.label}</button>)}
@@ -287,7 +350,7 @@ export default function NearbySearchPage() {
           {showFilters && filterPanel}
           <div className="flex items-center justify-between gap-3 text-sm text-[#6B6860]">
             <span>{filteredCases.length} casos activos</span>
-            <Button type="button" variant="outline" size="sm" onClick={() => setRecenterSignal((value) => value + 1)} disabled={coords.latitude == null}><LocateFixed size={16} />Ir a mi ubicacion</Button>
+            <Button type="button" variant="outline" size="sm" onClick={goToCurrentLocation} disabled={searchingAddress}><LocateFixed size={16} />Ir a mi ubicación</Button>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">{listContent}</div>
         </aside>
@@ -306,16 +369,16 @@ export default function NearbySearchPage() {
             <div className="map-panel h-full min-h-full rounded-2xl">
               <SearchMap cases={mappedCases} selectedId={selectedId} userCoords={coords} referenceCoords={coords} recenterSignal={recenterSignal} onSelect={setSelectedId} />
             </div>
-            <Button type="button" variant="outline" className="absolute right-3 top-3 z-[410] bg-white" onClick={() => setRecenterSignal((value) => value + 1)} disabled={coords.latitude == null}>
+            <Button type="button" variant="outline" className="absolute right-3 top-3 z-[410] bg-white" onClick={goToCurrentLocation} disabled={searchingAddress}>
               <LocateFixed size={18} />
-              <span className="sr-only">Ir a la ubicacion</span>
+              <span className="sr-only">Ir a mi ubicación</span>
             </Button>
             <div className="absolute inset-x-0 bottom-0 z-[400] max-h-[46%] overflow-y-auto rounded-t-3xl border border-black/10 bg-white/95 p-3 shadow-[0_-12px_28px_rgba(0,0,0,.12)] backdrop-blur">
               <div className="mx-auto mb-3 h-1.5 w-12 rounded-full bg-black/20" />
               <div className="mb-3 flex items-center justify-between gap-2">
                 <div>
                   <h2 className="font-bold">Casos cercanos</h2>
-                  <p className="text-xs text-[#6B6860]">{filteredCases.length} busquedas activas</p>
+                  <p className="text-xs text-[#6B6860]">{filteredCases.length} búsquedas activas</p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={() => setView("lista")}>Ver lista</Button>
               </div>
@@ -326,7 +389,7 @@ export default function NearbySearchPage() {
       </section>
 
       <div className="container pb-5 pt-3 text-xs text-[#6B6860] md:hidden">
-        <p><MapPin size={14} className="inline" /> La ubicacion se muestra de forma aproximada para proteger la privacidad.</p>
+        <p><MapPin size={14} className="inline" /> La ubicación se muestra de forma aproximada para proteger la privacidad.</p>
       </div>
     </main>
   );

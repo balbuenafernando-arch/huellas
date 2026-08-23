@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bell, CheckCheck, HeartHandshake, PawPrint, Radar, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { FriendlyError } from "@/components/feedback";
+import { FriendlyError, PageSkeleton } from "@/components/feedback";
 import { listNotifications, markAllNotificationsRead, type AppNotification } from "@/lib/notifications";
 import { getNotificationPreferences, saveNotificationPreferences, type NotificationPreferences } from "@/lib/notification-preferences";
 import { formatDateTime } from "@/lib/utils";
@@ -22,6 +22,7 @@ export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [preferences, setPreferences] = useState<NotificationPreferences>({ notifyByEmail: true, notifyByWhatsapp: false });
   const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   async function load() {
@@ -30,6 +31,8 @@ export default function NotificationsPage() {
       setError("");
     } catch (caught) {
       setError(friendlyError(caught, "No se pudieron cargar tus notificaciones. Inténtalo otra vez."));
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -60,6 +63,8 @@ export default function NotificationsPage() {
     }
   }
 
+  if (loading) return <PageSkeleton />;
+
   return (
     <main className="container py-6">
       <div className="mb-5 flex flex-col gap-3 min-[520px]:flex-row min-[520px]:items-center min-[520px]:justify-between">
@@ -71,7 +76,7 @@ export default function NotificationsPage() {
       </div>
       {error && <div className="mb-4"><FriendlyError message={error} onRetry={load} /></div>}
       <section className="space-y-3">
-        {notifications.length === 0 && <div className="form-card empty-state text-sm"><strong>Aún no hay notificaciones.</strong><span>Te avisaremos cuando llegue un avistamiento, una coincidencia o una solicitud de contacto.</span></div>}
+        {notifications.length === 0 && <div className="form-card empty-state text-sm"><span className="text-4xl" aria-hidden="true">🔔</span><strong>Aún no hay notificaciones.</strong><span>Te avisaremos cuando llegue un avistamiento, una coincidencia o una solicitud de contacto.</span><Button asChild><Link href="/buscar-cerca">Explorar búsquedas activas</Link></Button></div>}
         {notifications.map((notification) => {
           const Icon = iconFor(notification.type);
           return (

@@ -3,13 +3,13 @@
 import type { ChangeEvent, FormEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Camera, Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
+import { ArrowLeft, Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CameraCapture } from "@/components/camera-capture";
 import { LocationPicker } from "@/components/location-picker";
 import { ImageCropper } from "@/components/image-cropper";
 import { createRegisteredPet, createReport, listMyRegisteredPets, reportToLegacyPet, type RegisteredPet, uploadMascotaImage } from "@/lib/sprint14-store";
 import { PosterButton, ShareButton } from "@/components/report-actions";
-import { ProgressiveSigninCard } from "@/components/progressive-signin-card";
 import type { Pet } from "@/lib/demo-data";
 import { findLostPetMatches } from "@/lib/matching";
 import type { CaseMatch } from "@/lib/cases";
@@ -23,7 +23,7 @@ const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e0
 type FieldErrors = Record<string, string>;
 
 function locationLabel(details: LocationDetails | null, address: string) {
-  return details?.district || details?.province || details?.department || address || "Ubicacion exacta";
+  return details?.district || details?.province || details?.department || address || "Ubicación exacta";
 }
 
 function petOptionLabel(pet: RegisteredPet) {
@@ -47,7 +47,6 @@ export default function EmergencyReportPage() {
   const [cropFile, setCropFile] = useState<File | null>(null);
   const [matches, setMatches] = useState<CaseMatch[]>([]);
   const [reviewedMatches, setReviewedMatches] = useState(false);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -55,7 +54,8 @@ export default function EmergencyReportPage() {
   useEffect(() => {
     listMyRegisteredPets().then((items) => {
       setRegisteredPets(items);
-      setSelectedPetId(items[0]?.id ?? "");
+      const requestedPetId = new URLSearchParams(window.location.search).get("petId");
+      setSelectedPetId(items.some((item) => item.id === requestedPetId) ? requestedPetId! : items[0]?.id ?? "");
     });
   }, []);
 
@@ -75,7 +75,7 @@ export default function EmergencyReportPage() {
       setAddress(details.address);
       resetMatchReview();
     } catch (caught) {
-      setError(friendlyError(caught, "No se pudo obtener tu ubicacion. Escribe una referencia cercana."));
+      setError(friendlyError(caught, "No se pudo obtener tu ubicación. Escribe una referencia cercana."));
     } finally {
       setUsingGps(false);
     }
@@ -88,7 +88,7 @@ export default function EmergencyReportPage() {
     try {
       const details = await searchPeruLocation(address);
       if (!details) {
-        setError("No se encontro esa direccion. Prueba con una referencia mas especifica.");
+        setError("No se encontró esa dirección. Prueba con una referencia más específica.");
         return;
       }
       setCoords({ latitude: details.latitude, longitude: details.longitude });
@@ -96,7 +96,7 @@ export default function EmergencyReportPage() {
       setAddress(details.address);
       resetMatchReview();
     } catch (caught) {
-      setError(friendlyError(caught, "No se pudo buscar esa direccion. Prueba con otra referencia."));
+      setError(friendlyError(caught, "No se pudo buscar esa dirección. Prueba con otra referencia."));
     } finally {
       setSearchingAddress(false);
     }
@@ -130,8 +130,14 @@ export default function EmergencyReportPage() {
   function removePhoto() {
     setPhotoFile(null);
     setPhotoPreview(null);
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
     if (galleryInputRef.current) galleryInputRef.current.value = "";
+  }
+
+  function handleCameraPhoto(file: File) {
+    const validationError = validateImageFile(file);
+    if (validationError) return setError(validationError);
+    setCropFile(file);
+    setError("");
   }
 
   function showFieldErrors(errors: FieldErrors) {
@@ -159,8 +165,10 @@ export default function EmergencyReportPage() {
       if (nombreError) errors.nombre = nombreError;
       const colorError = requiredText(form.get("color"), "El color", 120);
       if (colorError) errors.color = colorError;
+      const descriptionError = requiredText(form.get("descripcion_mascota"), "La descripción de la mascota", 1000);
+      if (descriptionError) errors.descripcion_mascota = descriptionError;
     }
-    const addressError = requiredText(address, "La ubicacion", 240);
+    const addressError = requiredText(address, "La ubicación", 240);
     if (addressError) errors.ubicacion = addressError;
     const whatsapp = String(form.get("whatsapp") || "");
     const whatsappError = whatsapp && !isValidPeruWhatsapp(whatsapp) ? "Ingresa un WhatsApp peruano valido." : null;
@@ -207,6 +215,7 @@ export default function EmergencyReportPage() {
         }
       }
       if (!pet) {
+        const petDescription = String(form.get("descripcion_mascota") || "").trim();
         try {
           pet = await createRegisteredPet({
           nombre: String(form.get("nombre")),
@@ -220,7 +229,8 @@ export default function EmergencyReportPage() {
           salud: "",
           esterilizado: false,
           placa_medalla: "",
-          caracteristicas: form.getAll("caracteristicas").map(String),
+          caracteristicas: [petDescription, ...form.getAll("caracteristicas").map(String)].filter(Boolean),
+          caracteristicas_personalizadas: petDescription,
           telefono: whatsapp ? normalizePeruWhatsapp(whatsapp) : "",
           contacto_preferido: "whatsapp",
           fotos: [fotoUrl],
@@ -233,12 +243,15 @@ export default function EmergencyReportPage() {
       }
       let report;
       try {
+        const petDescription = String(form.get("descripcion_mascota") || "").trim();
+        const careNotes = String(form.get("observaciones") || "").trim();
         report = await createReport({
         pet_id: pet.id,
         tipo_reporte: "perdido",
         estado: "activo",
         distrito: locationLabel(locationDetails, address),
-        descripcion: String(form.get("observaciones")),
+        descripcion: careNotes,
+        reward_text: String(form.get("recompensa") || "").trim() || null,
         foto_url: file?.size ? fotoUrl : pet.foto_principal ?? pet.foto_url,
         whatsapp: whatsapp ? normalizePeruWhatsapp(whatsapp) : "",
         latitude: coords.latitude,
@@ -259,14 +272,12 @@ export default function EmergencyReportPage() {
   if (publishedPet) return (
     <main className="container py-6">
       <section className="form-card mx-auto max-w-xl space-y-4">
-        <ProgressiveSigninCard continueHref={`/pet/${publishedPet.id}`} />
-        <h1 className="font-serif text-4xl">{publishedPet.nombre}</h1>
+        <div><h1 className="font-serif text-4xl">Tu búsqueda ya está publicada.</h1><p className="mt-2 text-[#6B6860]">Ya puedes compartirla, editarla y recibir avistamientos de la comunidad.</p></div>
         <img src={publishedPet.foto_principal} alt={publishedPet.nombre} className="max-h-80 w-full rounded-xl bg-[#F8F7F4] object-contain" />
-        <div className="rounded-xl bg-[#E1F5EE] p-4 font-semibold text-[#085041]"><strong className="block text-lg">Busqueda creada correctamente.</strong>El caso ya esta activo. Ahora otras personas pueden reportar avistamientos y revisar coincidencias desde el centro de busqueda.</div>
         <div className="grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-          <ShareButton pet={publishedPet} label="Compartir busqueda" />
+          <ShareButton pet={publishedPet} label="Compartir búsqueda" />
           <PosterButton pet={publishedPet} />
-          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver centro de busqueda</Link></Button>
+          <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver centro de búsqueda</Link></Button>
         </div>
       </section>
     </main>
@@ -283,51 +294,51 @@ export default function EmergencyReportPage() {
       <form ref={formRef} onSubmit={submit} className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 1 - Foto y nombre</div>
-          <div><h1 className="font-serif text-4xl">Perdi mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Primero revisamos coincidencias cercanas. La busqueda se guarda recien cuando confirmas.</p></div>
+          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Primero revisamos coincidencias cercanas. La búsqueda se guarda recién cuando confirmas.</p></div>
           {error && <FriendlyError message={error} />}
           {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{petOptionLabel(pet)}</option>)}<option value="">No esta registrada</option></select></div>}
-          <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
           <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
           <div className="grid gap-2 min-[390px]:grid-cols-2">
-            <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
-            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galeria</Button>
+            <CameraCapture disabled={saving} onCapture={handleCameraPhoto} />
+            <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galería</Button>
           </div>
           {fieldErrors.foto && <p className="text-sm font-semibold text-[#B42318]">{fieldErrors.foto}</p>}
           {photoPreview ? <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-3">
             <img src={photoPreview} alt="Foto recortada" className="max-h-64 w-full rounded-xl bg-white object-contain" />
             <Button type="button" variant="outline" className="mt-3 w-full" onClick={removePhoto}>Eliminar foto</Button>
-          </div> : <p className="rounded-xl bg-[#F8F7F4] p-3 text-sm text-[#6B6860]">La foto se podra recortar antes de guardar.</p>}
+          </div> : <p className="rounded-xl bg-[#F8F7F4] p-3 text-sm text-[#6B6860]">La foto se podrá recortar antes de guardar.</p>}
           {!selectedPetId && <>
             <div><label className="label">Nombre *</label><input required maxLength={120} className="field" name="nombre" placeholder="Luna" aria-invalid={Boolean(fieldErrors.nombre)} />{fieldErrors.nombre && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.nombre}</p>}</div>
-            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamano *</label><select className="select" name="tamano"><option>Pequeno</option><option>Mediano</option><option>Grande</option></select></div></div>
-            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Color *</label><input required maxLength={120} className="field" name="color" placeholder="Marron, blanco..." aria-invalid={Boolean(fieldErrors.color)} />{fieldErrors.color && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.color}</p>}</div><div><label className="label">Raza aproximada</label><input maxLength={120} className="field" name="raza" placeholder="Mestizo, labrador..." /></div></div>
+            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie"><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño *</label><select className="select" name="tamano"><option value="Pequeno">Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
+            <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Color *</label><input required maxLength={120} className="field" name="color" placeholder="Marrón, blanco..." aria-invalid={Boolean(fieldErrors.color)} />{fieldErrors.color && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.color}</p>}</div><div><label className="label">Raza aproximada</label><input maxLength={120} className="field" name="raza" placeholder="Mestizo, labrador..." /></div></div>
+            <div><label className="label">Describe a tu mascota *</label><textarea required maxLength={1000} className="textarea min-h-24" name="descripcion_mascota" placeholder="Ej. Mestizo de pelaje marrón claro, pecho blanco, cola larga y muy juguetón." aria-invalid={Boolean(fieldErrors.descripcion_mascota)} />{fieldErrors.descripcion_mascota && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.descripcion_mascota}</p>}</div>
           </>}
         </section>
         <section className="form-card space-y-4">
-          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 2 - Ubicacion exacta</div>
+          <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 2 - ¿Dónde se perdió?</div>
           <div>
-            <label className="label">Direccion o referencia *</label>
+            <label className="label">Dirección o referencia *</label>
             <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">
               <input ref={addressInputRef} required maxLength={240} className="field" name="ubicacion" value={address} onChange={(event) => { setAddress(event.target.value); resetMatchReview(); }} placeholder="Av La Paz, Jiron Castilla, parque..." aria-invalid={Boolean(fieldErrors.ubicacion)} />
               <Button type="button" variant="outline" onClick={searchAddress} disabled={searchingAddress || saving}><Search size={18} />{searchingAddress ? "Buscando..." : "Buscar"}</Button>
             </div>
             {fieldErrors.ubicacion && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.ubicacion}</p>}
           </div>
-          <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={usingGps || saving}><MapPin size={18} />{usingGps ? "Obteniendo ubicacion..." : "Usar mi ubicacion actual"}</Button>
+          <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={usingGps || saving}><MapPin size={18} />{usingGps ? "Obteniendo ubicación..." : "Usar mi ubicación actual"}</Button>
           <div className="map-panel min-h-[320px] overflow-hidden rounded-2xl">
             <LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} />
           </div>
           <div className="grid gap-2 min-[390px]:grid-cols-2">
-            <Button type="button" variant="outline" onClick={() => addressInputRef.current?.focus()} disabled={saving}>Cambiar ubicacion</Button>
+            <Button type="button" variant="outline" onClick={() => addressInputRef.current?.focus()} disabled={saving}>Cambiar ubicación</Button>
           </div>
           <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. Las coordenadas del pin son la fuente principal.</p>
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha *</label><input required className="field" name="fecha" type="date" aria-invalid={Boolean(fieldErrors.fecha)} />{fieldErrors.fecha && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.fecha}</p>}</div><div><label className="label">Hora *</label><input required className="field" name="hora" type="time" /></div></div>
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 3 - Contacto</div>
           <div><label className="label">WhatsApp (opcional)</label><input maxLength={40} className="field" name="whatsapp" placeholder="+51 987 654 321" aria-invalid={Boolean(fieldErrors.whatsapp)} />{fieldErrors.whatsapp && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.whatsapp}</p>}</div>
-          <div><label className="label">Recompensa opcional</label><input maxLength={160} className="field" name="recompensa" placeholder="Monto o descripcion" /></div>
-          <div><label className="label">A tener en cuenta sobre la mascota *</label><textarea required maxLength={1000} className="textarea min-h-24" name="observaciones" placeholder="Comportamiento, ultimo momento visto, cuidados importantes" aria-invalid={Boolean(fieldErrors.observaciones)} />{fieldErrors.observaciones && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.observaciones}</p>}</div>
-          {reviewedMatches && matches.length > 0 && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]"><strong>Coincidencias encontradas.</strong><span className="block">Revisa los casos antes de crear la busqueda. Si ninguna corresponde, puedes continuar.</span></div>}
-          <Button disabled={saving} className="w-full">{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? reviewedMatches ? "Creando reporte..." : "Buscando coincidencias..." : reviewedMatches ? "Crear busqueda" : "Buscar coincidencias"}</Button>
+          <div><label className="label">Recompensa opcional</label><input maxLength={160} className="field" name="recompensa" placeholder="Monto o descripción" /></div>
+          <div><label className="label">A tener en cuenta sobre la mascota *</label><textarea required maxLength={1000} className="textarea min-h-24" name="observaciones" placeholder="Ejemplo: Es nervioso, no perseguir, responde a su nombre y necesita medicación." aria-invalid={Boolean(fieldErrors.observaciones)} />{fieldErrors.observaciones && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.observaciones}</p>}</div>
+          {reviewedMatches && matches.length > 0 && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]"><strong>Coincidencias encontradas.</strong><span className="block">Revisa los casos antes de crear la búsqueda. Si ninguna corresponde, puedes continuar.</span></div>}
+          <Button disabled={saving} className="w-full">{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? reviewedMatches ? "Creando reporte..." : "Buscando coincidencias..." : reviewedMatches ? "Crear búsqueda" : "Buscar coincidencias"}</Button>
         </section>
         {matches.length > 0 && <aside className="space-y-3 lg:col-span-2">
           <h2 className="font-bold">Posibles coincidencias</h2>

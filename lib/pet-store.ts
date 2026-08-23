@@ -1,6 +1,6 @@
 "use client";
 
-import { demoNotifications, demoPets, demoSightings, type Notification, type Pet, type PetStatus, type Sighting } from "@/lib/demo-data";
+import type { Notification, Pet, PetStatus, Sighting } from "@/lib/demo-data";
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 
 const PETS_KEY = "huella:pets";
@@ -11,6 +11,9 @@ const OWNED_PETS_KEY = "huella:owned-pets";
 const CONTENT_REPORTS_KEY = "huella:content-reports";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let sessionOwnerToken = "";
+const EMPTY_PETS: Pet[] = [];
+const EMPTY_SIGHTINGS: Sighting[] = [];
+const EMPTY_NOTIFICATIONS: Notification[] = [];
 
 export type ContentReportReason = "spam" | "informacion_falsa" | "foto_incorrecta" | "broma";
 
@@ -317,9 +320,9 @@ export async function getPets(): Promise<Pet[]> {
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase.from("pets").select("*").order("created_at", { ascending: false });
     if (error) throw error;
-    if (data?.length) return (data as PetRow[]).map(normalizePet);
+    if (data) return (data as PetRow[]).map(normalizePet);
   }
-  return readLocal(PETS_KEY, demoPets);
+  return [];
 }
 
 export async function getPet(id: string): Promise<Pet | undefined> {
@@ -336,7 +339,7 @@ export async function getSightings(petId?: string | null, relatedId?: string | n
     if (error) throw error;
     if (data) return (data as SightingRow[]).map(normalizeSighting);
   }
-  const sightings = readLocal(SIGHTINGS_KEY, demoSightings);
+  const sightings: Sighting[] = [];
   return petId ? sightings.filter((sighting) => sighting.pet_id === petId || sighting.report_id === petId || sighting.pet_id === relatedId || sighting.report_id === relatedId) : sightings;
 }
 
@@ -346,7 +349,7 @@ export async function getSighting(id: string): Promise<Sighting | undefined> {
     if (error) throw error;
     if (data) return normalizeSighting(data as SightingRow);
   }
-  return readLocal(SIGHTINGS_KEY, demoSightings).find((sighting) => sighting.id === id);
+  return undefined;
 }
 
 export async function getNotifications(): Promise<Notification[]> {
@@ -365,7 +368,7 @@ export async function getNotifications(): Promise<Notification[]> {
       }));
     }
   }
-  return readLocal(NOTIFICATIONS_KEY, demoNotifications);
+  return [];
 }
 
 export async function createNotification(input: Omit<Notification, "id" | "leido" | "creado_en">) {
@@ -384,7 +387,7 @@ export async function createNotification(input: Omit<Notification, "id" | "leido
       if (error) throw error;
     }
   }
-  writeLocal(NOTIFICATIONS_KEY, [notification, ...readLocal(NOTIFICATIONS_KEY, demoNotifications)]);
+  writeLocal(NOTIFICATIONS_KEY, [notification, ...readLocal(NOTIFICATIONS_KEY, EMPTY_NOTIFICATIONS)]);
   return notification;
 }
 
@@ -394,7 +397,7 @@ export async function markNotificationsRead() {
     const { error } = await supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("user_id", userId).is("read_at", null);
     if (error) throw error;
   }
-  writeLocal(NOTIFICATIONS_KEY, readLocal(NOTIFICATIONS_KEY, demoNotifications).map((item) => ({ ...item, leido: true })));
+  writeLocal(NOTIFICATIONS_KEY, readLocal(NOTIFICATIONS_KEY, EMPTY_NOTIFICATIONS).map((item) => ({ ...item, leido: true })));
 }
 
 export async function createContentReport(input: Omit<ContentReport, "id" | "creado_en">) {
@@ -433,7 +436,7 @@ export async function createPet(input: Omit<Pet, "id" | "creado_en" | "fecha_rep
     }
     if (error) throw error;
   }
-  const pets = [pet, ...readLocal(PETS_KEY, demoPets)];
+  const pets = [pet, ...readLocal(PETS_KEY, EMPTY_PETS)];
   writeLocal(PETS_KEY, pets);
   rememberOwnedPet(pet.id);
   await createNotification({ pet_id: pet.id, tipo: "reporte_actualizado", mensaje: `Busqueda activa para ${pet.nombre}` });
@@ -445,7 +448,7 @@ export async function updatePet(id: string, input: Partial<Pet>) {
     const { error } = await supabase.from("pets").update(petPatch(input, await ensureCurrentProfile())).eq("id", id);
     if (error) throw error;
   }
-  const pets = readLocal(PETS_KEY, demoPets).map((pet) => pet.id === id ? { ...pet, ...input } : pet);
+  const pets = readLocal(PETS_KEY, EMPTY_PETS).map((pet) => pet.id === id ? { ...pet, ...input } : pet);
   writeLocal(PETS_KEY, pets);
   await createNotification({ pet_id: id, tipo: "reporte_actualizado", mensaje: "Caso actualizado" });
 }
@@ -455,8 +458,8 @@ export async function deletePet(id: string) {
     const { error } = await supabase.from("pets").delete().eq("id", id);
     if (error) throw error;
   }
-  writeLocal(PETS_KEY, readLocal(PETS_KEY, demoPets).filter((pet) => pet.id !== id));
-  writeLocal(SIGHTINGS_KEY, readLocal(SIGHTINGS_KEY, demoSightings).filter((sighting) => sighting.pet_id !== id));
+  writeLocal(PETS_KEY, readLocal(PETS_KEY, EMPTY_PETS).filter((pet) => pet.id !== id));
+  writeLocal(SIGHTINGS_KEY, readLocal(SIGHTINGS_KEY, EMPTY_SIGHTINGS).filter((sighting) => sighting.pet_id !== id));
   writeLocal(OWNED_PETS_KEY, readLocal<string[]>(OWNED_PETS_KEY, []).filter((petId) => petId !== id));
 }
 
@@ -478,7 +481,7 @@ export async function createSighting(input: Omit<Sighting, "id" | "creado_en" | 
     }
     if (error) throw error;
   }
-  const sightings = [sighting, ...readLocal(SIGHTINGS_KEY, demoSightings)];
+  const sightings = [sighting, ...readLocal(SIGHTINGS_KEY, EMPTY_SIGHTINGS)];
   writeLocal(SIGHTINGS_KEY, sightings);
   if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo avistamiento recibido" });
   return sighting;
@@ -495,7 +498,7 @@ export async function updateSightingReview(id: string, petId: string, estado_rev
     const { error } = await supabase.from("sightings").update(sightingPatch(patch)).eq("id", id);
     if (error) throw error;
   }
-  const sightings = readLocal(SIGHTINGS_KEY, demoSightings).map((sighting) => sighting.id === id ? { ...sighting, ...patch } : sighting);
+  const sightings = readLocal(SIGHTINGS_KEY, EMPTY_SIGHTINGS).map((sighting) => sighting.id === id ? { ...sighting, ...patch } : sighting);
   writeLocal(SIGHTINGS_KEY, sightings);
   if (estado_revision === "encontrada") await markPetStatus(petId, "reunido");
 }
@@ -515,7 +518,7 @@ export async function updateSighting(id: string, input: Partial<Sighting>) {
     const { error } = await supabase.from("sightings").update(sightingPatch(input)).eq("id", id);
     if (error) throw error;
   }
-  const sightings = readLocal(SIGHTINGS_KEY, demoSightings).map((sighting) => sighting.id === id ? { ...sighting, ...input } : sighting);
+  const sightings = readLocal(SIGHTINGS_KEY, EMPTY_SIGHTINGS).map((sighting) => sighting.id === id ? { ...sighting, ...input } : sighting);
   writeLocal(SIGHTINGS_KEY, sightings);
 }
 
@@ -524,7 +527,7 @@ export async function deleteSighting(id: string) {
     const { error } = await supabase.from("sightings").delete().eq("id", id);
     if (error) throw error;
   }
-  writeLocal(SIGHTINGS_KEY, readLocal(SIGHTINGS_KEY, demoSightings).filter((sighting) => sighting.id !== id));
+  writeLocal(SIGHTINGS_KEY, readLocal(SIGHTINGS_KEY, EMPTY_SIGHTINGS).filter((sighting) => sighting.id !== id));
 }
 
 export async function updateSightingStatus(id: string, petId: string, estado: NonNullable<Sighting["estado"]>) {
@@ -532,7 +535,7 @@ export async function updateSightingStatus(id: string, petId: string, estado: No
     const { error } = await supabase.from("sightings").update(sightingPatch({ estado, estado_avistamiento: estado })).eq("id", id);
     if (error) throw error;
   }
-  const sightings = readLocal(SIGHTINGS_KEY, demoSightings).map((sighting) => sighting.id === id ? { ...sighting, estado, estado_avistamiento: estado } : sighting);
+  const sightings = readLocal(SIGHTINGS_KEY, EMPTY_SIGHTINGS).map((sighting) => sighting.id === id ? { ...sighting, estado, estado_avistamiento: estado } : sighting);
   writeLocal(SIGHTINGS_KEY, sightings);
   await createNotification({
     pet_id: petId,
@@ -550,7 +553,7 @@ export async function markPetStatus(id: string, estado: PetStatus) {
       .eq("pet_id", id);
     if (error) throw error;
   }
-  const pets = readLocal(PETS_KEY, demoPets).map((pet) => pet.id === id ? { ...pet, estado, cerrado_en } : pet);
+  const pets = readLocal(PETS_KEY, EMPTY_PETS).map((pet) => pet.id === id ? { ...pet, estado, cerrado_en } : pet);
   writeLocal(PETS_KEY, pets);
   if (estado === "reunido") await createNotification({ pet_id: id, tipo: "reporte_cerrado", mensaje: "Mascota reunida" });
 }

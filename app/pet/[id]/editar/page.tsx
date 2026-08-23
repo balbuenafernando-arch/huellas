@@ -8,8 +8,8 @@ import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LocationPicker } from "@/components/location-picker";
 import type { Pet } from "@/lib/demo-data";
-import { deletePet, distinctiveFeatures, getPet, isOwnedPet, specialConditions, updatePet } from "@/lib/pet-store";
-import { getCurrentUser, getReport, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
+import { deletePet, getPet, isOwnedPet, specialConditions, updatePet } from "@/lib/pet-store";
+import { deleteReport, getCurrentUser, getReport, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 import { uploadImage } from "@/services/image-service";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
@@ -52,7 +52,8 @@ export default function EditPetPage() {
     const latitude = coords?.latitude ?? pet.latitud;
     const longitude = coords?.longitude ?? pet.longitud;
     const place = areaName || address || pet.distrito;
-    const recompensaMonto = Number(form.get("recompensa_monto") || 0);
+    const recompensaTexto = String(form.get("recompensa") || "").trim();
+    const recompensaMonto = Number(recompensaTexto.replace(/[^0-9.,]/g, "").replace(",", "."));
     const files = form.getAll("fotos").filter((item): item is File => item instanceof File && item.size > 0).slice(0, 5);
     let fotoPrincipal = pet.foto_principal;
     let fotos = pet.fotos?.length ? pet.fotos.slice(0, 5) : [fotoPrincipal];
@@ -83,6 +84,7 @@ export default function EditPetPage() {
           estado: estado === "reunido" ? "reunido" : "activo",
           distrito: place,
           descripcion: String(form.get("descripcion")),
+          reward_text: recompensaTexto || null,
           foto_url: fotoPrincipal,
           latitude,
           longitude,
@@ -106,7 +108,7 @@ export default function EditPetPage() {
         fotos: Array.from(new Set([fotoPrincipal, ...fotos])).slice(0, 5),
         condiciones_especiales: form.getAll("condiciones_especiales").map(String),
         alias: pet.alias ?? [],
-        caracteristicas: form.getAll("caracteristicas").map(String),
+        caracteristicas: [],
         caracteristicas_personalizadas: String(form.get("caracteristicas_personalizadas") || ""),
         recompensa_ofrecida: recompensaMonto > 0,
         recompensa_monto: recompensaMonto > 0 ? recompensaMonto : null,
@@ -124,8 +126,10 @@ export default function EditPetPage() {
     if (!pet || !allowed) return;
     if (!confirm("¿Estás seguro?\n\nEsta acción no se puede deshacer.")) return;
     try {
-      await deletePet(pet.id);
-      router.push("/");
+      if (report) await deleteReport(report.id);
+      else await deletePet(pet.id);
+      router.push("/mis-busquedas");
+      router.refresh();
     } catch (caught) {
       setError(friendlyError(caught, "No se pudo eliminar el caso. Inténtalo otra vez."));
     }
@@ -172,8 +176,7 @@ export default function EditPetPage() {
           <div><label className="label">Raza</label><input className="field" name="raza" defaultValue={pet.raza} /></div>
           <div><label className="label">Descripción</label><textarea required maxLength={1000} className="textarea min-h-28" name="descripcion" defaultValue={pet.descripcion} /></div>
           <div><label className="label">Condiciones especiales</label><div className="grid gap-2 md:grid-cols-2">{specialConditions.map((condition) => <label key={condition} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="condiciones_especiales" value={condition} defaultChecked={pet.condiciones_especiales?.includes(condition)} />{condition}</label>)}</div></div>
-          <div><label className="label">Características distintivas</label><div className="grid gap-2 md:grid-cols-2">{distinctiveFeatures.map((feature) => <label key={feature} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="caracteristicas" value={feature} defaultChecked={pet.caracteristicas?.includes(feature)} />{feature}</label>)}</div></div>
-          <div><label className="label">Características personalizadas</label><input className="field" name="caracteristicas_personalizadas" defaultValue={pet.caracteristicas_personalizadas ?? ""} /></div>
+          <div><label className="label">¿Qué hace fácil reconocer a esta mascota?</label><textarea className="textarea min-h-20" name="caracteristicas_personalizadas" maxLength={500} defaultValue={pet.caracteristicas_personalizadas || pet.caracteristicas?.join(". ") || ""} placeholder="Ejemplo: Tiene un collar rojo, una cicatriz en la oreja izquierda y una mancha blanca en el pecho." /></div>
         </section>
         <section className="form-card space-y-4">
           <img src={pet.foto_principal} alt={pet.nombre} className="h-52 w-full rounded-xl bg-[#F8F7F4] object-contain" />
@@ -188,12 +191,10 @@ export default function EditPetPage() {
           </div>
           {coords && <div className="map-panel min-h-[300px] overflow-hidden rounded-2xl"><LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} /></div>}
           <div><label className="label">WhatsApp</label><input required maxLength={40} className="field" name="whatsapp" defaultValue={pet.whatsapp} /></div>
-          <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa_monto" type="number" min="0" defaultValue={pet.recompensa_monto ?? ""} /></div>
+          <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa" maxLength={160} defaultValue={report?.reward_text ?? pet.recompensa_texto ?? pet.recompensa_monto ?? ""} placeholder="Ej. S/ 500" /></div>
           <div className="flex flex-wrap gap-2"><Button type="submit" disabled={saving}><Save size={18} />{saving ? "Guardando..." : "Guardar cambios"}</Button><Button type="button" variant="outline" onClick={remove}><Trash2 size={18} />Eliminar caso</Button></div>
         </section>
       </form>
     </main>
   );
 }
-
-

@@ -8,6 +8,7 @@ import { PetCard } from "@/components/pet-card";
 import { listCases, listMyCases, type CaseRecord } from "@/lib/cases";
 import { listContactRequests } from "@/lib/contact-requests";
 import { distanceKm, formatDistance, timeAgo } from "@/lib/utils";
+import { getCurrentUser } from "@/lib/sprint14-store";
 
 function daysBetween(start?: string | null, end?: string | null) {
   if (!start || !end) return "Tiempo no registrado";
@@ -26,8 +27,8 @@ export default function HomePage() {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition((position) => setCoords({ latitude: position.coords.latitude, longitude: position.coords.longitude }));
     }
-    listCases(true).then(setCases);
-    listMyCases().then((items) => setMyActiveCases(items.filter((item) => item.status !== "reunido" && item.status !== "archivado")));
+    Promise.all([listCases(true), getCurrentUser()]).then(([items, user]) => setCases(items.filter((item) => !user || item.ownerId !== user.id)));
+    listMyCases().then((items) => setMyActiveCases(items.filter((item) => item.report?.tipo_reporte === "perdido" && item.status !== "reunido" && item.status !== "archivado")));
   }, []);
 
   const activeCase = myActiveCases[0];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -32,8 +32,8 @@ const mainNav = [
 const mobileNav = [
   ...mainNav.slice(0, 2),
   { href: "/mis-mascotas", label: "Mis mascotas", icon: Heart },
-  { href: "/mis-reportes", label: "Mis búsquedas", icon: ClipboardList },
-  { href: "/mis-reportes", label: "Mis avistamientos", icon: PawPrint },
+  { href: "/mis-busquedas", label: "Mis búsquedas", icon: ClipboardList },
+  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: PawPrint },
   ...mainNav.slice(2),
   { href: "/notificaciones", label: "Notificaciones", icon: Bell },
   { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
@@ -42,12 +42,11 @@ const mobileNav = [
 
 const moreNav = [
   { href: "/mis-mascotas", label: "Mis mascotas", icon: Heart },
-  { href: "/mis-reportes", label: "Mis búsquedas", icon: ClipboardList },
-  { href: "/mis-reportes", label: "Mis avistamientos", icon: PawPrint },
+  { href: "/mis-busquedas", label: "Mis búsquedas", icon: ClipboardList },
+  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: PawPrint },
   { href: "/notificaciones", label: "Notificaciones", icon: Bell },
   { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
   { href: "/auth", label: "Perfil", icon: UserCircle },
-  { href: "/auth", label: "Ayuda", icon: HelpCircle },
 ];
 
 function Brand({ onNavigate }: { onNavigate?: () => void }) {
@@ -61,6 +60,8 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppHeader() {
   const [open, setOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname();
 
   function closeMenu() {
@@ -77,7 +78,26 @@ export function AppHeader() {
 
   useEffect(() => {
     closeMenu();
+    setMoreOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    function closeMoreMenu(event: PointerEvent) {
+      if (!moreMenuRef.current?.contains(event.target as Node)) setMoreOpen(false);
+    }
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMoreOpen(false);
+        setOpen(false);
+      }
+    }
+    document.addEventListener("pointerdown", closeMoreMenu);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeMoreMenu);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
 
   return (
     <>
@@ -107,20 +127,20 @@ export function AppHeader() {
           <div className="topbar-actions">
             <div className="hidden sm:block"><ShareHuellaButton compact /></div>
             <NotificationsBell />
-            <details className="more-menu hidden lg:block">
-              <summary className="more-menu-trigger" aria-label="Abrir más opciones">
+            <div ref={moreMenuRef} className="more-menu hidden lg:block">
+              <button type="button" className="more-menu-trigger" aria-label="Abrir más opciones" aria-expanded={moreOpen} onClick={() => setMoreOpen((value) => !value)}>
                 Más <ChevronDown size={15} />
-              </summary>
-              <div className="more-menu-panel">
+              </button>
+              {moreOpen && <div className="more-menu-panel">
                 {moreNav.map((item) => (
-                  <Link key={`${item.href}-${item.label}`} href={item.href} className="more-menu-link">
+                  <Link key={`${item.href}-${item.label}`} href={item.href} className="more-menu-link" onClick={() => setMoreOpen(false)}>
                     <item.icon size={17} />
                     <span>{item.label}</span>
                   </Link>
                 ))}
                 <div className="more-menu-share"><ShareHuellaButton compact /></div>
-              </div>
-            </details>
+              </div>}
+            </div>
           </div>
         </div>
       </header>

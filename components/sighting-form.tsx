@@ -2,8 +2,9 @@
 
 import type { ChangeEvent, FormEvent } from "react";
 import { useRef, useState } from "react";
-import { Camera, Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
+import { Image as ImageIcon, MapPin, Search, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CameraCapture } from "@/components/camera-capture";
 import { createSighting, findPotentialDuplicateSightings } from "@/lib/pet-store";
 import { uploadImage } from "@/services/image-service";
 import type { Sighting } from "@/lib/demo-data";
@@ -30,7 +31,6 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
   const [usingGps, setUsingGps] = useState(false);
   const [searchingAddress, setSearchingAddress] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -91,6 +91,13 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     }
   }
 
+  function handleCameraPhoto(file: File) {
+    const validationMessage = validateImageFile(file);
+    if (validationMessage) return setError(validationMessage);
+    setCropFile(file);
+    setError("");
+  }
+
   function showFieldErrors(errors: FieldErrors) {
     setFieldErrors(errors);
     const first = Object.keys(errors)[0];
@@ -107,7 +114,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     event.preventDefault();
     if (saving) return;
     const errors: FieldErrors = {};
-    if (!ubicacion.trim()) errors.ubicacion = "Indica la ubicacion del avistamiento.";
+    if (!ubicacion.trim()) errors.ubicacion = "Indica la ubicación del avistamiento.";
     if (!vistoEn) errors.visto_en = "Indica fecha y hora del avistamiento.";
     if (!comentario.trim()) errors.comentario = "Describe lo que viste.";
     const validationMessage = validateNotFuture(vistoEn, "La fecha del avistamiento") || validateImageFile(foto);
@@ -189,7 +196,7 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
         <LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} />
       </div>
       <p className="text-xs text-[#6B6860]">Arrastra el pin al punto exacto. El pin manda sobre la dirección.</p>
-      <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={usingGps || saving}>{usingGps ? "Obteniendo ubicacion..." : "Usar mi ubicación actual"}</Button>
+      <Button type="button" variant="outline" className="w-full" onClick={useLocation} disabled={usingGps || saving}>{usingGps ? "Obteniendo ubicación..." : "Usar mi ubicación actual"}</Button>
       <div>
         <label className="label">Fecha y hora del avistamiento *</label>
         <input required className="field" name="visto_en" type="datetime-local" value={vistoEn} onChange={(e) => setVistoEn(e.target.value)} />
@@ -223,11 +230,10 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
       {placa === "si" && <div><label className="label">Nombre observado</label><input className="field" name="nombre_observado" placeholder="Nombre en la placa" /></div>}
       <div>
         <label className="label">Foto (opcional pero recomendada)</label>
-        <input ref={cameraInputRef} className="sr-only" type="file" accept="image/*" capture="environment" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
         <input ref={galleryInputRef} className="sr-only" type="file" accept="image/*" onClick={(event) => { event.currentTarget.value = ""; }} onChange={handlePhoto} />
         <div className="grid gap-2 min-[390px]:grid-cols-2">
-          <Button type="button" variant="outline" onClick={() => cameraInputRef.current?.click()} disabled={saving}><Camera size={18} />Tomar foto</Button>
-          <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galeria</Button>
+          <CameraCapture disabled={saving} onCapture={handleCameraPhoto} />
+          <Button type="button" variant="outline" onClick={() => galleryInputRef.current?.click()} disabled={saving}><ImageIcon size={18} />Elegir desde galería</Button>
         </div>
         {fotoPreview && <img src={fotoPreview} alt="Foto recortada" className="mt-3 max-h-56 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
         {fieldErrors.foto && <p className="mt-2 text-sm font-semibold text-red-700">{fieldErrors.foto}</p>}
@@ -237,5 +243,3 @@ export function SightingForm({ petId, reportId, onCreated }: { petId: string; re
     </form>
   );
 }
-
-

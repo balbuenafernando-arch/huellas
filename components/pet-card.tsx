@@ -25,6 +25,7 @@ export function PetCard({ pet, distance, updatedAgo, lastSightingAgo, activity }
         </div>
         <div className="flex items-center gap-1 text-xs text-[#7A7871]"><MapPin size={13} className="shrink-0" />{pet.distrito}</div>
         <div className="flex items-center gap-1 text-xs text-[#7A7871]"><CalendarDays size={13} className="shrink-0" />{formatDate(pet.fecha_reporte)}</div>
+        {pet.recompensa_ofrecida && <div className="rounded-lg bg-[#FAEEDA] px-2 py-1 text-xs font-bold text-[#6B4A10]">💰 Recompensa ofrecida: {pet.recompensa_texto || (pet.recompensa_monto ? `S/ ${pet.recompensa_monto}` : "Sí")}</div>}
         {(distance || updatedAgo) && <div className="text-xs font-medium text-[#1D9E75]">{[distance, updatedAgo ? `Actualizado ${updatedAgo.toLowerCase()}` : null].filter(Boolean).join(" · ")}</div>}
         {lastSightingAgo && <div className="text-xs font-semibold text-[#6B4A10]">Último avistamiento {lastSightingAgo.toLowerCase()}</div>}
         {activity && <div className="rounded-lg bg-[#F8F7F4] px-2 py-1 text-xs text-[#6B6860]">{activity}</div>}

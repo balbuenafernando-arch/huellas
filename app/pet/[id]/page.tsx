@@ -14,7 +14,7 @@ import { SafeContact } from "@/components/safe-contact";
 import { StatusPill } from "@/components/pet-card";
 import type { Pet, Sighting } from "@/lib/demo-data";
 import { deletePet, deleteSighting, getPet, getPets, getSightings, isOwnedPet, isOwnedSighting, markPetStatus, updateSighting, updateSightingStatus } from "@/lib/pet-store";
-import { getCurrentUser, getReport, incrementReportView, listReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
+import { deleteReport, getCurrentUser, getReport, incrementReportView, listReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { getCase, type CaseRecord } from "@/lib/cases";
 import { uploadImage } from "@/services/image-service";
 import { distanceKm, formatDate, timeAgo } from "@/lib/utils";
@@ -239,14 +239,22 @@ export default function PetDetailPage() {
   }, [caseRecord, contactRequests, pet, report, sightings]);
   const currentState = caseRecord ? searchState(caseRecord) : null;
   const isClosed = pet?.estado === "reunido" || report?.estado === "reunido" || caseRecord?.status === "reunido";
+  useEffect(() => {
+    if (!owned || isClosed || new URLSearchParams(window.location.search).get("cerrar") !== "1") return;
+    setShowCloseConfirm(true);
+    window.history.replaceState(null, "", window.location.pathname);
+  }, [isClosed, owned]);
   const closedDate = report?.reunited_at ?? pet?.cerrado_en ?? null;
   const helperCount = Math.max(1, new Set(sightings.map((item) => item.owner_token ?? item.id)).size + (owned ? 1 : 0));
   const pendingContactRequests = contactRequests.filter((request) => request.status === "pendiente").length;
+  const recognitionDetails = pet?.caracteristicas_personalizadas?.trim() || pet?.caracteristicas?.filter(Boolean).join(". ") || "";
+  const rawCareNotes = report?.descripcion?.trim() || pet?.observaciones?.trim() || "";
+  const careNotes = rawCareNotes.includes("Cuidados a tener en cuenta:") ? rawCareNotes.split("Cuidados a tener en cuenta:").pop()?.trim() || "" : rawCareNotes === recognitionDetails ? "" : rawCareNotes;
   const petDetails = [
     pet?.edad ? ["Edad", pet.edad] : null,
     pet?.esterilizado !== null && pet?.esterilizado !== undefined ? ["Esterilizado", pet.esterilizado ? "Si" : "No"] : null,
     pet?.salud ? ["Condicion medica", pet.salud] : null,
-    pet?.observaciones ? ["A tener en cuenta sobre la mascota", pet.observaciones] : null,
+    careNotes ? ["A tener en cuenta sobre la mascota", careNotes] : null,
   ].filter(Boolean) as Array<[string, string]>;
 
   async function closeReport(story?: string) {
@@ -292,6 +300,7 @@ export default function PetDetailPage() {
 
   async function reopenReport() {
     if (!report) return;
+    if (!confirm("¿Quieres reabrir esta búsqueda? Volverá a aceptar avistamientos de la comunidad.")) return;
     await updateReport(report.id, { estado: "activo" });
     await load();
   }
@@ -312,8 +321,14 @@ export default function PetDetailPage() {
   async function removeReport() {
     if (!pet) return;
     if (!confirm("¿Estás seguro?\n\nEsta acción no se puede deshacer.")) return;
-    await deletePet(pet.id);
-    router.push("/");
+    try {
+      if (report) await deleteReport(report.id);
+      else await deletePet(pet.id);
+      router.push("/mis-busquedas");
+      router.refresh();
+    } catch (caught) {
+      setPageError(friendlyError(caught, "No se pudo eliminar el caso. Inténtalo otra vez."));
+    }
   }
 
   if (!pet && !pageError) return <DetailSkeleton />;
@@ -354,7 +369,7 @@ export default function PetDetailPage() {
             {isClosed && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">Mascota reunida</h2><p className="mt-1 font-semibold">Caso cerrado. {pet.nombre} volvió a casa.</p><p className="mt-1 text-sm">Gracias por confiar en HUELLA{closedDate ? ` · ${formatDate(closedDate)}` : ""}.</p></div>}
             <p className="mt-4 leading-7 text-[#4D4A43]">{pet.descripcion}</p>
             <div className="mt-4 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-              {!isClosed && <Button asChild><a href="#compartir-avistamiento">Compartir avistamiento</a></Button>}
+              {!isClosed && !owned && <Button asChild><a href="#compartir-avistamiento">Compartir avistamiento</a></Button>}
               <ShareButton pet={pet} label={isClosed ? "Compartir historia" : "Compartir búsqueda"} />
               {!isClosed && <PosterButton pet={pet} />}
             </div>
@@ -372,7 +387,7 @@ export default function PetDetailPage() {
             <div className="mt-3"><ContentReportButton targetType="pet" targetId={pet.id} /></div>
             {owned && <div className="mt-3 grid gap-2 border-t border-black/10 pt-3 min-[390px]:flex min-[390px]:flex-wrap">
               <Button variant="outline" asChild><Link href={`/pet/${pet.id}/editar`}><Edit size={17} />Editar caso</Link></Button>
-              {report?.pet_id && <Button variant="outline" asChild><Link href={`/mascota/${report.pet_id}/historial`}>Historial</Link></Button>}
+              {report?.pet_id && <Button variant="outline" asChild><Link href={`/mascota/${report.pet_id}/historial`}>Ver historial completo del caso</Link></Button>}
               {!isClosed && <Button variant="outline" onClick={() => setShowCloseConfirm(true)}><CheckCircle size={17} />❤️ Mi mascota volvió a casa</Button>}
               {report?.estado === "reunido" && <Button variant="outline" onClick={reopenReport}>Reabrir búsqueda</Button>}
               <Button variant="outline" onClick={removeReport}><Trash2 size={17} />Eliminar caso</Button>
@@ -384,24 +399,23 @@ export default function PetDetailPage() {
             const form = new FormData(event.currentTarget);
             closeReport(String(form.get("historia") || ""));
           }}>
-            <h2 className="font-bold">Confirmar reencuentro</h2>
-            <p className="text-sm leading-6 text-[#6B6860]">La foto y la historia podrán aparecer en la sección Reencuentros para dar esperanza a otras familias.</p>
-            <div><label className="label">Fotografía del reencuentro opcional</label><input className="field" type="file" accept="image/*" onChange={handleReunionPhoto} /></div>
+            <div className="text-4xl" aria-hidden="true">🎉</div>
+            <h2 className="font-serif text-2xl">¡Nos alegra saber que tu mascota volvió contigo!</h2>
+            <p className="text-sm leading-6 text-[#6B6860]">Comparte este momento para dar esperanza a otras familias.</p>
+            <div><span className="mb-1 block text-xs font-bold text-[#1D9E75]">PASO 2</span><label className="label">Fotografía del reencuentro (opcional)</label><input className="field" type="file" accept="image/*" onChange={handleReunionPhoto} /></div>
             {reunionPreview && <img src={reunionPreview} alt="Reencuentro" className="max-h-64 w-full rounded-xl bg-[#F8F7F4] object-contain" />}
-            <div><label className="label">Breve historia opcional</label><textarea className="textarea min-h-20" name="historia" maxLength={200} placeholder="Máximo 200 caracteres" /></div>
+            <div><span className="mb-1 block text-xs font-bold text-[#1D9E75]">PASO 3</span><label className="label">Cuéntanos brevemente cómo ocurrió el reencuentro (opcional)</label><textarea className="textarea min-h-20" name="historia" maxLength={200} placeholder="Ejemplo: Un vecino reconoció el afiche y nos llamó." /></div>
             <div className="grid gap-2 min-[390px]:flex">
-              <Button type="submit" disabled={closing}>{closing ? "Cerrando búsqueda..." : "Cerrar búsqueda"}</Button>
+              <Button type="submit" disabled={closing}>{closing ? "Guardando reencuentro..." : "Guardar y cerrar búsqueda"}</Button>
               <Button type="button" variant="outline" disabled={closing} onClick={() => setShowCloseConfirm(false)}>Ahora no</Button>
             </div>
           </form>}
 
           {(petDetails.length || pet.caracteristicas?.length || pet.condiciones_especiales?.length || pet.caracteristicas_personalizadas || pet.recompensa_ofrecida) && <div className="form-card space-y-3">
-            {pet.recompensa_ofrecida && <div className="rounded-xl bg-[#FAEEDA] p-3 font-semibold text-[#6B4A10]">Recompensa ofrecida {pet.recompensa_monto ? `S/ ${pet.recompensa_monto}` : ""}</div>}
+            {pet.recompensa_ofrecida && <div className="rounded-xl bg-[#FAEEDA] p-3 font-semibold text-[#6B4A10]">💰 Recompensa ofrecida<br /><span className="text-lg">{pet.recompensa_texto || (pet.recompensa_monto ? `S/ ${pet.recompensa_monto}` : "Sí")}</span></div>}
             {petDetails.length > 0 && <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">{petDetails.map(([label, value]) => <div key={label} className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">{label}</strong>{value}</div>)}</div>}
-            <h2 className="font-bold">Características distintivas</h2>
-            <div className="flex flex-wrap gap-2">{pet.caracteristicas?.map((feature) => <span key={feature} className="rounded-full bg-[#F1EFE8] px-3 py-1 text-sm">{feature}</span>)}</div>
+            {recognitionDetails && <><h2 className="font-bold">¿Qué hace fácil reconocer a esta mascota?</h2><p className="text-sm text-[#6B6860]">{recognitionDetails}</p></>}
             {pet.condiciones_especiales?.length ? <><h3 className="text-sm font-bold">Condiciones especiales</h3><div className="flex flex-wrap gap-2">{pet.condiciones_especiales.map((condition) => <span key={condition} className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm text-[#085041]">{condition}</span>)}</div></> : null}
-            {pet.caracteristicas_personalizadas && <p className="text-sm text-[#6B6860]">{pet.caracteristicas_personalizadas}</p>}
           </div>}
         </section>
       </div>
@@ -458,12 +472,12 @@ export default function PetDetailPage() {
 
           {!isClosed && matches.length > 0 && <div className="form-card"><h2 className="mb-3 font-bold">Posibles coincidencias cercanas</h2><div className="space-y-3">{matches.map((match) => <Link key={match.id} href={`/pet/${match.id}`} className="flex gap-3 rounded-xl border border-black/10 p-2 hover:bg-[#F8F7F4]"><img src={match.foto_principal} alt={match.nombre} className="h-16 w-16 rounded-lg object-contain bg-[#F8F7F4]" /><div><div className="font-semibold">{match.nombre}</div><div className="text-sm text-[#7A7871]">{match.raza} · {match.distrito}</div></div></Link>)}</div></div>}
 
-          <div className="form-card"><h2 className="mb-3 font-bold">Timeline del caso</h2><div className="space-y-3">{timeline.map((item) => {
+          {!isClosed && <div className="form-card"><h2 className="mb-3 font-bold">Timeline del caso</h2><div className="space-y-3">{timeline.map((item) => {
             const content = <><div className="w-20 text-sm font-semibold text-[#1D9E75]">{new Date(item.date).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</div><div className="border-l border-black/10 pl-3 text-sm"><span className="mr-2 text-[#1D9E75]" aria-hidden="true">{item.icon}</span><strong>{item.type}</strong><div>{item.label}</div><div className="text-xs text-[#7A7871]">{formatDate(item.date)}{item.location ? ` · ${item.location}` : ""}</div>{item.source && <div className="text-xs font-semibold text-[#6B6860]">{item.source}</div>}</div></>;
             return item.sightingId ? <Link key={item.id} href={`/avistamiento/${item.sightingId}`} className="flex gap-3 rounded-xl p-1 hover:bg-[#F8F7F4]">{content}</Link> : <div key={item.id} className="flex gap-3">{content}</div>;
-          })}</div></div>
+          })}</div></div>}
 
-          {sightings.length > 0 && <div className="form-card space-y-3">
+          {!isClosed && sightings.length > 0 && <div className="form-card space-y-3">
             <h2 className="font-bold">Actividad reciente</h2>
             <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Último avistamiento</strong>{(latestSighting?.ubicacion ?? latestSighting?.distrito) || "Ubicación aproximada"}</div>
@@ -475,7 +489,7 @@ export default function PetDetailPage() {
             <Button size="sm" variant="outline" asChild><a href="#mapa-del-caso">Ver historial en el mapa</a></Button>
           </div>}
 
-          <div className="space-y-3">
+          {!isClosed && <div className="space-y-3">
             <h2 className="text-xl font-bold">Avistamientos ({sightings.length})</h2>
             {sightings.map((s) => {
               const estado = s.estado_avistamiento ?? s.estado ?? "pendiente";
@@ -492,11 +506,11 @@ export default function PetDetailPage() {
                 {isOwnedSighting(s) && <SightingEditor sighting={s} onDone={load} />}
               </article>;
             })}
-          </div>
+          </div>}
         </div>
 
         <aside className="space-y-5">
-          {!isClosed && <SightingForm petId={report?.pet_id ?? pet.id} reportId={report?.id ?? null} onCreated={load} />}
+          {!isClosed && !owned && <SightingForm petId={report?.pet_id ?? pet.id} reportId={report?.id ?? null} onCreated={load} />}
           {collaboratorStats.sent > 0 && <div className="form-card"><h2 className="mb-2 font-bold">Perfil de colaborador</h2><div className="grid grid-cols-1 gap-2 text-center text-sm min-[390px]:grid-cols-3"><div><strong className="block text-xl">{collaboratorStats.sent}</strong>enviados</div><div><strong className="block text-xl">{collaboratorStats.confirmed}</strong>confirmados</div><div><strong className="block text-xl">{collaboratorStats.rate}%</strong>confirmación</div></div></div>}
           <div id="mapa-del-caso" className="map-panel scroll-mt-24"><PetMap pets={allPets.length ? allPets : [pet]} selectedId={pet.id} sightings={sightings} /></div>
         </aside>
@@ -504,4 +518,3 @@ export default function PetDetailPage() {
     </main>
   );
 }
-

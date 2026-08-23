@@ -1,7 +1,6 @@
 "use client";
 
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
-import { demoNotifications } from "@/lib/demo-data";
 import { getCurrentUser } from "@/lib/sprint14-store";
 
 export type AppNotification = {
@@ -60,8 +59,7 @@ export async function listNotifications(): Promise<AppNotification[]> {
     if (error) throw error;
     if (data) return data.map((item) => normalizeNotification(item as Record<string, unknown>));
   }
-  const local = readLocal();
-  return local.length ? local : demoNotifications.map((item) => normalizeNotification(item as unknown as Record<string, unknown>));
+  return readLocal();
 }
 
 export async function markAllNotificationsRead() {

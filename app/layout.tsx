@@ -34,7 +34,7 @@ const primaryNav = [
   { href: "/", label: "Inicio", icon: Home },
   { href: "/buscar-cerca", label: "Buscar cerca de mí", icon: MapPin },
   { href: "/mis-mascotas", label: "Mis mascotas", icon: Heart },
-  { href: "/mis-reportes", label: "Mis búsquedas", icon: ClipboardList },
+  { href: "/mis-busquedas", label: "Mis búsquedas", icon: ClipboardList },
 ];
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
