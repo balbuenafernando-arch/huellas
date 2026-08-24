@@ -10,6 +10,7 @@ export function CameraCapture({ disabled = false, onCapture }: { disabled?: bool
   const videoRef = useRef<HTMLVideoElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   function stopCamera() {
     streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -19,6 +20,20 @@ export function CameraCapture({ disabled = false, onCapture }: { disabled?: bool
   }
 
   useEffect(() => () => streamRef.current?.getTracks().forEach((track) => track.stop()), []);
+  useEffect(() => {
+    if (!open) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") stopCamera();
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
 
   async function openCamera() {
     if (disabled || starting) return;
@@ -60,9 +75,9 @@ export function CameraCapture({ disabled = false, onCapture }: { disabled?: bool
   return <>
     <input ref={inputRef} className="sr-only" type="file" accept="image/*" capture="environment" onClick={(event) => { event.currentTarget.value = ""; }} onChange={(event) => { const file = event.target.files?.[0]; if (file) onCapture(file); }} />
     <Button type="button" variant="outline" onClick={openCamera} disabled={disabled}><Camera size={18} />Tomar foto</Button>
-    {open && <div className="fixed inset-0 z-[1400] grid place-items-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-label="Tomar foto">
-      <div className="w-full max-w-2xl space-y-3 rounded-2xl bg-white p-4 shadow-xl">
-        <div className="flex items-center justify-between"><strong>Tomar foto</strong><button type="button" aria-label="Cerrar cámara" onClick={stopCamera}><X size={22} /></button></div>
+    {open && <div className="fixed inset-0 z-[1400] grid place-items-center overflow-hidden bg-black/80 p-3" role="dialog" aria-modal="true" aria-labelledby="camera-title">
+      <div className="max-h-[calc(100dvh-24px)] w-full max-w-2xl space-y-3 overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-xl">
+        <div className="flex items-center justify-between"><strong id="camera-title">Tomar foto</strong><button ref={closeButtonRef} type="button" className="grid h-11 w-11 place-items-center rounded-full" aria-label="Cerrar cámara" onClick={stopCamera}><X size={22} /></button></div>
         <video ref={videoRef} autoPlay playsInline muted className="max-h-[65vh] w-full rounded-xl bg-black object-contain" />
         <Button type="button" className="w-full" onClick={takePhoto} disabled={starting}>{starting ? "Abriendo cámara..." : "Capturar foto"}</Button>
       </div>

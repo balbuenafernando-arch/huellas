@@ -47,14 +47,23 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
   const [applying, setApplying] = useState(false);
   const [lastTap, setLastTap] = useState(0);
   const dragRef = useRef<DragState | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement>(null);
   const objectUrl = useMemo(() => URL.createObjectURL(file), [file]);
 
   useEffect(() => () => URL.revokeObjectURL(objectUrl), [objectUrl]);
   useEffect(() => {
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = previous; };
-  }, []);
+    cancelButtonRef.current?.focus();
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === "Escape" && !applying) onCancel();
+    }
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [applying, onCancel]);
 
   function updateOffset(nextX: number, nextY: number) {
     const limit = 24 * zoom;
@@ -110,11 +119,11 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
   }
 
   return (
-    <div className="fixed inset-0 z-[1200] grid place-items-center overflow-hidden bg-black/70 p-3" role="dialog" aria-modal="true" aria-label="Ajustar fotografía">
+    <div className="fixed inset-0 z-[1200] grid place-items-center overflow-hidden bg-black/70 p-3" role="dialog" aria-modal="true" aria-labelledby="crop-title">
       <section className="max-h-[calc(100dvh-24px)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-[0_24px_80px_rgba(0,0,0,.28)]">
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="font-bold">Ajustar foto</h2>
-          <Button type="button" variant="outline" onClick={onCancel} disabled={applying}>Cancelar</Button>
+          <h2 id="crop-title" className="font-bold">Ajustar foto</h2>
+          <Button ref={cancelButtonRef} type="button" variant="outline" onClick={onCancel} disabled={applying}>Cancelar</Button>
         </div>
         <div
           className="relative mx-auto aspect-[4/3] max-h-[62vh] touch-none overflow-hidden rounded-xl bg-[#111]"

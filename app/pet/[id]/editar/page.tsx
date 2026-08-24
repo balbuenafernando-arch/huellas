@@ -161,12 +161,12 @@ export default function EditPetPage() {
       setAreaName(details.district || details.province || details.department || details.address);
     } catch {
       setAddress(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
-      setAreaName("Ubicación exacta");
+      setAreaName("Punto marcado en el mapa");
     }
   }
 
   if (loading) return <DetailSkeleton />;
-  if (!pet) return <main className="container py-10"><FriendlyError message={error || "No se encontro este caso."} /></main>;
+  if (!pet) return <main className="container py-10"><FriendlyError message={error || "No se encontró este caso."} /></main>;
   if (!allowed) return <main className="container py-10"><Link href={`/pet/${pet.id}`} className="text-[#1D9E75]">Volver</Link><p className="mt-4">Solo el navegador que creó este caso puede editarlo.</p></main>;
 
   return (

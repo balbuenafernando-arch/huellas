@@ -15,6 +15,7 @@ import {
   PawPrint,
   Share2,
   UserCircle,
+  Eye,
   X,
 } from "lucide-react";
 import { NotificationsBell } from "@/components/notifications-bell";
@@ -28,11 +29,10 @@ const mainNav = [
 ];
 
 const mobileNav = [
-  ...mainNav.slice(0, 2),
-  { href: "/mis-mascotas", label: "Mis mascotas", icon: PawPrint },
   { href: "/mis-busquedas", label: "Mis búsquedas", icon: ClipboardList },
-  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: MapPin },
-  ...mainNav.slice(2),
+  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: Eye },
+  { href: "/historias-de-exito", label: "Reencuentros", icon: Heart },
+  { href: "/como-funciona", label: "Cómo funciona", icon: Lightbulb },
   { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
   { href: "/auth", label: "Perfil", icon: UserCircle },
 ];
@@ -40,7 +40,7 @@ const mobileNav = [
 const moreNav = [
   { href: "/mis-mascotas", label: "Mis mascotas", icon: PawPrint },
   { href: "/mis-busquedas", label: "Mis búsquedas", icon: ClipboardList },
-  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: MapPin },
+  { href: "/mis-avistamientos", label: "Mis avistamientos", icon: Eye },
   { href: "/feedback", label: "Ayúdanos a mejorar HUELLA", icon: HelpCircle },
   { href: "/auth", label: "Perfil", icon: UserCircle },
 ];
@@ -114,7 +114,7 @@ export function AppHeader() {
 
           <nav className="nav-desktop" aria-label="Navegación principal">
             {mainNav.map((item) => (
-              <Link key={item.href} href={item.href} className="desktop-nav-link">
+              <Link key={item.href} href={item.href} className={`desktop-nav-link ${pathname === item.href ? "text-[#085041]" : ""}`} aria-current={pathname === item.href ? "page" : undefined}>
                 {item.label}
               </Link>
             ))}
@@ -129,7 +129,7 @@ export function AppHeader() {
               </button>
               {moreOpen && <div className="more-menu-panel">
                 {moreNav.map((item) => (
-                  <Link key={`${item.href}-${item.label}`} href={item.href} className="more-menu-link" onClick={() => setMoreOpen(false)}>
+                  <Link key={`${item.href}-${item.label}`} href={item.href} className="more-menu-link" onClick={() => setMoreOpen(false)} aria-current={pathname === item.href ? "page" : undefined}>
                     <item.icon size={17} />
                     <span>{item.label}</span>
                   </Link>
@@ -149,9 +149,10 @@ export function AppHeader() {
             <X size={21} />
           </button>
         </div>
-        <nav className="mobile-sidebar-nav" aria-label="Menú móvil">
+        <p className="px-4 pb-2 pt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#7A7871]">Actividad y cuenta</p>
+        <nav className="mobile-sidebar-nav" aria-label="Actividad, información y cuenta">
           {mobileNav.map((item) => (
-            <Link key={`${item.href}-${item.label}`} href={item.href} className="mobile-sidebar-link" onClick={closeMenu}>
+            <Link key={`${item.href}-${item.label}`} href={item.href} className={`mobile-sidebar-link ${pathname === item.href ? "bg-[#E1F5EE] text-[#085041]" : ""}`} onClick={closeMenu} aria-current={pathname === item.href ? "page" : undefined}>
               <item.icon size={19} />
               <span>{item.label}</span>
             </Link>

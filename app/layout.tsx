@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { Eye, Home, MapPin, PawPrint } from "lucide-react";
-import Link from "next/link";
 import { OfflineBanner } from "@/components/feedback";
 import { AppHeader } from "@/components/app-header";
 import { AuthGate } from "@/components/auth-gate";
 import { AppErrorBoundary } from "@/components/app-error-boundary";
 import { ScrollToTop } from "@/components/scroll-to-top";
+import { BottomNavigation } from "@/components/bottom-navigation";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,13 +29,6 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-const primaryNav = [
-  { href: "/", label: "Inicio", icon: Home },
-  { href: "/buscar-cerca", label: "Buscar cerca de mí", icon: MapPin },
-  { href: "/mis-mascotas", label: "Mis mascotas", icon: PawPrint },
-  { href: "/reportar-avistamiento", label: "Vi una mascota", icon: Eye },
-];
-
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="es">
@@ -48,11 +40,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
               <OfflineBanner />
               {children}
               <ScrollToTop />
-              <nav className="bottom-nav">
-                <div className="container flex items-center justify-around">
-                  {primaryNav.map((item) => <Link key={item.href} href={item.href} className="nav-item"><item.icon size={22} /><span>{item.label}</span></Link>)}
-                </div>
-              </nav>
+              <BottomNavigation />
             </div>
           </AppErrorBoundary>
         </AuthGate>

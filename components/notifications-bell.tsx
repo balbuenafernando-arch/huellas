@@ -16,7 +16,9 @@ export function NotificationsBell() {
     function load() { listNotifications().then((items) => { if (active) setNotifications(items); }).catch(() => { if (active) setNotifications([]); }); }
     load();
     window.addEventListener("huella:notifications-updated", load);
-    return () => { active = false; window.removeEventListener("huella:notifications-updated", load); };
+    window.addEventListener("focus", load);
+    document.addEventListener("visibilitychange", load);
+    return () => { active = false; window.removeEventListener("huella:notifications-updated", load); window.removeEventListener("focus", load); document.removeEventListener("visibilitychange", load); };
   }, [pathname]);
 
   return (

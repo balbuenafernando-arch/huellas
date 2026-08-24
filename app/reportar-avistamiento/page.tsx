@@ -50,7 +50,7 @@ const quickSituations = [
 ];
 
 function locationLabel(details: LocationDetails | null, address: string) {
-  return details?.district || details?.province || details?.department || address || "Ubicación exacta";
+  return details?.district || details?.province || details?.department || address || "Punto marcado en el mapa";
 }
 
 export default function ReportSightingPage() {
@@ -230,7 +230,7 @@ export default function ReportSightingPage() {
         try {
           fotos = await Promise.all(files.slice(0, 3).map((file) => uploadImage(file)));
         } catch (caught) {
-          throw new Error(operationError(caught, "subir fotografia de avistamiento", "Error al subir la fotografia"));
+          throw new Error(operationError(caught, "subir fotografía de avistamiento", "Error al subir la fotografía"));
         }
       }
 
@@ -316,7 +316,7 @@ export default function ReportSightingPage() {
         await createNotification({
           pet_id: selectedMatch.pet.id,
           tipo: selectedMatch.level === "alta" ? "coincidencia_alta" : "nuevo_avistamiento",
-          mensaje: `Se encontro una coincidencia ${selectedMatch.level} para ${selectedMatch.pet.nombre}.`,
+          mensaje: `Se encontró una coincidencia ${selectedMatch.level} para ${selectedMatch.pet.nombre}.`,
         });
       }
 

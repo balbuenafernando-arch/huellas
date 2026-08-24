@@ -109,7 +109,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .map-panel .leaflet-bottom { bottom: calc(10px + env(safe-area-inset-bottom)); }
 .stat { border: 1px solid rgba(28,28,26,.06); background: rgba(255,255,255,.9); border-radius: 20px; padding: 16px; box-shadow: 0 12px 30px rgba(28,28,26,.05); }
 .form-card { width: 100%; border: 1px solid rgba(28,28,26,.06); background: rgba(255,255,255,.92); border-radius: 24px; padding: 18px; box-shadow: 0 16px 44px rgba(28,28,26,.07); overflow-wrap: anywhere; animation: card-in .26s ease both; }
-.label { display: block; margin-bottom: 7px; color: #7A7871; font-size: 11px; font-weight: 800; letter-spacing: .02em; }
+.label { display: block; margin-bottom: 7px; color: #6B6860; font-size: 12px; font-weight: 800; letter-spacing: .01em; }
 .upload-box { border: 1.5px dashed rgba(28,28,26,.14); border-radius: 22px; background: rgba(248,247,244,.82); padding: 22px; text-align: center; }
 .empty-state { position: relative; display: grid; gap: 10px; place-items: start; padding: 24px; color: #6B6860; }
 .empty-state::before { content: ""; width: 42px; height: 42px; border-radius: 16px; background: linear-gradient(135deg, #E1F5EE, #F8F7F4); box-shadow: inset 0 0 0 1px rgba(29,158,117,.12); }
@@ -141,7 +141,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 
 @media (max-width: 374px) {
   .container { width: min(100% - 18px, 1120px); }
-  .nav-item { font-size: 9.8px; padding-inline: 2px; }
+  .nav-item { font-size: 10.5px; padding-inline: 2px; }
   .filter-tab { padding-inline: 12px; }
 }
 
@@ -164,5 +164,4 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .bottom-nav { display: none; }
   .scroll-top-btn { bottom: 24px; }
 }
-
 

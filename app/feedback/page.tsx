@@ -19,6 +19,7 @@ export default function FeedbackPage() {
   const [error, setError] = useState("");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [uploaderKey, setUploaderKey] = useState(0);
   const formRef = useRef<HTMLFormElement>(null);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -48,6 +49,7 @@ export default function FeedbackPage() {
       setSent(true);
       setFieldErrors({});
       setPhotoFiles([]);
+      setUploaderKey((value) => value + 1);
       event.currentTarget.reset();
     } catch (caught) {
       setError(friendlyError(caught, "No se pudo enviar el feedback. Inténtalo otra vez."));
@@ -75,7 +77,7 @@ export default function FeedbackPage() {
             </div>
           </div>
           <div><label className="label">Comentario</label><textarea className="textarea min-h-32" name="comentario" maxLength={1200} aria-invalid={Boolean(fieldErrors.comentario)} />{fieldErrors.comentario && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.comentario}</p>}</div>
-          <div data-field="fotos" tabIndex={-1}><label className="label">Capturas opcionales (máximo 3)</label><PhotoUploader disabled={saving} onChange={(files) => setPhotoFiles(files)} onError={(message) => setFieldErrors((current) => ({ ...current, fotos: message }))} />{fieldErrors.fotos && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.fotos}</p>}</div>
+          <div data-field="fotos" tabIndex={-1}><label className="label">Capturas opcionales (máximo 3)</label><PhotoUploader key={uploaderKey} disabled={saving} onChange={(files) => setPhotoFiles(files)} onError={(message) => setFieldErrors((current) => ({ ...current, fotos: message }))} />{fieldErrors.fotos && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.fotos}</p>}</div>
           <Button disabled={saving}><Send size={18} />{saving ? "Enviando..." : "Enviar"}</Button>
         </form>
       </section>

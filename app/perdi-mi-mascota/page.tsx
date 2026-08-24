@@ -22,7 +22,7 @@ const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e0
 type FieldErrors = Record<string, string>;
 
 function locationLabel(details: LocationDetails | null, address: string) {
-  return details?.district || details?.province || details?.department || address || "Ubicación exacta";
+  return details?.district || details?.province || details?.department || address || "Punto marcado en el mapa";
 }
 
 function petOptionLabel(pet: RegisteredPet) {
@@ -182,7 +182,7 @@ export default function EmergencyReportPage() {
         try {
           uploadedPhotoUrls = await Promise.all(files.slice(0, 3).map((file) => uploadMascotaImage(file, "mascotas")));
         } catch (caught) {
-          throw new Error(operationError(caught, "subir fotografia de busqueda", "Error al subir la fotografia"));
+          throw new Error(operationError(caught, "subir fotografía de búsqueda", "Error al subir la fotografía"));
         }
       }
       const photoUrls = [...retainedPhotoUrls, ...uploadedPhotoUrls].slice(0, 3);
