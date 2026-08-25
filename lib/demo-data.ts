@@ -55,6 +55,7 @@ export type Sighting = {
   visto_en?: string;
   owner_token?: string | null;
   reporter_name?: string | null;
+  reporter_phone?: string | null;
   reporter_is_anonymous?: boolean;
   creado_en: string;
 };

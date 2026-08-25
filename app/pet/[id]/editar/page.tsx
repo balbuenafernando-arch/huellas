@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { LocationPicker } from "@/components/location-picker";
 import type { Pet } from "@/lib/demo-data";
-import { deletePet, getPet, isOwnedPet, specialConditions, updatePet } from "@/lib/pet-store";
+import { deletePet, getPet, isOwnedPet, updatePet } from "@/lib/pet-store";
 import { deleteReport, getCurrentUser, getReport, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 import { uploadImage } from "@/services/image-service";
@@ -81,11 +81,10 @@ export default function EditPetPage() {
         fotoPrincipal = fotos[0];
       }
 
-      const estado = String(form.get("estado")) as Pet["estado"];
       if (report) {
         await updateReport(report.id, {
-          tipo_reporte: estado === "encontrado" ? "encontrado" : report.tipo_reporte,
-          estado: estado === "reunido" ? "reunido" : "activo",
+          tipo_reporte: report.tipo_reporte,
+          estado: report.estado,
           distrito: place,
           descripcion: String(form.get("descripcion")),
           reward_text: recompensaTexto || null,
@@ -103,7 +102,7 @@ export default function EditPetPage() {
         tipo: String(form.get("tipo")),
         raza: String(form.get("raza")),
         descripcion: String(form.get("descripcion")),
-        estado,
+        estado: pet.estado,
         distrito: place,
         direccion: address,
         latitud: latitude,
@@ -111,13 +110,13 @@ export default function EditPetPage() {
         whatsapp: String(form.get("whatsapp")),
         foto_principal: fotoPrincipal,
         fotos: Array.from(new Set([fotoPrincipal, ...fotos])).slice(0, 3),
-        condiciones_especiales: form.getAll("condiciones_especiales").map(String),
+        condiciones_especiales: pet.condiciones_especiales,
         alias: pet.alias ?? [],
         caracteristicas: [],
         caracteristicas_personalizadas: String(form.get("caracteristicas_personalizadas") || ""),
         recompensa_ofrecida: recompensaMonto > 0,
         recompensa_monto: recompensaMonto > 0 ? recompensaMonto : null,
-        cerrado_en: String(form.get("estado")) === "reunido" ? pet.cerrado_en ?? new Date().toISOString() : null,
+        cerrado_en: pet.cerrado_en,
       });
       router.push(`/pet/${pet.id}`);
     } catch (caught) {
@@ -177,10 +176,9 @@ export default function EditPetPage() {
       <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           <div><label className="label">Nombre</label><input required maxLength={120} className="field" name="nombre" defaultValue={pet.nombre} /></div>
-          <div className="grid gap-4 sm:grid-cols-2"><div><label className="label">Tipo</label><select className="select" name="tipo" defaultValue={pet.tipo}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Estado</label><select className="select" name="estado" defaultValue={pet.estado}><option value="perdido">Perdido</option><option value="encontrado">Encontrado</option><option value="reunido">Reunido</option></select></div></div>
+          <div><label className="label">Tipo</label><select className="select" name="tipo" defaultValue={pet.tipo}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div>
           <div><label className="label">Raza</label><input className="field" name="raza" defaultValue={pet.raza} /></div>
           <div><label className="label">Descripción</label><textarea required maxLength={1000} className="textarea min-h-28" name="descripcion" defaultValue={pet.descripcion} /></div>
-          <div><label className="label">Condiciones especiales</label><div className="grid gap-2 md:grid-cols-2">{specialConditions.map((condition) => <label key={condition} className="flex min-h-11 items-center gap-2 rounded-xl border border-black/10 p-2 text-sm"><input type="checkbox" name="condiciones_especiales" value={condition} defaultChecked={pet.condiciones_especiales?.includes(condition)} />{condition}</label>)}</div></div>
           <div><label className="label">¿Qué hace fácil reconocer a esta mascota?</label><textarea className="textarea min-h-20" name="caracteristicas_personalizadas" maxLength={500} defaultValue={pet.caracteristicas_personalizadas || pet.caracteristicas?.join(". ") || ""} placeholder="Ejemplo: Tiene un collar rojo, una cicatriz en la oreja izquierda y una mancha blanca en el pecho." /></div>
         </section>
         <section className="form-card space-y-4">

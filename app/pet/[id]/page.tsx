@@ -13,7 +13,7 @@ import { ContentReportButton } from "@/components/content-report-button";
 import { SafeContact } from "@/components/safe-contact";
 import { StatusPill } from "@/components/pet-card";
 import type { Pet, Sighting } from "@/lib/demo-data";
-import { deletePet, deleteSighting, getPet, getPets, getSightings, isOwnedPet, isOwnedSighting, markPetStatus, updateSighting, updateSightingStatus } from "@/lib/pet-store";
+import { deletePet, deleteSighting, getPet, getPets, getSightingPrivatePhone, getSightings, isOwnedPet, isOwnedSighting, markPetStatus, updateSighting, updateSightingStatus } from "@/lib/pet-store";
 import { deleteReport, getCurrentUser, getReport, incrementReportView, listReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { getCase, type CaseRecord } from "@/lib/cases";
 import { uploadImage } from "@/services/image-service";
@@ -23,15 +23,6 @@ import { saveReunionStory } from "@/lib/reunion-stories";
 import { listContactRequests, type ContactRequest } from "@/lib/contact-requests";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
 import { friendlyError, validateImageFiles } from "@/lib/form-validation";
-
-const reviewLabels: Record<string, string> = {
-  por_revisar: "Por revisar",
-  posible_coincidencia: "Posible coincidencia",
-  descartado: "Descartado",
-  alerta_falsa: "Alerta falsa",
-  informacion_enganosa: "Información engañosa",
-  encontrada: "Ayudó a encontrarla",
-};
 
 function touchDistance(touches: { [index: number]: { clientX: number; clientY: number } }) {
   const [a, b] = [touches[0], touches[1]];
@@ -112,6 +103,7 @@ export default function PetDetailPage() {
   const [caseRecord, setCaseRecord] = useState<CaseRecord | undefined>();
   const [signedIn, setSignedIn] = useState(false);
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([]);
+  const [privatePhones, setPrivatePhones] = useState<Record<string, string>>({});
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [closing, setClosing] = useState(false);
   const [pageError, setPageError] = useState("");
@@ -130,7 +122,14 @@ export default function PetDetailPage() {
       setSightings(items);
       setSignedIn(Boolean(user));
       setContactRequests(requests);
-      setOwned((foundReport && user ? foundReport.user_id === user.id : false) || isOwnedPet(found));
+      const ownsCase = (foundReport && user ? foundReport.user_id === user.id : false) || isOwnedPet(found);
+      setOwned(ownsCase);
+      if (ownsCase) {
+        const phoneEntries = await Promise.all(items.map(async (item) => [item.id, await getSightingPrivatePhone(item.id)] as const));
+        setPrivatePhones(Object.fromEntries(phoneEntries.filter((entry): entry is readonly [string, string] => Boolean(entry[1]))));
+      } else {
+        setPrivatePhones({});
+      }
       setPageError("");
     } catch (caught) {
       setPageError(friendlyError(caught, "No se pudo cargar el caso. Revisa tu conexión e inténtalo otra vez."));
@@ -149,12 +148,6 @@ export default function PetDetailPage() {
   }, [photoViewerOpen]);
 
   const photos = useMemo(() => pet ? Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? [])])).slice(0, 3) : [], [pet]);
-  const latestSighting = useMemo(() => sightings.slice().sort((a, b) => new Date(b.visto_en ?? b.creado_en).getTime() - new Date(a.visto_en ?? a.creado_en).getTime())[0], [sightings]);
-  const collaboratorStats = useMemo(() => {
-    const sent = sightings.length;
-    const confirmed = sightings.filter((item) => (item.estado_avistamiento ?? item.estado) === "confirmado").length;
-    return { sent, confirmed, rate: sent ? Math.round((confirmed / sent) * 100) : 0 };
-  }, [sightings]);
   const matches = useMemo(() => {
     if (!pet || pet.estado !== "perdido") return [];
     const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 21;
@@ -175,6 +168,21 @@ export default function PetDetailPage() {
   const closedDate = report?.reunited_at ?? pet?.cerrado_en ?? null;
   const helperCount = Math.max(1, new Set(sightings.map((item) => item.owner_token ?? item.id)).size + (owned ? 1 : 0));
   const pendingContactRequests = contactRequests.filter((request) => request.status === "pendiente").length;
+  const urgentSighting = useMemo(() => sightings
+    .filter((item) => item.situacion === "la_tengo_conmigo" || item.situacion === "herida")
+    .sort((a, b) => new Date(b.visto_en ?? b.creado_en).getTime() - new Date(a.visto_en ?? a.creado_en).getTime())[0], [sightings]);
+  const activityEvents = useMemo(() => {
+    const events = [
+      { id: `${pet?.id}-created`, date: report?.created_at ?? pet?.creado_en ?? "", description: "Caso creado", person: report?.reporter_name || "Propietario" },
+      ...sightings.map((item, index) => ({ id: item.id, date: item.visto_en ?? item.creado_en, description: `Avistamiento ${index + 1}: ${item.comentario}`, person: item.reporter_name || "Usuario HUELLA" })),
+      ...contactRequests.flatMap((request) => [
+        { id: `${request.id}-requested`, date: request.created_at, description: "Contacto solicitado", person: request.requester_name },
+        ...(request.status !== "pendiente" ? [{ id: `${request.id}-${request.status}`, date: request.updated_at, description: request.status === "autorizada" ? "Contacto autorizado" : "Contacto rechazado", person: "Propietario" }] : []),
+      ]),
+      ...(closedDate ? [{ id: `${pet?.id}-reunited`, date: closedDate, description: "Reencuentro", person: "Propietario" }] : []),
+    ];
+    return events.filter((event) => event.date).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [closedDate, contactRequests, pet?.creado_en, pet?.id, report?.created_at, report?.reporter_name, sightings]);
   const recognitionDetails = pet?.caracteristicas_personalizadas?.trim() || pet?.caracteristicas?.filter(Boolean).join(". ") || "";
   const rawCareNotes = report?.descripcion?.trim() || pet?.observaciones?.trim() || "";
   const careNotes = rawCareNotes.includes("Cuidados a tener en cuenta:") ? rawCareNotes.split("Cuidados a tener en cuenta:").pop()?.trim() || "" : rawCareNotes === recognitionDetails ? "" : rawCareNotes;
@@ -286,12 +294,11 @@ export default function PetDetailPage() {
             </div>
             {pet.alias?.length ? <p className="mt-2 text-sm text-[#6B6860]">También responde a: {pet.alias.join(", ")}</p> : null}
             {report && <p className="mt-2 text-sm text-[#6B6860]">Caso creado por: <strong>{report.reporter_is_anonymous ? "Usuario anónimo" : report.reporter_name || "Usuario HUELLA"}</strong></p>}
-            {latestSighting && <p className="mt-2 text-sm font-semibold text-[#1D9E75]">Último avistamiento: {timeAgo(latestSighting.visto_en ?? latestSighting.creado_en)}</p>}
             <p className="mt-2 text-sm text-[#6B6860]">Última actualización: {timeAgo(report?.updated_at ?? caseRecord?.updatedAt ?? pet.creado_en)}</p>
+            {owned && urgentSighting && <div className="mt-3 rounded-2xl border border-[#D85A30]/20 bg-[#FFF7F3] p-4 text-[#712B13]"><strong className="block text-lg">⚠️ Nuevo avistamiento</strong><p className="mt-1 font-bold">{urgentSighting.situacion === "la_tengo_conmigo" ? "La tiene consigo" : "La vio herida"}</p><p className="mt-1 text-sm">Reportado {timeAgo(urgentSighting.visto_en ?? urgentSighting.creado_en)} por {urgentSighting.reporter_name || "Usuario HUELLA"}.</p>{privatePhones[urgentSighting.id] ? <Button className="mt-3" asChild><a href={`tel:${privatePhones[urgentSighting.id]}`}>Contactar</a></Button> : <Button className="mt-3" asChild><a href={`#avistamiento-${urgentSighting.id}`}>Ver avistamiento</a></Button>}</div>}
             {owned && pendingContactRequests > 0 && <div className="mt-3 rounded-2xl bg-[#FAEEDA] p-4 text-sm text-[#6B4A10]"><strong className="block">❤️ Tienes personas intentando ayudarte.</strong><p>{pendingContactRequests} solicitud{pendingContactRequests === 1 ? "" : "es"} pendiente{pendingContactRequests === 1 ? "" : "s"}.</p><a href="#solicitudes-contacto" className="mt-2 inline-block font-bold text-[#6B4A10]">Revisar solicitudes</a></div>}
             {owned && report && <p className="mt-2 text-sm font-semibold text-[#6B6860]">{report.views_count ?? 0} visualizaciones</p>}
             {isClosed && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">Mascota reunida</h2><p className="mt-1 font-semibold">Caso cerrado. {pet.nombre} volvió a casa.</p><p className="mt-1 text-sm">Gracias por confiar en HUELLA{closedDate ? ` · ${formatDate(closedDate)}` : ""}.</p></div>}
-            <p className="mt-4 leading-7 text-[#4D4A43]">{pet.descripcion}</p>
             <div className="mt-4 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
               {!isClosed && !owned && <Button asChild><Link href={`/reportar-avistamiento?caseId=${report?.id ?? pet.id}`}>Reportar avistamiento</Link></Button>}
               <ShareButton pet={pet} label={isClosed ? "Compartir historia" : "Compartir búsqueda"} />
@@ -334,12 +341,19 @@ export default function PetDetailPage() {
             </div>
           </form>}
 
-          {(petDetails.length || pet.caracteristicas?.length || pet.condiciones_especiales?.length || pet.caracteristicas_personalizadas || pet.recompensa_ofrecida) && <div className="form-card space-y-3">
-            {pet.recompensa_ofrecida && <div className="rounded-xl bg-[#FAEEDA] p-3 font-semibold text-[#6B4A10]">💰 Recompensa ofrecida<br /><span className="text-lg">{pet.recompensa_texto || (pet.recompensa_monto ? `S/ ${pet.recompensa_monto}` : "Sí")}</span></div>}
+          <div className="form-card space-y-3">
+            <h2 className="font-serif text-2xl">Información del caso</h2>
+            <div><h3 className="font-bold">Descripción</h3><p className="mt-1 text-sm leading-6 text-[#6B6860]">{pet.descripcion || "Sin descripción disponible."}</p></div>
+            <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Última ubicación</strong>{pet.direccion || pet.distrito}</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Fecha</strong>{formatDate(pet.fecha_reporte)}</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Hora</strong>{new Date(pet.fecha_reporte).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</div>
+              {pet.recompensa_ofrecida && <div className="rounded-xl bg-[#FAEEDA] p-3 text-[#6B4A10]"><strong className="block">Recompensa</strong>{pet.recompensa_texto || (pet.recompensa_monto ? `S/ ${pet.recompensa_monto}` : "Ofrecida")}</div>}
+            </div>
             {petDetails.length > 0 && <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">{petDetails.map(([label, value]) => <div key={label} className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">{label}</strong>{value}</div>)}</div>}
             {recognitionDetails && <><h2 className="font-bold">¿Qué hace fácil reconocer a esta mascota?</h2><p className="text-sm text-[#6B6860]">{recognitionDetails}</p></>}
             {pet.condiciones_especiales?.length ? <><h3 className="text-sm font-bold">Condiciones especiales</h3><div className="flex flex-wrap gap-2">{pet.condiciones_especiales.map((condition) => <span key={condition} className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm text-[#085041]">{condition}</span>)}</div></> : null}
-          </div>}
+          </div>
         </section>
       </div>
 
@@ -391,7 +405,7 @@ export default function PetDetailPage() {
             <h2 className="text-xl font-bold">Avistamientos ({sightings.length})</h2>
             {sightings.map((s) => {
               const estado = s.estado_avistamiento ?? s.estado ?? "pendiente";
-              return <article key={s.id} className="form-card">
+              return <article id={`avistamiento-${s.id}`} key={s.id} className="form-card scroll-mt-24">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-2">{owned && <span className={`status-pill ${estado === "confirmado" ? "status-encontrado" : estado === "descartado" ? "status-reunido" : "status-perdido"}`}>{estado}</span>}<span className="text-sm text-[#7A7871]">{formatDate(s.visto_en ?? s.creado_en)}</span></div>
                 <Link href={`/avistamiento/${s.id}`} className="block rounded-xl hover:bg-[#F8F7F4]">
                   {(s.fotos?.length ? s.fotos : [s.foto].filter((url): url is string => Boolean(url))).length > 0 && <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{(s.fotos?.length ? s.fotos : [s.foto].filter((url): url is string => Boolean(url))).slice(0, 3).map((url) => <img key={url} src={url} alt="Foto de avistamiento" className="h-44 w-full rounded-xl bg-[#F8F7F4] object-contain" />)}</div>}
@@ -399,7 +413,6 @@ export default function PetDetailPage() {
                   <p className="mt-2 flex items-center gap-2 text-sm text-[#7A7871]"><MapPin size={15} />{s.ubicacion}</p>
                 </Link>
                 {s.feedback_reportero && isOwnedSighting(s) && <div className="mt-3 rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{s.feedback_reportero}</div>}
-                {owned && <div className="mt-3 rounded-xl bg-[#F8F7F4] p-3 text-sm"><strong>Revisión:</strong> {reviewLabels[s.estado_revision ?? "por_revisar"] ?? "Por revisar"}</div>}
                 {owned && estado === "pendiente" && <div className="mt-3 grid gap-2 min-[390px]:flex"><Button size="sm" onClick={() => updateSightingStatus(s.id, pet.id, "confirmado").then(load)}>Confirmar avistamiento</Button><Button size="sm" variant="outline" onClick={() => updateSightingStatus(s.id, pet.id, "descartado").then(load)}>Descartar avistamiento</Button></div>}
                 {isOwnedSighting(s) && <SightingEditor sighting={s} onDone={load} />}
               </article>;
@@ -408,8 +421,9 @@ export default function PetDetailPage() {
         </div>
 
         <aside className="space-y-5">
-          {collaboratorStats.sent > 0 && <div className="form-card"><h2 className="mb-2 font-bold">Perfil de colaborador</h2><div className="grid grid-cols-1 gap-2 text-center text-sm min-[390px]:grid-cols-3"><div><strong className="block text-xl">{collaboratorStats.sent}</strong>enviados</div><div><strong className="block text-xl">{collaboratorStats.confirmed}</strong>confirmados</div><div><strong className="block text-xl">{collaboratorStats.rate}%</strong>confirmación</div></div></div>}
+          <p className="text-sm font-semibold text-[#6B6860]">Recorrido registrado según los avistamientos reportados</p>
           <div id="mapa-del-caso" className="map-panel scroll-mt-24"><PetMap pets={allPets.length ? allPets : [pet]} selectedId={pet.id} sightings={sightings} /></div>
+          <details className="form-card"><summary className="cursor-pointer font-bold">Ver historial de actividad</summary><ol className="mt-4 space-y-4 border-l-2 border-[#9FE1CB] pl-4">{activityEvents.map((event) => <li key={event.id} className="relative"><span className="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-[#1D9E75]" /><p className="font-semibold">{event.description}</p><p className="text-sm text-[#6B6860]">{formatDate(event.date)} · {new Date(event.date).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</p><p className="text-sm text-[#7A7871]">Persona: {event.person}</p></li>)}</ol></details>
         </aside>
       </section>
     </main>

@@ -30,9 +30,17 @@ function writeLocal(items: AppNotification[]) {
   window.localStorage.setItem(KEY, JSON.stringify(items));
 }
 
-function titleFor(type: string) {
-  if (type.includes("contact")) return "Solicitud de contacto";
-  if (type.includes("avistamiento") || type.includes("sighting")) return "Nuevo avistamiento";
+function notificationCaseCode(id: string) {
+  const seed = Array.from(id).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return `H-${String(seed % 9000 + 1000)}`;
+}
+
+function titleFor(type: string, caseId: string | null) {
+  const caseLabel = caseId ? ` del caso ${notificationCaseCode(caseId)}` : "";
+  if (type.includes("autorizada")) return "Solicitud aceptada";
+  if (type.includes("rechazada")) return "Solicitud rechazada";
+  if (type.includes("contact")) return `Solicitud de contacto${caseLabel}`;
+  if (type.includes("avistamiento") || type.includes("sighting")) return `Nuevo avistamiento${caseLabel}`;
   if (type.includes("coincidencia") || type.includes("match")) return "Nueva coincidencia";
   if (type.includes("cerrado") || type.includes("reunida") || type.includes("reunited")) return "Mascota reunida";
   return "Caso actualizado";
@@ -41,11 +49,12 @@ function titleFor(type: string) {
 function normalizeNotification(item: Record<string, unknown>): AppNotification {
   const type = String(item.type ?? item.tipo ?? "reporte_actualizado");
   const description = String(item.message ?? item.mensaje ?? "Tienes una novedad en HUELLA.");
+  const caseId = item.report_id ? String(item.report_id) : item.pet_id ? String(item.pet_id) : null;
   return {
     id: String(item.id ?? crypto.randomUUID()),
-    title: titleFor(type),
+    title: titleFor(type, caseId),
     description,
-    caseId: item.report_id ? String(item.report_id) : item.pet_id ? String(item.pet_id) : null,
+    caseId,
     type,
     read: Boolean(item.read_at ?? item.leido),
     createdAt: String(item.created_at ?? item.creado_en ?? new Date().toISOString()),

@@ -9,9 +9,9 @@ import { friendlyError } from "@/lib/form-validation";
 
 const reasons: Array<{ value: ContentReportReason; label: string }> = [
   { value: "spam", label: "Spam" },
+  { value: "fraude", label: "Fraude" },
+  { value: "lenguaje_ofensivo", label: "Lenguaje ofensivo" },
   { value: "informacion_falsa", label: "Información falsa" },
-  { value: "foto_incorrecta", label: "Foto incorrecta" },
-  { value: "broma", label: "Broma" },
 ];
 
 export function ContentReportButton({ targetType, targetId }: { targetType: "pet" | "sighting"; targetId: string }) {
@@ -39,7 +39,7 @@ export function ContentReportButton({ targetType, targetId }: { targetType: "pet
 
   return (
     <div className="space-y-2">
-      <Button type="button" variant="outline" onClick={() => setOpen((value) => !value)}><Flag size={17} />Avisar problema</Button>
+      <Button type="button" variant="outline" onClick={() => setOpen((value) => !value)}><Flag size={17} />Reportar contenido inapropiado</Button>
       {error && <FriendlyError message={error} />}
       {open && <div className="grid gap-2 rounded-xl border border-black/10 p-3">
         {reasons.map((reason) => <Button key={reason.value} type="button" variant="outline" disabled={saving} onClick={() => submit(reason.value)}>{reason.label}</Button>)}

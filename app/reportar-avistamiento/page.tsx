@@ -8,7 +8,7 @@ import { ArrowLeft, MapPin, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { LocationPicker } from "@/components/location-picker";
-import { createNotification, createSighting } from "@/lib/pet-store";
+import { createSighting } from "@/lib/pet-store";
 import type { Sighting } from "@/lib/demo-data";
 import { findLostPetMatches } from "@/lib/matching";
 import { createRegisteredPet, createReport, getCurrentUser } from "@/lib/sprint14-store";
@@ -23,6 +23,8 @@ const fallbackPhoto = "https://images.unsplash.com/photo-1450778869180-41d0601e0
 type FieldErrors = Record<string, string>;
 
 type SightingDraft = {
+  nombre: string;
+  telefono: string;
   especie: string;
   tamano: string;
   color: string;
@@ -33,6 +35,8 @@ type SightingDraft = {
 };
 
 const defaultDraft: SightingDraft = {
+  nombre: "",
+  telefono: "",
   especie: "Perro",
   tamano: "Mediano",
   color: "",
@@ -305,19 +309,13 @@ export default function ReportSightingPage() {
         ubicacion: String(form.get("ubicacion") || draft.ubicacion),
         visto_en: seenAt,
         situacion: draft.situacion as Sighting["situacion"],
+        reporter_name: draft.nombre.trim() || null,
+        reporter_phone: draft.telefono.trim() || null,
         latitud: coords.latitude,
         longitud: coords.longitude,
         });
       } catch (caught) {
         throw new Error(operationError(caught, "registrar avistamiento en Supabase", "Error de base de datos al registrar el avistamiento"));
-      }
-
-      if (selectedMatch) {
-        await createNotification({
-          pet_id: selectedMatch.pet.id,
-          tipo: selectedMatch.level === "alta" ? "coincidencia_alta" : "nuevo_avistamiento",
-          mensaje: `Se encontró una coincidencia ${selectedMatch.level} para ${selectedMatch.pet.nombre}.`,
-        });
       }
 
       setSent(true);
@@ -351,6 +349,10 @@ export default function ReportSightingPage() {
           {error && <FriendlyError message={error} />}
           <PhotoUploader disabled={saving} onChange={(files) => setPhotoFiles(files)} onError={setError} />
           {fieldErrors.foto && <p className="text-sm font-semibold text-[#B42318]">{fieldErrors.foto}</p>}
+          <div className="grid gap-3 md:grid-cols-2">
+            <div><label className="label">Tu nombre (opcional)</label><input maxLength={120} className="field" name="nombre_reportante" value={draft.nombre} onChange={(event) => updateDraft("nombre", event.target.value)} autoComplete="name" /></div>
+            <div><label className="label">Tu teléfono (opcional)</label><input maxLength={40} className="field" type="tel" name="telefono_reportante" value={draft.telefono} onChange={(event) => updateDraft("telefono", event.target.value)} autoComplete="tel" placeholder="Solo lo verá el propietario" /></div>
+          </div>
           <div className="grid gap-3 md:grid-cols-2">
             <div><label className="label">Especie *</label><select className="select" name="especie" value={draft.especie} onChange={(event) => updateDraft("especie", event.target.value)}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div>
             <div><label className="label">Tamaño *</label><select className="select" name="tamano" value={draft.tamano} onChange={(event) => updateDraft("tamano", event.target.value)}><option value="Pequeno">Pequeño</option><option>Mediano</option><option>Grande</option></select></div>

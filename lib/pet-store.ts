@@ -15,7 +15,7 @@ const EMPTY_PETS: Pet[] = [];
 const EMPTY_SIGHTINGS: Sighting[] = [];
 const EMPTY_NOTIFICATIONS: Notification[] = [];
 
-export type ContentReportReason = "spam" | "informacion_falsa" | "foto_incorrecta" | "broma";
+export type ContentReportReason = "spam" | "fraude" | "lenguaje_ofensivo" | "informacion_falsa";
 
 export type ContentReport = {
   id: string;
@@ -71,6 +71,11 @@ type SightingRow = {
   situacion?: Sighting["situacion"];
   created_at: string;
   updated_at?: string | null;
+};
+
+type SightingPrivateContactRow = {
+  sighting_id: string;
+  phone: string | null;
 };
 
 export const distinctiveFeatures = [
@@ -480,20 +485,36 @@ export async function createSighting(input: Omit<Sighting, "id" | "creado_en" | 
     const reporter = sessionData.session?.user ?? (await supabase.auth.getUser()).data.user ?? null;
     const insertable = sightingToInsert({
       ...sighting,
-      reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : reporter ? userDisplayName(reporter) : "Usuario HUELLA",
+      reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : input.reporter_name?.trim() || (reporter ? userDisplayName(reporter) : "Usuario HUELLA"),
       reporter_is_anonymous: Boolean(input.reporter_is_anonymous),
     }, reporterId);
     const { data, error } = await supabase.from("sightings").insert(insertable).select().single();
     if (!error && data) {
-      if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo avistamiento recibido" });
-      return normalizeSighting(data as SightingRow);
+      const normalized = normalizeSighting(data as SightingRow);
+      if (input.reporter_phone?.trim()) {
+        const { error: contactError } = await supabase.from("sighting_private_contacts").insert({
+          sighting_id: normalized.id,
+          reporter_id: reporterId,
+          phone: input.reporter_phone.trim().slice(0, 40),
+        });
+        if (contactError) throw contactError;
+      }
+      return { ...normalized, reporter_phone: input.reporter_phone?.trim() || null };
     }
     if (error) throw error;
   }
   const sightings = [sighting, ...readLocal(SIGHTINGS_KEY, EMPTY_SIGHTINGS)];
   writeLocal(SIGHTINGS_KEY, sightings);
-  if (input.pet_id) await createNotification({ pet_id: input.pet_id, tipo: "nuevo_avistamiento", mensaje: "Nuevo avistamiento recibido" });
   return sighting;
+}
+
+export async function getSightingPrivatePhone(sightingId: string) {
+  if (isSupabaseConfigured && supabase && isUuid(sightingId)) {
+    const { data, error } = await supabase.from("sighting_private_contacts").select("sighting_id, phone").eq("sighting_id", sightingId).maybeSingle();
+    if (error) throw error;
+    return (data as SightingPrivateContactRow | null)?.phone ?? null;
+  }
+  return null;
 }
 
 export async function updateSightingReview(id: string, petId: string, estado_revision: NonNullable<Sighting["estado_revision"]>) {

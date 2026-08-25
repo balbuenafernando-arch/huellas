@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   ChevronDown,
   ClipboardList,
@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Home,
   Lightbulb,
+  LogOut,
   MapPin,
   Menu,
   PawPrint,
@@ -20,6 +21,7 @@ import {
 } from "lucide-react";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { ShareHuellaButton } from "@/components/share-huella-button";
+import { signOut } from "@/lib/sprint14-store";
 
 const mainNav = [
   { href: "/", label: "Inicio", icon: Home },
@@ -29,7 +31,6 @@ const mainNav = [
 ];
 
 const mobileNav = [
-  { href: "/mis-busquedas", label: "Mis búsquedas", icon: ClipboardList },
   { href: "/mis-avistamientos", label: "Mis avistamientos", icon: Eye },
   { href: "/historias-de-exito", label: "Reencuentros", icon: Heart },
   { href: "/como-funciona", label: "Cómo funciona", icon: Lightbulb },
@@ -55,6 +56,7 @@ function Brand({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function AppHeader() {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
@@ -167,6 +169,15 @@ export function AppHeader() {
         }}>
           <Share2 size={19} />
           <span>Compartir HUELLA</span>
+        </button>
+        <button type="button" className="mobile-sidebar-link w-full" onClick={async () => {
+          await signOut();
+          closeMenu();
+          router.replace("/");
+          router.refresh();
+        }}>
+          <LogOut size={19} />
+          <span>Cerrar sesión</span>
         </button>
       </aside>
     </>

@@ -44,6 +44,8 @@ export default function EmergencyReportPage() {
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [retainedPhotoUrls, setRetainedPhotoUrls] = useState<string[]>([]);
   const [matches, setMatches] = useState<CaseMatch[]>([]);
+  const [matchCriteria, setMatchCriteria] = useState<Parameters<typeof findLostPetMatches>[0] | null>(null);
+  const [searchingPublishedMatches, setSearchingPublishedMatches] = useState(false);
   const [reviewedMatches, setReviewedMatches] = useState(false);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -158,23 +160,6 @@ export default function EmergencyReportPage() {
     setSaving(true);
     setError("");
     try {
-      if (!reviewedMatches) {
-        const found = await findLostPetMatches({
-          especie: String(form.get("especie") || ""),
-          raza: String(form.get("raza") || ""),
-          color: String(form.get("color") || ""),
-          tamano: String(form.get("tamano") || ""),
-          distrito: locationLabel(locationDetails, address),
-          fecha: `${fecha}T${hora || "00:00"}`,
-          latitude: coords.latitude,
-          longitude: coords.longitude,
-        });
-        setMatches(found);
-        setReviewedMatches(true);
-        setSaving(false);
-        if (found.length) return;
-      }
-
       let uploadedPhotoUrls: string[] = [];
       const selectedPet = registeredPets.find((item) => item.id === selectedPetId);
       let pet = selectedPet;
@@ -235,11 +220,35 @@ export default function EmergencyReportPage() {
       } catch (caught) {
         throw new Error(operationError(caught, "crear reporte en Supabase", "Error de base de datos al crear el reporte"));
       }
+      setMatchCriteria({
+        especie: pet.especie,
+        raza: pet.raza,
+        color: pet.color,
+        tamano: pet.tamano ?? undefined,
+        distrito: locationLabel(locationDetails, address),
+        fecha: `${fecha}T${hora || "00:00"}`,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
       setPublishedPet(reportToLegacyPet(report));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : operationError(caught, "crear reporte"));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function searchPublishedMatches() {
+    if (!matchCriteria || searchingPublishedMatches) return;
+    setSearchingPublishedMatches(true);
+    setError("");
+    try {
+      setMatches(await findLostPetMatches(matchCriteria));
+      setReviewedMatches(true);
+    } catch (caught) {
+      setError(friendlyError(caught, "La búsqueda ya está publicada, pero no pudimos revisar coincidencias ahora."));
+    } finally {
+      setSearchingPublishedMatches(false);
     }
   }
 
@@ -253,6 +262,10 @@ export default function EmergencyReportPage() {
           <PosterButton pet={publishedPet} />
           <Button variant="outline" asChild><Link href={`/pet/${publishedPet.id}`}>Ver centro de búsqueda</Link></Button>
         </div>
+        <div className="border-t border-black/10 pt-4"><Button type="button" className="w-full" onClick={searchPublishedMatches} disabled={searchingPublishedMatches}>{searchingPublishedMatches ? "Buscando coincidencias..." : "Buscar coincidencias"}</Button></div>
+        {error && <FriendlyError message={error} />}
+        {reviewedMatches && matches.length === 0 && <p className="rounded-xl bg-[#F8F7F4] p-3 text-sm font-semibold text-[#6B6860]">No encontramos búsquedas activas compatibles.</p>}
+        {matches.length > 0 && <div className="space-y-3"><h2 className="font-bold">Posibles coincidencias</h2>{matches.map((match) => <article key={match.caseId} className="rounded-xl border border-black/10 p-3"><div className="flex gap-3"><img src={match.pet.foto_principal} alt={match.pet.nombre} className="h-16 w-16 rounded-lg bg-[#F8F7F4] object-contain" /><div><strong>{match.pet.nombre}</strong><p className="text-sm text-[#6B6860]">Coincidencia {match.level} · {match.percentage}%</p>{match.distance !== null && <p className="text-sm font-semibold text-[#1D9E75]">{formatDistance(match.distance)}</p>}</div></div><Button type="button" size="sm" variant="outline" className="mt-3" asChild><Link href={`/pet/${match.caseId}`}>Ver caso</Link></Button></article>)}</div>}
       </section>
     </main>
   );
@@ -266,7 +279,7 @@ export default function EmergencyReportPage() {
       <form ref={formRef} onSubmit={submit} className="mx-auto grid max-w-3xl gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 1 - Foto y nombre</div>
-          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Primero revisamos coincidencias cercanas. La búsqueda se guarda recién cuando confirmas.</p></div>
+          <div><h1 className="font-serif text-4xl">Perdí mi mascota</h1><p className="mt-2 text-sm text-[#6B6860]">Completa los datos para publicar la búsqueda. Después podrás revisar coincidencias.</p></div>
           {error && <FriendlyError message={error} />}
           {registeredPets.length > 0 && <div><label className="label">Mascota registrada</label><select className="select" value={selectedPetId} onChange={(event) => setSelectedPetId(event.target.value)}>{registeredPets.map((pet) => <option key={pet.id} value={pet.id}>{petOptionLabel(pet)}</option>)}<option value="">No esta registrada</option></select></div>}
           {selectedRegisteredPet && <div className="rounded-xl bg-[#E1F5EE] p-3 text-sm text-[#085041]"><strong>Usaremos las fotografías registradas de {selectedRegisteredPet.nombre}.</strong><span className="mt-1 block">Puedes agregar una fotografía reciente de forma opcional si aún no alcanzaste el máximo de 3.</span></div>}
@@ -299,21 +312,8 @@ export default function EmergencyReportPage() {
           <div><label className="label">WhatsApp (opcional)</label><input maxLength={40} className="field" name="whatsapp" placeholder="+51 987 654 321" aria-invalid={Boolean(fieldErrors.whatsapp)} />{fieldErrors.whatsapp && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.whatsapp}</p>}</div>
           <div><label className="label">Recompensa opcional</label><input maxLength={160} className="field" name="recompensa" placeholder="Monto o descripción" /></div>
           <div><label className="label">A tener en cuenta sobre la mascota *</label><textarea required maxLength={1000} className="textarea min-h-24" name="observaciones" placeholder="Ejemplo: Es nervioso, no perseguir, responde a su nombre y necesita medicación." aria-invalid={Boolean(fieldErrors.observaciones)} />{fieldErrors.observaciones && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.observaciones}</p>}</div>
-          {reviewedMatches && matches.length > 0 && <div className="rounded-xl bg-[#FAEEDA] p-3 text-sm text-[#6B4A10]"><strong>Coincidencias encontradas.</strong><span className="block">Revisa los casos antes de crear la búsqueda. Si ninguna corresponde, puedes continuar.</span></div>}
-          <Button disabled={saving} className="w-full">{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? reviewedMatches ? "Creando reporte..." : "Buscando coincidencias..." : reviewedMatches ? "Crear búsqueda" : "Buscar coincidencias"}</Button>
+          <Button disabled={saving} className="w-full">{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? "Publicando búsqueda..." : "Publicar búsqueda"}</Button>
         </section>
-        {matches.length > 0 && <aside className="space-y-3 lg:col-span-2">
-          <h2 className="font-bold">Posibles coincidencias</h2>
-          <div className="grid gap-3 md:grid-cols-2">
-            {matches.map((match) => <article key={match.caseId} className="form-card">
-              <div className="flex gap-3">
-                <img src={match.pet.foto_principal} alt={match.pet.nombre} className="h-16 w-16 rounded-lg bg-[#F8F7F4] object-contain" />
-                <div><strong>{match.pet.nombre}</strong><p className="text-sm text-[#6B6860]">Coincidencia {match.level} - {match.percentage}%</p>{match.distance !== null && <p className="text-sm font-semibold text-[#1D9E75]">{formatDistance(match.distance)}</p>}</div>
-              </div>
-              <Button type="button" size="sm" variant="outline" className="mt-3" asChild><Link href={`/pet/${match.caseId}`}>Ver caso</Link></Button>
-            </article>)}
-          </div>
-        </aside>}
       </form>
     </main>
   );
