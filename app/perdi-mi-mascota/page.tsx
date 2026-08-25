@@ -209,6 +209,7 @@ export default function EmergencyReportPage() {
         estado: "activo",
         distrito: locationLabel(locationDetails, address),
         descripcion: careNotes,
+        fecha_reporte: `${fecha}T${hora || "00:00"}`,
         reward_text: String(form.get("recompensa") || "").trim() || null,
         foto_url: fotoUrl,
         photos: photoUrls.length ? photoUrls : (pet.fotos ?? [fotoUrl]).slice(0, 3),

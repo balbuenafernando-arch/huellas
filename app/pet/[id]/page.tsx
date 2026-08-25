@@ -13,9 +13,9 @@ import { ContentReportButton } from "@/components/content-report-button";
 import { SafeContact } from "@/components/safe-contact";
 import { StatusPill } from "@/components/pet-card";
 import type { Pet, Sighting } from "@/lib/demo-data";
-import { deletePet, deleteSighting, getPet, getPets, getSightingPrivatePhone, getSightings, isOwnedPet, isOwnedSighting, markPetStatus, updateSighting, updateSightingStatus } from "@/lib/pet-store";
+import { deletePet, deleteSighting, getPet, getPets, getSightingPrivatePhone, getSightings, isOwnedPet, isOwnedSighting, markPetStatus, updateSighting, updateSightingPrivatePhone, updateSightingStatus } from "@/lib/pet-store";
 import { deleteReport, getCurrentUser, getReport, incrementReportView, listReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
-import { getCase, type CaseRecord } from "@/lib/cases";
+import { buildCaseTimeline, getCase, type CaseRecord } from "@/lib/cases";
 import { uploadImage } from "@/services/image-service";
 import { distanceKm, formatDate, timeAgo } from "@/lib/utils";
 import { publicCaseCode, searchState } from "@/lib/case-display";
@@ -35,6 +35,12 @@ function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () =
   const [error, setError] = useState("");
   const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [retainedPhotoUrls, setRetainedPhotoUrls] = useState<string[]>([]);
+  const [phone, setPhone] = useState("");
+
+  useEffect(() => {
+    if (!editing) return;
+    getSightingPrivatePhone(sighting.id).then((value) => setPhone(value ?? "")).catch(() => setPhone(""));
+  }, [editing, sighting.id]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -51,12 +57,18 @@ function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () =
       const uploaded = await Promise.all(photoFiles.slice(0, 3).map((file) => uploadImage(file)));
       const fotos = [...retainedPhotoUrls, ...uploaded].slice(0, 3);
       await updateSighting(sighting.id, {
+        reporter_name: String(form.get("nombre_reportante") || "").trim() || "Usuario HUELLA",
+        especie: String(form.get("especie") || ""),
+        tamano: String(form.get("tamano") || ""),
+        color: String(form.get("color") || ""),
         comentario: String(form.get("comentario")).slice(0, 1000),
         ubicacion: String(form.get("ubicacion")).slice(0, 240),
         visto_en: String(form.get("visto_en")) || sighting.visto_en,
+        situacion: String(form.get("situacion") || "solo_la_vi") as Sighting["situacion"],
         foto: fotos[0] ?? null,
         fotos,
       });
+      await updateSightingPrivatePhone(sighting.id, phone);
       setEditing(false);
       onDone();
     } catch (caught) {
@@ -79,10 +91,16 @@ function SightingEditor({ sighting, onDone }: { sighting: Sighting; onDone: () =
   return (
     <form onSubmit={submit} className="mt-3 space-y-3 rounded-xl bg-[#F8F7F4] p-3">
       {error && <FriendlyError message={error} />}
-      <textarea className="textarea min-h-20" name="comentario" maxLength={1000} defaultValue={sighting.comentario} />
-      <input className="field" name="ubicacion" maxLength={240} defaultValue={sighting.ubicacion ?? ""} placeholder="Ubicación" />
-      <input className="field" name="visto_en" type="datetime-local" defaultValue={sighting.visto_en?.slice(0, 16)} />
+      <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Tu nombre (opcional)</label><input className="field" name="nombre_reportante" maxLength={120} defaultValue={sighting.reporter_name ?? ""} /></div><div><label className="label">Tu teléfono (opcional)</label><input className="field" type="tel" maxLength={40} value={phone} onChange={(event) => setPhone(event.target.value)} /></div></div>
+      <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Especie *</label><select className="select" name="especie" defaultValue={sighting.especie ?? "Perro"}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div><div><label className="label">Tamaño *</label><select className="select" name="tamano" defaultValue={sighting.tamano ?? "Mediano"}><option value="Pequeno">Pequeño</option><option>Mediano</option><option>Grande</option></select></div></div>
+      <div><label className="label">Color *</label><input required className="field" name="color" maxLength={120} defaultValue={sighting.color ?? ""} /></div>
+      <div><label className="label">Ubicación *</label><input required className="field" name="ubicacion" maxLength={240} defaultValue={sighting.ubicacion ?? ""} /></div>
+      <div><label className="label">Fecha y hora *</label><input required className="field" name="visto_en" type="datetime-local" defaultValue={sighting.visto_en?.slice(0, 16)} /></div>
+      <div><label className="label">Situación observada</label><select className="select" name="situacion" defaultValue={sighting.situacion ?? "solo_la_vi"}><option value="solo_la_vi">La vi</option><option value="la_tengo_conmigo">La tengo resguardada</option><option value="herida">Está herida</option><option value="siguiendo">La estoy siguiendo</option></select></div>
+      <div><label className="label">Descripción del avistamiento *</label><textarea required className="textarea min-h-20" name="comentario" maxLength={1000} defaultValue={sighting.comentario} /></div>
+      <div><label className="label">Fotografías (máximo 3)</label>
       <PhotoUploader initialUrls={(sighting.fotos?.length ? sighting.fotos : [sighting.foto].filter((url): url is string => Boolean(url))).slice(0, 3)} disabled={saving} onChange={(files, urls) => { setPhotoFiles(files); setRetainedPhotoUrls(urls); }} onError={setError} />
+      </div>
       <div className="grid gap-2 min-[390px]:flex"><Button size="sm" disabled={saving}>{saving ? "Guardando..." : "Guardar cambios"}</Button><Button type="button" size="sm" variant="outline" onClick={() => setEditing(false)}>Cancelar</Button></div>
     </form>
   );
@@ -172,20 +190,31 @@ export default function PetDetailPage() {
     .filter((item) => item.situacion === "la_tengo_conmigo" || item.situacion === "herida")
     .sort((a, b) => new Date(b.visto_en ?? b.creado_en).getTime() - new Date(a.visto_en ?? a.creado_en).getTime())[0], [sightings]);
   const activityEvents = useMemo(() => {
+    if (!pet) return [];
+    const caseEvents = buildCaseTimeline({
+      id: report?.id ?? pet.id,
+      pet,
+      createdAt: report?.created_at ?? pet.creado_en,
+      reunitedAt: closedDate,
+      sightings,
+    }).map((event) => ({ id: event.id, date: event.date, label: event.label, description: event.description, person: event.person }));
     const events = [
-      { id: `${pet?.id}-created`, date: report?.created_at ?? pet?.creado_en ?? "", description: "Caso creado", person: report?.reporter_name || "Propietario" },
-      ...sightings.map((item, index) => ({ id: item.id, date: item.visto_en ?? item.creado_en, description: `Avistamiento ${index + 1}: ${item.comentario}`, person: item.reporter_name || "Usuario HUELLA" })),
+      ...caseEvents,
       ...contactRequests.flatMap((request) => [
-        { id: `${request.id}-requested`, date: request.created_at, description: "Contacto solicitado", person: request.requester_name },
-        ...(request.status !== "pendiente" ? [{ id: `${request.id}-${request.status}`, date: request.updated_at, description: request.status === "autorizada" ? "Contacto autorizado" : "Contacto rechazado", person: "Propietario" }] : []),
+        { id: `${request.id}-requested`, date: request.created_at, label: "Contacto solicitado", description: request.message || "Se solicitó contactar al propietario.", person: request.requester_name },
+        ...(request.status !== "pendiente" ? [{ id: `${request.id}-${request.status}`, date: request.updated_at, label: request.status === "autorizada" ? "Contacto autorizado" : "Contacto rechazado", description: request.status === "autorizada" ? "El propietario autorizó compartir su contacto." : "El propietario rechazó la solicitud de contacto.", person: "Propietario" }] : []),
       ]),
-      ...(closedDate ? [{ id: `${pet?.id}-reunited`, date: closedDate, description: "Reencuentro", person: "Propietario" }] : []),
     ];
-    return events.filter((event) => event.date).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [closedDate, contactRequests, pet?.creado_en, pet?.id, report?.created_at, report?.reporter_name, sightings]);
+    return Array.from(new Map(events.filter((event) => event.date).map((event) => [event.id, event])).values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [closedDate, contactRequests, pet, report?.created_at, report?.id, sightings]);
   const recognitionDetails = pet?.caracteristicas_personalizadas?.trim() || pet?.caracteristicas?.filter(Boolean).join(". ") || "";
   const rawCareNotes = report?.descripcion?.trim() || pet?.observaciones?.trim() || "";
   const careNotes = rawCareNotes.includes("Cuidados a tener en cuenta:") ? rawCareNotes.split("Cuidados a tener en cuenta:").pop()?.trim() || "" : rawCareNotes === recognitionDetails ? "" : rawCareNotes;
+  const caseDescription = report?.pet
+    ? [report.pet.especie, report.pet.raza, report.pet.color].filter(Boolean).join(" · ")
+    : pet?.descripcion?.trim() && pet.descripcion.trim() !== careNotes && pet.descripcion.trim() !== recognitionDetails
+      ? pet.descripcion.trim()
+      : "";
   const petDetails = [
     pet?.edad ? ["Edad", pet.edad] : null,
     pet?.esterilizado !== null && pet?.esterilizado !== undefined ? ["Esterilizado", pet.esterilizado ? "Si" : "No"] : null,
@@ -295,7 +324,7 @@ export default function PetDetailPage() {
             {pet.alias?.length ? <p className="mt-2 text-sm text-[#6B6860]">También responde a: {pet.alias.join(", ")}</p> : null}
             {report && <p className="mt-2 text-sm text-[#6B6860]">Caso creado por: <strong>{report.reporter_is_anonymous ? "Usuario anónimo" : report.reporter_name || "Usuario HUELLA"}</strong></p>}
             <p className="mt-2 text-sm text-[#6B6860]">Última actualización: {timeAgo(report?.updated_at ?? caseRecord?.updatedAt ?? pet.creado_en)}</p>
-            {owned && urgentSighting && <div className="mt-3 rounded-2xl border border-[#D85A30]/20 bg-[#FFF7F3] p-4 text-[#712B13]"><strong className="block text-lg">⚠️ Nuevo avistamiento</strong><p className="mt-1 font-bold">{urgentSighting.situacion === "la_tengo_conmigo" ? "La tiene consigo" : "La vio herida"}</p><p className="mt-1 text-sm">Reportado {timeAgo(urgentSighting.visto_en ?? urgentSighting.creado_en)} por {urgentSighting.reporter_name || "Usuario HUELLA"}.</p>{privatePhones[urgentSighting.id] ? <Button className="mt-3" asChild><a href={`tel:${privatePhones[urgentSighting.id]}`}>Contactar</a></Button> : <Button className="mt-3" asChild><a href={`#avistamiento-${urgentSighting.id}`}>Ver avistamiento</a></Button>}</div>}
+            {owned && urgentSighting && <div className="mt-3 rounded-2xl border border-[#D85A30]/20 bg-[#FFF7F3] p-4 text-[#712B13]"><strong className="block text-lg">⚠️ Avistamiento prioritario</strong><p className="mt-1 font-bold">{urgentSighting.situacion === "la_tengo_conmigo" ? "La tiene consigo" : "La vio herida"}</p><p className="mt-1 text-sm">Reportado {timeAgo(urgentSighting.visto_en ?? urgentSighting.creado_en)} por {urgentSighting.reporter_name || "Usuario HUELLA"}.</p>{privatePhones[urgentSighting.id] ? <Button className="mt-3" asChild><a href={`tel:${privatePhones[urgentSighting.id]}`}>Contactar ahora</a></Button> : <Button className="mt-3" asChild><a href={`#avistamiento-${urgentSighting.id}`}>Revisar datos de contacto</a></Button>}</div>}
             {owned && pendingContactRequests > 0 && <div className="mt-3 rounded-2xl bg-[#FAEEDA] p-4 text-sm text-[#6B4A10]"><strong className="block">❤️ Tienes personas intentando ayudarte.</strong><p>{pendingContactRequests} solicitud{pendingContactRequests === 1 ? "" : "es"} pendiente{pendingContactRequests === 1 ? "" : "s"}.</p><a href="#solicitudes-contacto" className="mt-2 inline-block font-bold text-[#6B4A10]">Revisar solicitudes</a></div>}
             {owned && report && <p className="mt-2 text-sm font-semibold text-[#6B6860]">{report.views_count ?? 0} visualizaciones</p>}
             {isClosed && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">Mascota reunida</h2><p className="mt-1 font-semibold">Caso cerrado. {pet.nombre} volvió a casa.</p><p className="mt-1 text-sm">Gracias por confiar en HUELLA{closedDate ? ` · ${formatDate(closedDate)}` : ""}.</p></div>}
@@ -343,7 +372,7 @@ export default function PetDetailPage() {
 
           <div className="form-card space-y-3">
             <h2 className="font-serif text-2xl">Información del caso</h2>
-            <div><h3 className="font-bold">Descripción</h3><p className="mt-1 text-sm leading-6 text-[#6B6860]">{pet.descripcion || "Sin descripción disponible."}</p></div>
+            {caseDescription && <div><h3 className="font-bold">Descripción</h3><p className="mt-1 text-sm leading-6 text-[#6B6860]">{caseDescription}</p></div>}
             <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Última ubicación</strong>{pet.direccion || pet.distrito}</div>
               <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Fecha</strong>{formatDate(pet.fecha_reporte)}</div>
@@ -423,7 +452,7 @@ export default function PetDetailPage() {
         <aside className="space-y-5">
           <p className="text-sm font-semibold text-[#6B6860]">Recorrido registrado según los avistamientos reportados</p>
           <div id="mapa-del-caso" className="map-panel scroll-mt-24"><PetMap pets={allPets.length ? allPets : [pet]} selectedId={pet.id} sightings={sightings} /></div>
-          <details className="form-card"><summary className="cursor-pointer font-bold">Ver historial de actividad</summary><ol className="mt-4 space-y-4 border-l-2 border-[#9FE1CB] pl-4">{activityEvents.map((event) => <li key={event.id} className="relative"><span className="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-[#1D9E75]" /><p className="font-semibold">{event.description}</p><p className="text-sm text-[#6B6860]">{formatDate(event.date)} · {new Date(event.date).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</p><p className="text-sm text-[#7A7871]">Persona: {event.person}</p></li>)}</ol></details>
+          <details className="form-card"><summary className="cursor-pointer font-bold">Ver historial de actividad</summary><ol className="mt-4 space-y-4 border-l-2 border-[#9FE1CB] pl-4">{activityEvents.map((event) => <li key={event.id} className="relative"><span className="absolute -left-[23px] top-1 h-3 w-3 rounded-full bg-[#1D9E75]" /><p className="font-semibold">{event.label}</p><p className="mt-1 text-sm text-[#4D4A43]">{event.description}</p><p className="mt-1 text-sm text-[#6B6860]">{formatDate(event.date)} · {new Date(event.date).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</p><p className="text-sm text-[#7A7871]">Persona: {event.person}</p></li>)}</ol></details>
         </aside>
       </section>
     </main>

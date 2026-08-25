@@ -10,7 +10,7 @@ import { PhotoUploader } from "@/components/photo-uploader";
 import { LocationPicker } from "@/components/location-picker";
 import type { Pet } from "@/lib/demo-data";
 import { deletePet, getPet, isOwnedPet, updatePet } from "@/lib/pet-store";
-import { deleteReport, getCurrentUser, getReport, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
+import { deleteReport, getCurrentUser, getReport, reportToLegacyPet, type Report, updateRegisteredPet, updateReport } from "@/lib/sprint14-store";
 import { locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 import { uploadImage } from "@/services/image-service";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
@@ -56,6 +56,8 @@ export default function EditPetPage() {
     const longitude = coords?.longitude ?? pet.longitud;
     const place = areaName || address || pet.distrito;
     const recompensaTexto = String(form.get("recompensa") || "").trim();
+    const fecha = String(form.get("fecha") || pet.fecha_reporte.slice(0, 10));
+    const hora = String(form.get("hora") || new Date(pet.fecha_reporte).toTimeString().slice(0, 5));
     const recompensaMonto = Number(recompensaTexto.replace(/[^0-9.,]/g, "").replace(",", "."));
     const files = photoFiles.slice(0, 3);
     let fotoPrincipal = pet.foto_principal;
@@ -65,7 +67,6 @@ export default function EditPetPage() {
       requiredText(form.get("nombre"), "El nombre", 120) ||
       requiredText(form.get("descripcion"), "La descripción", 1000) ||
       requiredText(address, "La dirección", 240) ||
-      requiredText(form.get("whatsapp"), "El WhatsApp", 40) ||
       validateImageFiles(files);
     if (validationMessage) {
       setError(validationMessage);
@@ -82,12 +83,28 @@ export default function EditPetPage() {
       }
 
       if (report) {
+        if (report.pet_id) {
+          await updateRegisteredPet(report.pet_id, {
+            nombre: String(form.get("nombre")).trim(),
+            especie: String(form.get("especie")),
+            tipo: String(form.get("especie")),
+            raza: String(form.get("raza")).trim(),
+            tamano: String(form.get("tamano") || ""),
+            color: String(form.get("color") || "").trim(),
+            caracteristicas_personalizadas: String(form.get("descripcion_mascota") || "").trim(),
+            fotos,
+            foto_principal: fotoPrincipal,
+            foto_url: fotoPrincipal,
+          });
+        }
         await updateReport(report.id, {
           tipo_reporte: report.tipo_reporte,
           estado: report.estado,
           distrito: place,
           descripcion: String(form.get("descripcion")),
+          fecha_reporte: `${fecha}T${hora || "00:00"}`,
           reward_text: recompensaTexto || null,
+          whatsapp: String(form.get("whatsapp")),
           foto_url: fotoPrincipal,
           photos: fotos,
           latitude,
@@ -175,23 +192,25 @@ export default function EditPetPage() {
       {error && <div className="mb-4"><FriendlyError message={error} /></div>}
       <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
-          <div><label className="label">Nombre</label><input required maxLength={120} className="field" name="nombre" defaultValue={pet.nombre} /></div>
-          <div><label className="label">Tipo</label><select className="select" name="tipo" defaultValue={pet.tipo}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div>
-          <div><label className="label">Raza</label><input className="field" name="raza" defaultValue={pet.raza} /></div>
-          <div><label className="label">Descripción</label><textarea required maxLength={1000} className="textarea min-h-28" name="descripcion" defaultValue={pet.descripcion} /></div>
-          <div><label className="label">¿Qué hace fácil reconocer a esta mascota?</label><textarea className="textarea min-h-20" name="caracteristicas_personalizadas" maxLength={500} defaultValue={pet.caracteristicas_personalizadas || pet.caracteristicas?.join(". ") || ""} placeholder="Ejemplo: Tiene un collar rojo, una cicatriz en la oreja izquierda y una mancha blanca en el pecho." /></div>
+          <div><label className="label">Nombre *</label><input required maxLength={120} className="field" name="nombre" defaultValue={pet.nombre} /></div>
+          <div><label className="label">Especie *</label><select className="select" name="especie" defaultValue={pet.tipo}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div>
+          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Tamaño *</label><select className="select" name="tamano" defaultValue={report?.pet?.tamano || "Mediano"}><option value="Pequeno">Pequeño</option><option>Mediano</option><option>Grande</option></select></div><div><label className="label">Color *</label><input required className="field" name="color" maxLength={120} defaultValue={report?.pet?.color || ""} /></div></div>
+          <div><label className="label">Raza aproximada</label><input className="field" name="raza" maxLength={120} defaultValue={pet.raza} /></div>
+          <div><label className="label">Describe a tu mascota *</label><textarea required className="textarea min-h-20" name="descripcion_mascota" maxLength={1000} defaultValue={pet.caracteristicas_personalizadas || pet.caracteristicas?.join(". ") || ""} placeholder="Ejemplo: Tiene un collar rojo, una cicatriz en la oreja izquierda y una mancha blanca en el pecho." /></div>
+          <div><label className="label">A tener en cuenta sobre la mascota *</label><textarea required maxLength={1000} className="textarea min-h-28" name="descripcion" defaultValue={pet.descripcion} placeholder="Ejemplo: Es nervioso, no perseguir, responde a su nombre y necesita medicación." /></div>
         </section>
         <section className="form-card space-y-4">
           <div><label className="label">Fotografías (máximo 3)</label><PhotoUploader initialUrls={(pet.fotos?.length ? pet.fotos : [pet.foto_principal]).slice(0, 3)} disabled={saving} onChange={(files, urls) => { setPhotoFiles(files); setRetainedPhotoUrls(urls); }} onError={setError} /></div>
           <div>
-            <label className="label">Dirección</label>
+            <label className="label">Dirección o referencia *</label>
             <div className="grid gap-2 min-[390px]:grid-cols-[1fr_auto]">
               <input required maxLength={240} className="field" value={address} onChange={(event) => setAddress(event.target.value)} />
               <Button type="button" variant="outline" onClick={searchAddress}>Buscar</Button>
             </div>
           </div>
           {coords && <div className="map-panel min-h-[300px] overflow-hidden rounded-2xl"><LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} /></div>}
-          <div><label className="label">WhatsApp</label><input required maxLength={40} className="field" name="whatsapp" defaultValue={pet.whatsapp} /></div>
+          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha *</label><input required className="field" name="fecha" type="date" defaultValue={pet.fecha_reporte.slice(0, 10)} /></div><div><label className="label">Hora *</label><input required className="field" name="hora" type="time" defaultValue={new Date(pet.fecha_reporte).toTimeString().slice(0, 5)} /></div></div>
+          <div><label className="label">WhatsApp (opcional)</label><input maxLength={40} className="field" name="whatsapp" defaultValue={pet.whatsapp} /></div>
           <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa" maxLength={160} defaultValue={report?.reward_text ?? pet.recompensa_texto ?? pet.recompensa_monto ?? ""} placeholder="Ej. S/ 500" /></div>
           <div className="flex flex-wrap gap-2"><Button type="submit" disabled={saving}><Save size={18} />{saving ? "Guardando..." : "Guardar cambios"}</Button><Button type="button" variant="outline" onClick={remove}><Trash2 size={18} />Eliminar caso</Button></div>
         </section>

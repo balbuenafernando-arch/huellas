@@ -90,8 +90,8 @@ export function SafeContact({
               <p className="mt-1 text-[#6B6860]">Motivo: {contactReasonLabels[request.reason]}</p>
               {request.message && <p className="mt-1 text-[#4D4A43]">{request.message}</p>}
               <div className="mt-3 grid gap-2 min-[390px]:flex">
-                <Button size="sm" type="button" onClick={() => setRequestStatus(request.id, "autorizada")}>Autorizar contacto</Button>
-                <Button size="sm" type="button" variant="outline" onClick={() => setRequestStatus(request.id, "rechazada")}>Rechazar</Button>
+                <Button size="sm" type="button" onClick={() => setRequestStatus(request.id, "autorizada")}>Aceptar contacto</Button>
+                <Button size="sm" type="button" variant="outline" onClick={() => setRequestStatus(request.id, "rechazada")}>Rechazar contacto</Button>
               </div>
             </div>
           ))}

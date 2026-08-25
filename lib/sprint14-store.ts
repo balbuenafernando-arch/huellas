@@ -482,12 +482,12 @@ export async function incrementReportView(id: string) {
   writeLocal(REPORTS_KEY, readLocal<Report[]>(REPORTS_KEY, []).map((item) => item.id === id ? { ...item, views_count: next } : item));
 }
 
-export async function createReport(input: Omit<Report, "id" | "user_id" | "created_at" | "updated_at" | "fecha_reporte">) {
+export async function createReport(input: Omit<Report, "id" | "user_id" | "created_at" | "updated_at" | "fecha_reporte"> & { fecha_reporte?: string }) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Necesitas iniciar sesión.");
   await ensureProfileRow(user);
   const now = new Date().toISOString();
-  const report: Report = { ...input, id: crypto.randomUUID(), user_id: user.id, created_at: now, updated_at: now, fecha_reporte: now, reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : authDisplayName(user), reporter_is_anonymous: Boolean(input.reporter_is_anonymous) };
+  const report: Report = { ...input, id: crypto.randomUUID(), user_id: user.id, created_at: now, updated_at: now, fecha_reporte: input.fecha_reporte || now, reporter_name: input.reporter_is_anonymous ? "Usuario anónimo" : authDisplayName(user), reporter_is_anonymous: Boolean(input.reporter_is_anonymous) };
   if (isSupabaseConfigured && supabase) {
     const { data, error } = await supabase
       .from("lost_reports")

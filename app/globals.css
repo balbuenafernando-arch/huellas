@@ -54,7 +54,6 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .more-menu-panel { position: absolute; top: calc(100% + 10px); right: 0; width: min(280px, calc(100vw - 32px)); border: 1px solid rgba(0,0,0,.1); border-radius: 18px; background: white; padding: 8px; box-shadow: 0 18px 44px rgba(0,0,0,.14); }
 .more-menu-link { display: flex; min-height: 44px; align-items: center; gap: 10px; border-radius: 12px; padding: 0 10px; color: #4D4A43; font-size: 14px; font-weight: 600; }
 .more-menu-link:hover, .more-menu-link:focus-visible { background: #F8F7F4; color: var(--g); outline: none; }
-.more-menu-share { border-top: 1px solid rgba(0,0,0,.08); margin-top: 6px; padding-top: 8px; }
 .mobile-menu-backdrop { position: fixed; inset: 0; z-index: 70; background: rgba(28,28,26,.28); opacity: 0; pointer-events: none; transition: opacity .2s ease; }
 .mobile-menu-backdrop.is-open { opacity: 1; pointer-events: auto; }
 .mobile-sidebar { position: fixed; inset: 0 auto 0 0; z-index: 80; width: min(324px, calc(100vw - 32px)); max-width: 100%; transform: translateX(-105%); visibility: hidden; overflow-y: auto; border-right: 1px solid rgba(0,0,0,.1); background: rgba(255,255,255,.98); padding: max(14px, env(safe-area-inset-top)) 14px max(18px, env(safe-area-inset-bottom)); box-shadow: 18px 0 42px rgba(0,0,0,.16); transition: transform .24s ease, visibility .24s ease; }
@@ -164,4 +163,3 @@ button, a, input, select, textarea { touch-action: manipulation; }
   .bottom-nav { display: none; }
   .scroll-top-btn { bottom: 24px; }
 }
-

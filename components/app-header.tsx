@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { NotificationsBell } from "@/components/notifications-bell";
-import { ShareHuellaButton } from "@/components/share-huella-button";
+import { shareHuella, ShareHuellaButton } from "@/components/share-huella-button";
 import { signOut } from "@/lib/sprint14-store";
 
 const mainNav = [
@@ -46,7 +46,7 @@ const moreNav = [
   { href: "/auth", label: "Perfil", icon: UserCircle },
 ];
 
-function Brand({ onNavigate }: { onNavigate?: () => void }) {
+function Brand({ onNavigate }: { onNavigate?: (event: ReactMouseEvent<HTMLAnchorElement>) => void }) {
   return (
     <Link href="/" className="brand-link" aria-label="Ir a la página de inicio de HUELLA" onClick={onNavigate}>
       <span className="brand-mark"><Heart size={19} fill="currentColor" /></span>
@@ -60,10 +60,26 @@ export function AppHeader() {
   const [open, setOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreMenuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
+  const drawerWasOpenRef = useRef(false);
+  const closingFromHistoryRef = useRef(false);
+  const pendingNavigationRef = useRef<string | null>(null);
   const pathname = usePathname();
 
   function closeMenu() {
+    if (open && window.history.state?.huellaDrawer) {
+      window.history.back();
+      return;
+    }
     setOpen(false);
+  }
+
+  function navigateFromDrawer(event: ReactMouseEvent<HTMLAnchorElement>, href: string) {
+    event.preventDefault();
+    pendingNavigationRef.current = href;
+    closeMenu();
   }
 
   function toggleMenu() {
@@ -97,11 +113,55 @@ export function AppHeader() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!open) {
+      if (drawerWasOpenRef.current) menuButtonRef.current?.focus();
+      drawerWasOpenRef.current = false;
+      return;
+    }
+    drawerWasOpenRef.current = true;
+    closingFromHistoryRef.current = false;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.history.pushState({ ...window.history.state, huellaDrawer: true }, "");
+    function closeFromBrowserHistory() {
+      closingFromHistoryRef.current = true;
+      setOpen(false);
+      const href = pendingNavigationRef.current;
+      pendingNavigationRef.current = null;
+      if (href) router.push(href);
+    }
+    function trapFocus(event: KeyboardEvent) {
+      if (event.key !== "Tab") return;
+      const focusable = Array.from(drawerRef.current?.querySelectorAll<HTMLElement>("a[href], button:not([disabled])") ?? []).filter((element) => element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    window.addEventListener("popstate", closeFromBrowserHistory);
+    document.addEventListener("keydown", trapFocus);
+    requestAnimationFrame(() => closeButtonRef.current?.focus());
+    return () => {
+      window.removeEventListener("popstate", closeFromBrowserHistory);
+      document.removeEventListener("keydown", trapFocus);
+      document.body.style.overflow = previousOverflow;
+      if (!closingFromHistoryRef.current && window.history.state?.huellaDrawer) window.history.back();
+    };
+  }, [open, router]);
+
   return (
     <>
       <header className="topbar">
         <div className="container topbar-inner">
           <button
+            ref={menuButtonRef}
             type="button"
             className="header-icon-btn lg:hidden"
             aria-label={open ? "Cerrar menú" : "Abrir menú"}
@@ -136,7 +196,6 @@ export function AppHeader() {
                     <span>{item.label}</span>
                   </Link>
                 ))}
-                <div className="more-menu-share"><ShareHuellaButton compact /></div>
               </div>}
             </div>
           </div>
@@ -144,27 +203,24 @@ export function AppHeader() {
       </header>
 
       <div className={`mobile-menu-backdrop ${open ? "is-open" : ""}`} onClick={closeMenu} aria-hidden="true" />
-      <aside id="mobile-menu" className={`mobile-sidebar ${open ? "is-open" : ""}`} aria-hidden={!open}>
+      <aside ref={drawerRef} id="mobile-menu" className={`mobile-sidebar ${open ? "is-open" : ""}`} aria-hidden={!open} aria-label="Menú secundario" role="dialog" aria-modal={open}>
         <div className="mobile-sidebar-header">
-          <Brand onNavigate={closeMenu} />
-          <button type="button" className="header-icon-btn" aria-label="Cerrar menú" onClick={closeMenu}>
+          <Brand onNavigate={(event) => navigateFromDrawer(event, "/")} />
+          <button ref={closeButtonRef} type="button" className="header-icon-btn" aria-label="Cerrar menú" onClick={closeMenu}>
             <X size={21} />
           </button>
         </div>
         <p className="px-4 pb-2 pt-1 text-xs font-bold uppercase tracking-[0.12em] text-[#7A7871]">Actividad y cuenta</p>
         <nav className="mobile-sidebar-nav" aria-label="Actividad, información y cuenta">
           {mobileNav.map((item) => (
-            <Link key={`${item.href}-${item.label}`} href={item.href} className={`mobile-sidebar-link ${pathname === item.href ? "bg-[#E1F5EE] text-[#085041]" : ""}`} onClick={closeMenu} aria-current={pathname === item.href ? "page" : undefined}>
+            <Link key={`${item.href}-${item.label}`} href={item.href} className={`mobile-sidebar-link ${pathname === item.href ? "bg-[#E1F5EE] text-[#085041]" : ""}`} onClick={(event) => navigateFromDrawer(event, item.href)} aria-current={pathname === item.href ? "page" : undefined}>
               <item.icon size={19} />
               <span>{item.label}</span>
             </Link>
           ))}
         </nav>
         <button type="button" className="mobile-sidebar-link w-full" onClick={async () => {
-          const url = window.location.origin;
-          const text = "Estoy usando HUELLA para ayudar a encontrar mascotas perdidas. Únete a la comunidad.";
-          if (navigator.share) await navigator.share({ title: "HUELLA", text, url });
-          else await navigator.clipboard.writeText(`${text} ${url}`);
+          await shareHuella();
           closeMenu();
         }}>
           <Share2 size={19} />
@@ -172,9 +228,8 @@ export function AppHeader() {
         </button>
         <button type="button" className="mobile-sidebar-link w-full" onClick={async () => {
           await signOut();
+          pendingNavigationRef.current = "/";
           closeMenu();
-          router.replace("/");
-          router.refresh();
         }}>
           <LogOut size={19} />
           <span>Cerrar sesión</span>

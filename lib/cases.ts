@@ -27,6 +27,8 @@ export type CaseTimelineItem = {
   id: string;
   date: string;
   label: string;
+  description: string;
+  person: string;
   kind: CaseUpdateKind;
 };
 
@@ -77,12 +79,16 @@ export function buildCaseTimeline(caseRecord: Pick<CaseRecord, "id" | "pet" | "c
       id: `${caseRecord.id}-created`,
       date: caseRecord.createdAt,
       label: "Caso creado",
+      description: `Se publicó la búsqueda de ${caseRecord.pet.nombre}.`,
+      person: "Propietario",
       kind: "caso_creado",
     },
     ...caseRecord.sightings.map((sighting) => ({
       id: sighting.id,
       date: sighting.visto_en ?? sighting.creado_en,
       label: (sighting.estado_avistamiento ?? sighting.estado) === "confirmado" ? "Avistamiento confirmado" : "Avistamiento recibido",
+      description: sighting.comentario,
+      person: sighting.reporter_name || "Usuario HUELLA",
       kind: "avistamiento_recibido" as CaseUpdateKind,
     })),
   ];
@@ -92,6 +98,8 @@ export function buildCaseTimeline(caseRecord: Pick<CaseRecord, "id" | "pet" | "c
       id: `${caseRecord.id}-reunited`,
       date: caseRecord.reunitedAt,
       label: `${caseRecord.pet.nombre} volvió a casa`,
+      description: "La búsqueda se cerró después del reencuentro.",
+      person: "Propietario",
       kind: "mascota_reunida",
     });
   }

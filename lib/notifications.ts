@@ -35,15 +35,16 @@ function notificationCaseCode(id: string) {
   return `H-${String(seed % 9000 + 1000)}`;
 }
 
-function titleFor(type: string, caseId: string | null) {
+function titleFor(type: string, caseId: string | null, message: string) {
   const caseLabel = caseId ? ` del caso ${notificationCaseCode(caseId)}` : "";
-  if (type.includes("autorizada")) return "Solicitud aceptada";
-  if (type.includes("rechazada")) return "Solicitud rechazada";
+  if (message && message !== "Tienes una novedad en HUELLA.") return message.replace(/[.]$/, "");
+  if (type.includes("autorizada")) return `Tu solicitud fue autorizada${caseLabel}`;
+  if (type.includes("rechazada")) return `Tu solicitud fue rechazada${caseLabel}`;
   if (type.includes("contact")) return `Solicitud de contacto${caseLabel}`;
-  if (type.includes("avistamiento") || type.includes("sighting")) return `Nuevo avistamiento${caseLabel}`;
-  if (type.includes("coincidencia") || type.includes("match")) return "Nueva coincidencia";
-  if (type.includes("cerrado") || type.includes("reunida") || type.includes("reunited")) return "Mascota reunida";
-  return "Caso actualizado";
+  if (type.includes("avistamiento") || type.includes("sighting")) return `Avistamiento reportado${caseLabel}`;
+  if (type.includes("coincidencia") || type.includes("match")) return `Coincidencia encontrada${caseLabel}`;
+  if (type.includes("cerrado") || type.includes("reunida") || type.includes("reunited")) return `Reencuentro registrado${caseLabel}`;
+  return `Actualización${caseLabel}`;
 }
 
 function normalizeNotification(item: Record<string, unknown>): AppNotification {
@@ -52,8 +53,8 @@ function normalizeNotification(item: Record<string, unknown>): AppNotification {
   const caseId = item.report_id ? String(item.report_id) : item.pet_id ? String(item.pet_id) : null;
   return {
     id: String(item.id ?? crypto.randomUUID()),
-    title: titleFor(type, caseId),
-    description,
+    title: titleFor(type, caseId, description),
+    description: caseId ? `Consulta los detalles del caso ${notificationCaseCode(caseId)}.` : "Consulta los detalles de esta novedad.",
     caseId,
     type,
     read: Boolean(item.read_at ?? item.leido),

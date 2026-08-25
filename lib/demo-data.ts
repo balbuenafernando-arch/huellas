@@ -59,12 +59,3 @@ export type Sighting = {
   reporter_is_anonymous?: boolean;
   creado_en: string;
 };
-
-export type Notification = {
-  id: string;
-  pet_id: string;
-  tipo: "nuevo_avistamiento" | "avistamiento_confirmado" | "reporte_actualizado" | "reporte_cerrado" | "coincidencia_alta" | "caso_cercano";
-  mensaje: string;
-  leido: boolean;
-  creado_en: string;
-};
