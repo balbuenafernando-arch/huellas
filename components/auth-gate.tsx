@@ -8,6 +8,11 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 import { signInWithGoogle } from "@/lib/sprint14-store";
 import { Button } from "@/components/ui/button";
 
+function clearOAuthFragment() {
+  if (typeof window === "undefined" || !/(?:^|&)access_token=/.test(window.location.hash.slice(1))) return;
+  window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}`);
+}
+
 function WelcomeScreen({ onContinue, loading, error }: { onContinue: () => void; loading: boolean; error: string }) {
   return (
     <main className="container grid min-h-[100svh] place-items-center py-8">
@@ -59,10 +64,12 @@ export function AuthGate({ children }: { children: ReactNode }) {
     }
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
+      if (data.session) clearOAuthFragment();
       setUser(data.session?.user ?? null);
       setLoading(false);
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) clearOAuthFragment();
       setUser(session?.user ?? null);
       setLoading(false);
     });

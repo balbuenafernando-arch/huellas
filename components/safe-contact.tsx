@@ -17,6 +17,7 @@ export function SafeContact({
   whatsapp,
   owned,
   signedIn,
+  onChanged,
 }: {
   reportId: string;
   petId: string | null;
@@ -25,6 +26,7 @@ export function SafeContact({
   whatsapp: string;
   owned: boolean;
   signedIn: boolean;
+  onChanged?: () => void | Promise<void>;
 }) {
   const [requests, setRequests] = useState<ContactRequest[]>([]);
   const [reason, setReason] = useState<ContactReason>("vista");
@@ -42,7 +44,9 @@ export function SafeContact({
 
   useEffect(() => { load(); }, [reportId]);
 
-  const ownRequest = useMemo(() => requests.find((request) => request.requester_id === currentUserId), [currentUserId, requests]);
+  const ownRequest = useMemo(() => requests
+    .filter((request) => request.requester_id === currentUserId)
+    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())[0], [currentUserId, requests]);
   const pendingRequests = requests.filter((request) => request.status === "pendiente");
   const authorizedRequest = ownRequest?.status === "autorizada" ? ownRequest : null;
   const rejectedRequest = ownRequest?.status === "rechazada" ? ownRequest : null;
@@ -57,6 +61,7 @@ export function SafeContact({
       setMessage("");
       setStatusMessage("Solicitud enviada. El dueño decidirá si comparte su contacto.");
       await load();
+      await onChanged?.();
     } catch {
       setStatusMessage("No se pudo enviar la solicitud. Revisa tu conexión e inténtalo otra vez.");
     } finally {
@@ -68,6 +73,7 @@ export function SafeContact({
     await updateContactRequestStatus(id, status);
     setStatusMessage(status === "autorizada" ? "Tu WhatsApp fue compartido únicamente con esta persona." : "Solicitud rechazada. No se compartió tu contacto.");
     await load();
+    await onChanged?.();
   }
 
   if (!signedIn) {
@@ -111,6 +117,10 @@ export function SafeContact({
     );
   }
 
+  if (authorizedRequest) {
+    return <div className="rounded-2xl border border-[#9FE1CB] bg-[#E1F5EE] p-4 text-sm font-semibold text-[#085041]">El propietario autorizó tu solicitud. Su contacto todavía no está disponible en este caso.</div>;
+  }
+
   if (rejectedRequest) {
     return <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-4 text-sm font-semibold text-[#6B6860]">El dueño no autorizó compartir su contacto.</div>;
   }
@@ -118,7 +128,7 @@ export function SafeContact({
   return (
     <form onSubmit={submit} className="rounded-2xl border border-black/10 bg-white p-4">
       <div className="mb-3 flex items-center gap-2 font-bold"><ShieldCheck size={18} className="text-[#1D9E75]" />Quiero contactar al dueño</div>
-      {ownRequest ? <p className="text-sm font-semibold text-[#6B6860]">Tu solicitud está pendiente de revisión.</p> : <>
+      {ownRequest ? <p className="text-sm font-semibold text-[#6B6860]">Tu solicitud está pendiente.</p> : <>
         <label className="label">Motivo</label>
         <select className="select" value={reason} onChange={(event) => setReason(event.target.value as ContactReason)}>
           {reasons.map((item) => <option key={item} value={item}>{contactReasonLabels[item]}</option>)}

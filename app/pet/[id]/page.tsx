@@ -13,12 +13,12 @@ import { ContentReportButton } from "@/components/content-report-button";
 import { SafeContact } from "@/components/safe-contact";
 import { StatusPill } from "@/components/pet-card";
 import type { Pet, Sighting } from "@/lib/demo-data";
-import { deletePet, deleteSighting, getPet, getPets, getSightingPrivatePhone, getSightings, isOwnedPet, isOwnedSighting, markPetStatus, updateSighting, updateSightingPrivatePhone, updateSightingStatus } from "@/lib/pet-store";
+import { deletePet, deleteSighting, getPet, getPets, getSightingPrivatePhone, getSightings, isOwnedPet, markPetStatus, updateSighting, updateSightingPrivatePhone, updateSightingStatus } from "@/lib/pet-store";
 import { deleteReport, getCurrentUser, getReport, incrementReportView, listReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { buildCaseTimeline, getCase, type CaseRecord } from "@/lib/cases";
 import { uploadImage } from "@/services/image-service";
 import { distanceKm, formatDate, timeAgo } from "@/lib/utils";
-import { publicCaseCode, searchState } from "@/lib/case-display";
+import { cleanCaseCareNotes, legacyCaseReward, publicCaseCode, searchState } from "@/lib/case-display";
 import { saveReunionStory } from "@/lib/reunion-stories";
 import { listContactRequests, type ContactRequest } from "@/lib/contact-requests";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
@@ -120,6 +120,7 @@ export default function PetDetailPage() {
   const [report, setReport] = useState<Report | undefined>();
   const [caseRecord, setCaseRecord] = useState<CaseRecord | undefined>();
   const [signedIn, setSignedIn] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [contactRequests, setContactRequests] = useState<ContactRequest[]>([]);
   const [privatePhones, setPrivatePhones] = useState<Record<string, string>>({});
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
@@ -139,6 +140,7 @@ export default function PetDetailPage() {
       setAllPets(reports.length ? reports.map(reportToLegacyPet) : legacyPets);
       setSightings(items);
       setSignedIn(Boolean(user));
+      setCurrentUserId(user?.id ?? null);
       setContactRequests(requests);
       const ownsCase = (foundReport && user ? foundReport.user_id === user.id : false) || isOwnedPet(found);
       setOwned(ownsCase);
@@ -205,11 +207,14 @@ export default function PetDetailPage() {
         ...(request.status !== "pendiente" ? [{ id: `${request.id}-${request.status}`, date: request.updated_at, label: request.status === "autorizada" ? "Contacto autorizado" : "Contacto rechazado", description: request.status === "autorizada" ? "El propietario autorizó compartir su contacto." : "El propietario rechazó la solicitud de contacto.", person: "Propietario" }] : []),
       ]),
     ];
-    return Array.from(new Map(events.filter((event) => event.date).map((event) => [event.id, event])).values()).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const eventRank = (label: string) => label === "Caso creado" ? 0 : label.startsWith("Avistamiento") ? 1 : label === "Contacto solicitado" ? 2 : label.startsWith("Contacto ") ? 3 : 4;
+    return Array.from(new Map(events.filter((event) => event.date).map((event) => [event.id, event])).values()).sort((a, b) => eventRank(a.label) - eventRank(b.label) || new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [closedDate, contactRequests, pet, report?.created_at, report?.id, sightings]);
   const recognitionDetails = pet?.caracteristicas_personalizadas?.trim() || pet?.caracteristicas?.filter(Boolean).join(". ") || "";
   const rawCareNotes = report?.descripcion?.trim() || pet?.observaciones?.trim() || "";
-  const careNotes = rawCareNotes.includes("Cuidados a tener en cuenta:") ? rawCareNotes.split("Cuidados a tener en cuenta:").pop()?.trim() || "" : rawCareNotes === recognitionDetails ? "" : rawCareNotes;
+  const careNotes = cleanCaseCareNotes(rawCareNotes, recognitionDetails);
+  const historicalReward = legacyCaseReward(rawCareNotes);
+  const rewardText = pet?.recompensa_texto || (pet?.recompensa_monto ? `S/ ${pet.recompensa_monto}` : historicalReward ? `S/ ${historicalReward}` : "");
   const caseDescription = report?.pet
     ? [report.pet.especie, report.pet.raza, report.pet.color].filter(Boolean).join(" · ")
     : pet?.descripcion?.trim() && pet.descripcion.trim() !== careNotes && pet.descripcion.trim() !== recognitionDetails
@@ -219,7 +224,7 @@ export default function PetDetailPage() {
     pet?.edad ? ["Edad", pet.edad] : null,
     pet?.esterilizado !== null && pet?.esterilizado !== undefined ? ["Esterilizado", pet.esterilizado ? "Si" : "No"] : null,
     pet?.salud ? ["Condicion medica", pet.salud] : null,
-    careNotes ? ["A tener en cuenta sobre la mascota", careNotes] : null,
+    careNotes ? ["Datos de manejo", careNotes] : null,
   ].filter(Boolean) as Array<[string, string]>;
 
   async function closeReport(story?: string) {
@@ -329,7 +334,7 @@ export default function PetDetailPage() {
             {owned && report && <p className="mt-2 text-sm font-semibold text-[#6B6860]">{report.views_count ?? 0} visualizaciones</p>}
             {isClosed && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">Mascota reunida</h2><p className="mt-1 font-semibold">Caso cerrado. {pet.nombre} volvió a casa.</p><p className="mt-1 text-sm">Gracias por confiar en HUELLA{closedDate ? ` · ${formatDate(closedDate)}` : ""}.</p></div>}
             <div className="mt-4 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
-              {!isClosed && !owned && <Button asChild><Link href={`/reportar-avistamiento?caseId=${report?.id ?? pet.id}`}>Reportar avistamiento</Link></Button>}
+              {!isClosed && !owned && <Button asChild><Link href={`/reportar-avistamiento?caseId=${report?.id ?? pet.id}`}>{pet.estado === "encontrado" ? "Es mi mascota" : "Vi esa mascota"}</Link></Button>}
               <ShareButton pet={pet} label={isClosed ? "Compartir historia" : "Compartir búsqueda"} />
               {!isClosed && <PosterButton pet={pet} />}
             </div>
@@ -342,6 +347,7 @@ export default function PetDetailPage() {
                 whatsapp={pet.whatsapp}
                 owned={owned}
                 signedIn={signedIn}
+                onChanged={load}
               />
             </div>}
             <div className="mt-3"><ContentReportButton targetType="pet" targetId={pet.id} /></div>
@@ -370,19 +376,6 @@ export default function PetDetailPage() {
             </div>
           </form>}
 
-          <div className="form-card space-y-3">
-            <h2 className="font-serif text-2xl">Información del caso</h2>
-            {caseDescription && <div><h3 className="font-bold">Descripción</h3><p className="mt-1 text-sm leading-6 text-[#6B6860]">{caseDescription}</p></div>}
-            <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Última ubicación</strong>{pet.direccion || pet.distrito}</div>
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Fecha</strong>{formatDate(pet.fecha_reporte)}</div>
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Hora</strong>{new Date(pet.fecha_reporte).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</div>
-              {pet.recompensa_ofrecida && <div className="rounded-xl bg-[#FAEEDA] p-3 text-[#6B4A10]"><strong className="block">Recompensa</strong>{pet.recompensa_texto || (pet.recompensa_monto ? `S/ ${pet.recompensa_monto}` : "Ofrecida")}</div>}
-            </div>
-            {petDetails.length > 0 && <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">{petDetails.map(([label, value]) => <div key={label} className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">{label}</strong>{value}</div>)}</div>}
-            {recognitionDetails && <><h2 className="font-bold">¿Qué hace fácil reconocer a esta mascota?</h2><p className="text-sm text-[#6B6860]">{recognitionDetails}</p></>}
-            {pet.condiciones_especiales?.length ? <><h3 className="text-sm font-bold">Condiciones especiales</h3><div className="flex flex-wrap gap-2">{pet.condiciones_especiales.map((condition) => <span key={condition} className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm text-[#085041]">{condition}</span>)}</div></> : null}
-          </div>
         </section>
       </div>
 
@@ -435,18 +428,33 @@ export default function PetDetailPage() {
             {sightings.map((s) => {
               const estado = s.estado_avistamiento ?? s.estado ?? "pendiente";
               return <article id={`avistamiento-${s.id}`} key={s.id} className="form-card scroll-mt-24">
-                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">{owned && <span className={`status-pill ${estado === "confirmado" ? "status-encontrado" : estado === "descartado" ? "status-reunido" : "status-perdido"}`}>{estado}</span>}<span className="text-sm text-[#7A7871]">{formatDate(s.visto_en ?? s.creado_en)}</span></div>
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">{owned && <span className={`status-pill ${estado === "confirmado" ? "status-encontrado" : estado === "descartado" ? "status-reunido" : "status-perdido"}`}>{estado}</span>}<span className="text-sm text-[#7A7871]">{formatDate(s.visto_en ?? s.creado_en)} · {new Date(s.visto_en ?? s.creado_en).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</span></div>
                 <Link href={`/avistamiento/${s.id}`} className="block rounded-xl hover:bg-[#F8F7F4]">
                   {(s.fotos?.length ? s.fotos : [s.foto].filter((url): url is string => Boolean(url))).length > 0 && <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3">{(s.fotos?.length ? s.fotos : [s.foto].filter((url): url is string => Boolean(url))).slice(0, 3).map((url) => <img key={url} src={url} alt="Foto de avistamiento" className="h-44 w-full rounded-xl bg-[#F8F7F4] object-contain" />)}</div>}
                   <p className="leading-6">{s.comentario}</p>
                   <p className="mt-2 flex items-center gap-2 text-sm text-[#7A7871]"><MapPin size={15} />{s.ubicacion}</p>
+                  <p className="mt-2 text-sm text-[#6B6860]"><strong>Situación:</strong> {s.situacion === "la_tengo_conmigo" ? "La tiene resguardada" : s.situacion === "herida" ? "Está herida" : s.situacion === "siguiendo" ? "La está siguiendo" : "La vio"}</p>
+                  <p className="mt-1 text-sm text-[#6B6860]"><strong>Reportó:</strong> {s.reporter_name || "Usuario HUELLA"}</p>
                 </Link>
-                {s.feedback_reportero && isOwnedSighting(s) && <div className="mt-3 rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{s.feedback_reportero}</div>}
+                {s.feedback_reportero && s.owner_token === currentUserId && <div className="mt-3 rounded-xl bg-[#E1F5EE] p-3 text-sm font-semibold text-[#085041]">{s.feedback_reportero}</div>}
                 {owned && estado === "pendiente" && <div className="mt-3 grid gap-2 min-[390px]:flex"><Button size="sm" onClick={() => updateSightingStatus(s.id, pet.id, "confirmado").then(load)}>Confirmar avistamiento</Button><Button size="sm" variant="outline" onClick={() => updateSightingStatus(s.id, pet.id, "descartado").then(load)}>Descartar avistamiento</Button></div>}
-                {isOwnedSighting(s) && <SightingEditor sighting={s} onDone={load} />}
+                {s.owner_token === currentUserId && <SightingEditor sighting={s} onDone={load} />}
               </article>;
             })}
           </div>}
+          <div className="form-card space-y-3">
+            <h2 className="font-serif text-2xl">Información del caso</h2>
+            {caseDescription && <div><h3 className="font-bold">Descripción</h3><p className="mt-1 text-sm leading-6 text-[#6B6860]">{caseDescription}</p></div>}
+            <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Última ubicación</strong>{pet.direccion || pet.distrito}</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Fecha de pérdida</strong>{formatDate(pet.fecha_reporte)}</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Hora de pérdida</strong>{new Date(pet.fecha_reporte).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</div>
+              <div className={`rounded-xl p-3 ${rewardText ? "bg-[#FAEEDA] text-[#6B4A10]" : "bg-[#F8F7F4]"}`}><strong className="block">Recompensa</strong>{rewardText || "No se ofreció recompensa"}</div>
+            </div>
+            {petDetails.length > 0 && <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">{petDetails.map(([label, value]) => <div key={label} className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">{label}</strong>{value}</div>)}</div>}
+            {recognitionDetails && <><h2 className="font-bold">Cómo reconocerla</h2><p className="text-sm text-[#6B6860]">{recognitionDetails}</p></>}
+            {pet.condiciones_especiales?.length ? <><h3 className="text-sm font-bold">Condiciones especiales</h3><div className="flex flex-wrap gap-2">{pet.condiciones_especiales.map((condition) => <span key={condition} className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm text-[#085041]">{condition}</span>)}</div></> : null}
+          </div>
         </div>
 
         <aside className="space-y-5">

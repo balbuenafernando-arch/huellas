@@ -70,6 +70,7 @@ export function AppHeader() {
 
   function closeMenu() {
     if (open && window.history.state?.huellaDrawer) {
+      closingFromHistoryRef.current = true;
       window.history.back();
       return;
     }
@@ -152,7 +153,10 @@ export function AppHeader() {
       window.removeEventListener("popstate", closeFromBrowserHistory);
       document.removeEventListener("keydown", trapFocus);
       document.body.style.overflow = previousOverflow;
-      if (!closingFromHistoryRef.current && window.history.state?.huellaDrawer) window.history.back();
+      if (!closingFromHistoryRef.current && window.history.state?.huellaDrawer) {
+        closingFromHistoryRef.current = true;
+        window.history.back();
+      }
     };
   }, [open, router]);
 

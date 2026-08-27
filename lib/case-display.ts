@@ -6,6 +6,25 @@ export function publicCaseCode(id: string) {
   return `H-${String(seed % 9000 + 1000)}`;
 }
 
+export function cleanCaseCareNotes(value?: string | null, recognition = "") {
+  let text = value?.trim() ?? "";
+  if (!text) return "";
+
+  const careMarker = "Cuidados a tener en cuenta:";
+  if (text.includes(careMarker)) text = text.split(careMarker).pop()?.trim() ?? "";
+
+  const legacyMetadataIndex = text.search(/\s*(?:[uú]ltima\s+ubicaci[oó]n|fecha|hora|recompensa)\s*:/i);
+  if (legacyMetadataIndex >= 0) text = text.slice(0, legacyMetadataIndex).trim();
+
+  return text === recognition.trim() ? "" : text;
+}
+
+export function legacyCaseReward(value?: string | null) {
+  const match = value?.match(/recompensa\s*:\s*([^\n.]+)/i);
+  const reward = match?.[1]?.trim() ?? "";
+  return /^(?:no|ninguna|0|sin recompensa)$/i.test(reward) ? "" : reward;
+}
+
 export function searchState(caseRecord: Pick<CaseRecord, "status" | "createdAt" | "sightings" | "pet">) {
   if (caseRecord.status === "reunido" || caseRecord.pet.estado === "reunido") return { label: "Reunido", icon: "❤️", tone: "status-reunido" };
   if (caseRecord.pet.estado === "encontrado") return { label: "Resguardado", icon: "🔵", tone: "status-encontrado" };

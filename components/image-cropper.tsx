@@ -119,14 +119,14 @@ export function ImageCropper({ file, aspect = 4 / 3, onCancel, onApply }: Props)
   }
 
   return (
-    <div className="fixed inset-0 z-[1200] grid place-items-center overflow-hidden bg-black/70 p-3" role="dialog" aria-modal="true" aria-labelledby="crop-title">
-      <section className="max-h-[calc(100dvh-24px)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-[0_24px_80px_rgba(0,0,0,.28)]">
+    <div className="fixed inset-0 z-[1200] flex h-[100dvh] items-center justify-center overflow-y-auto overscroll-contain bg-black/70 px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-[max(12px,env(safe-area-inset-top))]" role="dialog" aria-modal="true" aria-labelledby="crop-title">
+      <section className="my-auto max-h-[calc(100dvh-24px)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-2xl bg-white p-4 shadow-[0_24px_80px_rgba(0,0,0,.28)]">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 id="crop-title" className="font-bold">Ajustar foto</h2>
           <Button ref={cancelButtonRef} type="button" variant="outline" onClick={onCancel} disabled={applying}>Cancelar</Button>
         </div>
         <div
-          className="relative mx-auto aspect-[4/3] max-h-[62vh] touch-none overflow-hidden rounded-xl bg-[#111]"
+          className="relative mx-auto aspect-[4/3] w-full max-h-[min(62dvh,520px)] touch-none overflow-hidden rounded-xl bg-[#111]"
           onDoubleClick={toggleZoom}
           onWheel={(event) => {
             event.preventDefault();

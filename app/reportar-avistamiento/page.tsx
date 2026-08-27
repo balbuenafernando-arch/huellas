@@ -292,8 +292,7 @@ export default function ReportSightingPage() {
         petId = pet.id;
       }
 
-      const situacionTexto = quickSituations.find(([value]) => value === draft.situacion)?.[1] ?? "La vi";
-      const comentario = `${String(form.get("comentario"))}\nSituación observada: ${situacionTexto}`;
+      const comentario = String(form.get("comentario")).trim();
 
       try {
         await createSighting({

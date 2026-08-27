@@ -327,7 +327,7 @@ export default function NearbySearchPage() {
           <div className="search-box flex-1"><Search size={18} className="text-[#A8A49C]" /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Nombre o caso" /></div>
           <Button type="button" variant="outline" className="min-w-12 px-3" onClick={openFilters} aria-label={`Filtros${activeFilterCount ? `, ${activeFilterCount} activos` : ""}`}><Filter size={20} />{activeFilterCount > 0 && <span>{activeFilterCount}</span>}</Button>
         </div>
-        <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+        <div className="hide-scrollbar mt-3 flex max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-1">
           {radiusOptions.map((option) => <button key={option.value} type="button" className={`filter-tab shrink-0 ${radius === option.value ? "active" : ""}`} onClick={() => setRadius(option.value)}>{option.label}</button>)}
         </div>
         {geoDenied && <p className="mt-2 text-xs text-[#6B6860]">No se pudo usar tu ubicación. Puedes buscar una dirección o referencia.</p>}

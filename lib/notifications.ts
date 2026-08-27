@@ -35,9 +35,20 @@ function notificationCaseCode(id: string) {
   return `H-${String(seed % 9000 + 1000)}`;
 }
 
+function humanizeNotificationMessage(message: string) {
+  const contactReasons: Record<string, string> = {
+    vista: "la vio",
+    resguardada: "la tiene resguardada",
+    siguiendo: "la está siguiendo",
+    fotografias: "tiene fotografías",
+    informacion: "tiene información importante",
+  };
+  return message.replace(/porque indicó: (vista|resguardada|siguiendo|fotografias|informacion)\.?$/i, (_, reason: string) => `porque indicó que ${contactReasons[reason.toLowerCase()]}.`);
+}
+
 function titleFor(type: string, caseId: string | null, message: string) {
   const caseLabel = caseId ? ` del caso ${notificationCaseCode(caseId)}` : "";
-  if (message && message !== "Tienes una novedad en HUELLA.") return message.replace(/[.]$/, "");
+  if (message && message !== "Tienes una novedad en HUELLA.") return humanizeNotificationMessage(message).replace(/[.]$/, "");
   if (type.includes("autorizada")) return `Tu solicitud fue autorizada${caseLabel}`;
   if (type.includes("rechazada")) return `Tu solicitud fue rechazada${caseLabel}`;
   if (type.includes("contact")) return `Solicitud de contacto${caseLabel}`;

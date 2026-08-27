@@ -146,7 +146,7 @@ export default function EmergencyReportPage() {
     const whatsapp = String(form.get("whatsapp") || "");
     const whatsappError = whatsapp && !isValidPeruWhatsapp(whatsapp) ? "Ingresa un WhatsApp peruano valido." : null;
     if (whatsappError) errors.whatsapp = whatsappError;
-    const notesError = requiredText(form.get("observaciones"), "A tener en cuenta sobre la mascota", 1000);
+    const notesError = requiredText(form.get("observaciones"), "Los datos de manejo", 1000);
     if (notesError) errors.observaciones = notesError;
     const dateError = validateNotFuture(`${fecha}T${hora || "00:00"}`, "La fecha de perdida");
     if (dateError) errors.fecha = dateError;
@@ -312,7 +312,7 @@ export default function EmergencyReportPage() {
           <div className="rounded-full bg-[#E1F5EE] px-3 py-1 text-sm font-bold text-[#085041]">Paso 3 - Contacto</div>
           <div><label className="label">WhatsApp (opcional)</label><input maxLength={40} className="field" name="whatsapp" placeholder="+51 987 654 321" aria-invalid={Boolean(fieldErrors.whatsapp)} />{fieldErrors.whatsapp && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.whatsapp}</p>}</div>
           <div><label className="label">Recompensa opcional</label><input maxLength={160} className="field" name="recompensa" placeholder="Monto o descripción" /></div>
-          <div><label className="label">A tener en cuenta sobre la mascota *</label><textarea required maxLength={1000} className="textarea min-h-24" name="observaciones" placeholder="Ejemplo: Es nervioso, no perseguir, responde a su nombre y necesita medicación." aria-invalid={Boolean(fieldErrors.observaciones)} />{fieldErrors.observaciones && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.observaciones}</p>}</div>
+          <div><label className="label">Datos de manejo *</label><textarea required maxLength={1000} className="textarea min-h-24" name="observaciones" placeholder="Ejemplo: Es nervioso, no perseguir, responde a su nombre y necesita medicación." aria-invalid={Boolean(fieldErrors.observaciones)} />{fieldErrors.observaciones && <p className="mt-1 text-sm font-semibold text-[#B42318]">{fieldErrors.observaciones}</p>}</div>
           <Button disabled={saving} className="w-full">{saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : <Send size={18} />}{saving ? "Publicando búsqueda..." : "Publicar búsqueda"}</Button>
         </section>
       </form>

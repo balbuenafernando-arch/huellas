@@ -10,11 +10,12 @@ import { PhotoUploader } from "@/components/photo-uploader";
 import { LocationPicker } from "@/components/location-picker";
 import type { Pet } from "@/lib/demo-data";
 import { deletePet, getPet, isOwnedPet, updatePet } from "@/lib/pet-store";
-import { deleteReport, getCurrentUser, getReport, reportToLegacyPet, type Report, updateRegisteredPet, updateReport } from "@/lib/sprint14-store";
+import { deleteReport, getCurrentUser, getReport, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { locationDetailsFromCoords, searchPeruLocation } from "@/lib/location";
 import { uploadImage } from "@/services/image-service";
 import { FriendlyError, DetailSkeleton } from "@/components/feedback";
 import { friendlyError, requiredText, validateImageFiles } from "@/lib/form-validation";
+import { cleanCaseCareNotes, legacyCaseReward } from "@/lib/case-display";
 
 export default function EditPetPage() {
   const params = useParams<{ id: string }>();
@@ -64,7 +65,7 @@ export default function EditPetPage() {
     let fotos = retainedPhotoUrls.length ? retainedPhotoUrls.slice(0, 3) : (pet.fotos?.length ? pet.fotos.slice(0, 3) : [fotoPrincipal]);
 
     const validationMessage =
-      requiredText(form.get("nombre"), "El nombre", 120) ||
+      (!report ? requiredText(form.get("nombre"), "El nombre", 120) : null) ||
       requiredText(form.get("descripcion"), "La descripción", 1000) ||
       requiredText(address, "La dirección", 240) ||
       validateImageFiles(files);
@@ -83,20 +84,6 @@ export default function EditPetPage() {
       }
 
       if (report) {
-        if (report.pet_id) {
-          await updateRegisteredPet(report.pet_id, {
-            nombre: String(form.get("nombre")).trim(),
-            especie: String(form.get("especie")),
-            tipo: String(form.get("especie")),
-            raza: String(form.get("raza")).trim(),
-            tamano: String(form.get("tamano") || ""),
-            color: String(form.get("color") || "").trim(),
-            caracteristicas_personalizadas: String(form.get("descripcion_mascota") || "").trim(),
-            fotos,
-            foto_principal: fotoPrincipal,
-            foto_url: fotoPrincipal,
-          });
-        }
         await updateReport(report.id, {
           tipo_reporte: report.tipo_reporte,
           estado: report.estado,
@@ -192,12 +179,13 @@ export default function EditPetPage() {
       {error && <div className="mb-4"><FriendlyError message={error} /></div>}
       <form onSubmit={submit} className="grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <section className="form-card space-y-4">
-          <div><label className="label">Nombre *</label><input required maxLength={120} className="field" name="nombre" defaultValue={pet.nombre} /></div>
-          <div><label className="label">Especie *</label><select className="select" name="especie" defaultValue={pet.tipo}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div>
-          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Tamaño *</label><select className="select" name="tamano" defaultValue={report?.pet?.tamano || "Mediano"}><option value="Pequeno">Pequeño</option><option>Mediano</option><option>Grande</option></select></div><div><label className="label">Color *</label><input required className="field" name="color" maxLength={120} defaultValue={report?.pet?.color || ""} /></div></div>
-          <div><label className="label">Raza aproximada</label><input className="field" name="raza" maxLength={120} defaultValue={pet.raza} /></div>
-          <div><label className="label">Describe a tu mascota *</label><textarea required className="textarea min-h-20" name="descripcion_mascota" maxLength={1000} defaultValue={pet.caracteristicas_personalizadas || pet.caracteristicas?.join(". ") || ""} placeholder="Ejemplo: Tiene un collar rojo, una cicatriz en la oreja izquierda y una mancha blanca en el pecho." /></div>
-          <div><label className="label">A tener en cuenta sobre la mascota *</label><textarea required maxLength={1000} className="textarea min-h-28" name="descripcion" defaultValue={pet.descripcion} placeholder="Ejemplo: Es nervioso, no perseguir, responde a su nombre y necesita medicación." /></div>
+          {report ? <div className="rounded-xl bg-[#F8F7F4] p-4"><strong className="block">{pet.nombre}</strong><p className="mt-1 text-sm text-[#6B6860]">{[pet.tipo, pet.raza, report.pet?.color].filter(Boolean).join(" · ")}</p>{report.pet_id && <Link href={`/mis-mascotas/${report.pet_id}/editar`} className="mt-2 inline-block text-sm font-bold text-[#1D9E75]">Editar datos de la mascota</Link>}</div> : <>
+            <div><label className="label">Nombre *</label><input required maxLength={120} className="field" name="nombre" defaultValue={pet.nombre} /></div>
+            <div><label className="label">Especie *</label><select className="select" name="tipo" defaultValue={pet.tipo}><option>Perro</option><option>Gato</option><option>Ave</option><option>Otro</option></select></div>
+            <div><label className="label">Raza aproximada</label><input className="field" name="raza" maxLength={120} defaultValue={pet.raza} /></div>
+            <div><label className="label">Cómo reconocerla</label><textarea className="textarea min-h-20" name="caracteristicas_personalizadas" maxLength={1000} defaultValue={pet.caracteristicas_personalizadas || pet.caracteristicas?.join(". ") || ""} /></div>
+          </>}
+          <div><label className="label">Datos de manejo *</label><textarea required maxLength={1000} className="textarea min-h-28" name="descripcion" defaultValue={cleanCaseCareNotes(report?.descripcion ?? pet.descripcion, pet.caracteristicas_personalizadas)} placeholder="Ejemplo: Es nervioso, no perseguir, responde a su nombre y necesita medicación." /></div>
         </section>
         <section className="form-card space-y-4">
           <div><label className="label">Fotografías (máximo 3)</label><PhotoUploader initialUrls={(pet.fotos?.length ? pet.fotos : [pet.foto_principal]).slice(0, 3)} disabled={saving} onChange={(files, urls) => { setPhotoFiles(files); setRetainedPhotoUrls(urls); }} onError={setError} /></div>
@@ -211,7 +199,7 @@ export default function EditPetPage() {
           {coords && <div className="map-panel min-h-[300px] overflow-hidden rounded-2xl"><LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} /></div>}
           <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha *</label><input required className="field" name="fecha" type="date" defaultValue={pet.fecha_reporte.slice(0, 10)} /></div><div><label className="label">Hora *</label><input required className="field" name="hora" type="time" defaultValue={new Date(pet.fecha_reporte).toTimeString().slice(0, 5)} /></div></div>
           <div><label className="label">WhatsApp (opcional)</label><input maxLength={40} className="field" name="whatsapp" defaultValue={pet.whatsapp} /></div>
-          <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa" maxLength={160} defaultValue={report?.reward_text ?? pet.recompensa_texto ?? pet.recompensa_monto ?? ""} placeholder="Ej. S/ 500" /></div>
+          <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa" maxLength={160} defaultValue={report?.reward_text ?? pet.recompensa_texto ?? pet.recompensa_monto ?? legacyCaseReward(report?.descripcion ?? pet.descripcion)} placeholder="Ej. S/ 500" /></div>
           <div className="flex flex-wrap gap-2"><Button type="submit" disabled={saving}><Save size={18} />{saving ? "Guardando..." : "Guardar cambios"}</Button><Button type="button" variant="outline" onClick={remove}><Trash2 size={18} />Eliminar caso</Button></div>
         </section>
       </form>
