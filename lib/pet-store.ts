@@ -356,6 +356,22 @@ export async function getSightings(petId?: string | null, relatedId?: string | n
   return petId ? sightings.filter((sighting) => sighting.pet_id === petId || sighting.report_id === petId || sighting.pet_id === relatedId || sighting.report_id === relatedId) : sightings;
 }
 
+export async function getSpeciesSightings(species: string): Promise<Sighting[]> {
+  if (!isSupabaseConfigured || !supabase || !species.trim()) return [];
+  const sightings: Sighting[] = [];
+  const pageSize = 200;
+  for (let start = 0; ; start += pageSize) {
+    const { data, error } = await supabase.from("sightings").select("*")
+      .ilike("especie", species.trim())
+      .order("created_at", { ascending: false })
+      .range(start, start + pageSize - 1);
+    if (error) throw error;
+    sightings.push(...(data ?? []).map((row) => normalizeSighting(row as SightingRow)));
+    if (!data || data.length < pageSize) break;
+  }
+  return sightings;
+}
+
 export async function getSighting(id: string): Promise<Sighting | undefined> {
   if (isSupabaseConfigured && supabase && isUuid(id)) {
     const { data, error } = await supabase.from("sightings").select("*").eq("id", id).maybeSingle();

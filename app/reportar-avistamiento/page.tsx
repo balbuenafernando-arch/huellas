@@ -214,7 +214,7 @@ export default function ReportSightingPage() {
     try {
       user = await getCurrentUser();
       if (intent === "search") {
-        const foundMatches = await findLostPetMatches({ especie, tamano, color, distrito: locationLabel(locationDetails, draft.ubicacion), rasgos, fecha: seenAt, latitude: coords.latitude, longitude: coords.longitude });
+        const foundMatches = await findLostPetMatches({ sourceType: "found", especie, tamano, color, distrito: locationLabel(locationDetails, draft.ubicacion), rasgos, fecha: seenAt, latitude: coords.latitude, longitude: coords.longitude });
         setMatches(foundMatches);
         setReviewedMatches(true);
         setNoMatches(foundMatches.length === 0);

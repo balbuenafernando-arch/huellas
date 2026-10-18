@@ -39,8 +39,9 @@ export type Report = {
   id: string;
   user_id: string;
   pet_id: string | null;
-  tipo_reporte: "perdido" | "encontrado";
+  tipo_reporte: "perdido" | "encontrado" | null;
   estado: "activo" | "reunido";
+  status_raw?: "active" | "reunited" | "archived";
   distrito: string;
   descripcion: string;
   foto_url: string;
@@ -73,6 +74,7 @@ type LostReportRow = {
   pet_id: string | null;
   owner_id: string;
   status: "active" | "reunited" | "archived";
+  report_type: "lost" | "found" | null;
   district: string;
   approximate_address: string | null;
   description: string | null;
@@ -228,8 +230,9 @@ function lostReportToReport(row: LostReportRow): Report {
     id: row.id,
     user_id: row.owner_id,
     pet_id: row.pet_id,
-    tipo_reporte: "perdido",
+    tipo_reporte: row.report_type === "lost" ? "perdido" : row.report_type === "found" ? "encontrado" : null,
     estado: statusToLegacy(row.status),
+    status_raw: row.status,
     distrito: row.district,
     descripcion: row.description ?? "",
     foto_url: row.photo_urls?.[0] ?? petPhoto(row.pet),
@@ -250,10 +253,12 @@ function lostReportToReport(row: LostReportRow): Report {
 }
 
 function reportToLostInsert(report: Report, ownerId: string) {
+  if (!report.tipo_reporte) throw new Error("Indica si el reporte es una pérdida o una mascota vista.");
   return {
     pet_id: report.pet_id,
     owner_id: ownerId,
     status: legacyStatusToLost(report.estado),
+    report_type: report.tipo_reporte === "perdido" ? "lost" : "found",
     district: report.distrito,
     approximate_address: report.distrito,
     description: report.descripcion,
@@ -275,6 +280,7 @@ function authDisplayName(user: User) {
 
 function reportToLostPatch(input: Partial<Report>) {
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (input.tipo_reporte) patch.report_type = input.tipo_reporte === "perdido" ? "lost" : "found";
   if (input.estado) {
     patch.status = legacyStatusToLost(input.estado);
     patch.reunited_at = input.estado === "reunido" ? input.reunited_at ?? new Date().toISOString() : null;
@@ -482,7 +488,7 @@ export async function incrementReportView(id: string) {
   writeLocal(REPORTS_KEY, readLocal<Report[]>(REPORTS_KEY, []).map((item) => item.id === id ? { ...item, views_count: next } : item));
 }
 
-export async function createReport(input: Omit<Report, "id" | "user_id" | "created_at" | "updated_at" | "fecha_reporte"> & { fecha_reporte?: string }) {
+export async function createReport(input: Omit<Report, "id" | "user_id" | "created_at" | "updated_at" | "fecha_reporte" | "tipo_reporte"> & { tipo_reporte: NonNullable<Report["tipo_reporte"]>; fecha_reporte?: string }) {
   const user = await getCurrentUser();
   if (!user) throw new Error("Necesitas iniciar sesión.");
   await ensureProfileRow(user);
@@ -499,6 +505,7 @@ export async function createReport(input: Omit<Report, "id" | "user_id" | "creat
     const saved: Report = {
       ...report,
       id: row.id,
+      tipo_reporte: row.report_type === "lost" ? "perdido" : row.report_type === "found" ? "encontrado" : null,
       created_at: row.created_at,
       updated_at: row.updated_at,
       fecha_reporte: row.lost_at ?? row.created_at,
@@ -587,8 +594,8 @@ export async function getBasicMetrics() {
   }
   return {
     mascotasRegistradas: pets.length,
-    reportesActivos: reports.filter((report) => report.estado === "activo").length,
-    mascotasReunidas: reports.filter((report) => report.estado === "reunido").length,
+    reportesActivos: reports.filter((report) => report.tipo_reporte === "perdido" && report.estado === "activo").length,
+    mascotasReunidas: reports.filter((report) => report.tipo_reporte === "perdido" && report.estado === "reunido").length,
     avistamientosEnviados: sightingsCount,
   };
 }
@@ -597,11 +604,11 @@ export function reportToLegacyPet(report: Report): LegacyPet {
   const rewardAmount = Number(String(report.reward_text ?? "").replace(/[^0-9.,]/g, "").replace(",", "."));
   return {
     id: report.id,
-    nombre: report.pet?.nombre ?? "Mascota perdida",
+    nombre: report.pet?.nombre ?? (report.tipo_reporte === "encontrado" ? "Mascota vista" : report.tipo_reporte === "perdido" ? "Mascota perdida" : "Reporte sin clasificar"),
     tipo: report.pet?.especie ?? report.pet?.tipo ?? "Mascota",
     raza: report.pet?.raza ?? "",
     descripcion: report.descripcion,
-    estado: report.estado === "reunido" ? "reunido" : "perdido" as PetStatus,
+    estado: report.estado === "reunido" ? "reunido" : report.tipo_reporte === "perdido" ? "perdido" : report.tipo_reporte === "encontrado" ? "encontrado" : "sin_clasificar" as PetStatus,
     distrito: report.distrito,
     direccion: report.distrito,
     latitud: report.latitude ?? -12.105,

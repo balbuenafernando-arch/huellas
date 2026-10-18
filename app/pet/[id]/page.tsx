@@ -11,13 +11,14 @@ import { PosterButton, ShareButton } from "@/components/report-actions";
 import { PhotoUploader } from "@/components/photo-uploader";
 import { ContentReportButton } from "@/components/content-report-button";
 import { SafeContact } from "@/components/safe-contact";
+import { SightingReviewSection } from "@/components/sighting-review";
 import { StatusPill } from "@/components/pet-card";
 import type { Pet, Sighting } from "@/lib/demo-data";
 import { deletePet, deleteSighting, getPet, getPets, getSightingPrivatePhone, getSightings, isOwnedPet, markPetStatus, updateSighting, updateSightingPrivatePhone, updateSightingStatus } from "@/lib/pet-store";
 import { deleteReport, getCurrentUser, getReport, incrementReportView, listReports, reportToLegacyPet, type Report, updateReport } from "@/lib/sprint14-store";
 import { buildCaseTimeline, getCase, type CaseRecord } from "@/lib/cases";
 import { uploadImage } from "@/services/image-service";
-import { distanceKm, formatDate, timeAgo } from "@/lib/utils";
+import { formatDate, timeAgo } from "@/lib/utils";
 import { cleanCaseCareNotes, legacyCaseReward, publicCaseCode, searchState } from "@/lib/case-display";
 import { saveReunionStory } from "@/lib/reunion-stories";
 import { listContactRequests, type ContactRequest } from "@/lib/contact-requests";
@@ -168,16 +169,6 @@ export default function PetDetailPage() {
   }, [photoViewerOpen]);
 
   const photos = useMemo(() => pet ? Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? [])])).slice(0, 3) : [], [pet]);
-  const matches = useMemo(() => {
-    if (!pet || pet.estado !== "perdido") return [];
-    const cutoff = Date.now() - 1000 * 60 * 60 * 24 * 21;
-    return allPets
-      .map((item) => ({ item, distance: distanceKm(pet.latitud, pet.longitud, item.latitud, item.longitud) }))
-      .filter(({ item, distance }) => item.id !== pet.id && item.estado === "encontrado" && distance !== null && distance <= 12 && new Date(item.fecha_reporte).getTime() >= cutoff)
-      .sort((a, b) => (a.distance ?? 999) - (b.distance ?? 999))
-      .map(({ item }) => item)
-      .slice(0, 5);
-  }, [allPets, pet]);
   const currentState = caseRecord ? searchState(caseRecord) : null;
   const isClosed = pet?.estado === "reunido" || report?.estado === "reunido" || caseRecord?.status === "reunido";
   useEffect(() => {
@@ -195,6 +186,7 @@ export default function PetDetailPage() {
     if (!pet) return [];
     const caseEvents = buildCaseTimeline({
       id: report?.id ?? pet.id,
+      report,
       pet,
       createdAt: report?.created_at ?? pet.creado_en,
       reunitedAt: closedDate,
@@ -318,7 +310,7 @@ export default function PetDetailPage() {
         <section className="space-y-4">
           <div className="form-card">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div><h1 className="font-serif text-4xl">{pet.nombre}</h1><p className="mt-1 flex items-center gap-2 text-[#7A7871]"><MapPin size={16} />{pet.distrito} · zona aproximada</p></div>
+              <div><p className="text-sm font-bold text-[#085041]">{report?.tipo_reporte === "perdido" ? "Mascota perdida" : report?.tipo_reporte === "encontrado" ? "Mascota vista" : report ? "Tipo sin clasificar" : "Mascota"}</p><h1 className="font-serif text-4xl">{pet.nombre}</h1><p className="mt-1 flex items-center gap-2 text-[#7A7871]"><MapPin size={16} />{pet.distrito} · zona aproximada</p></div>
               {currentState ? <span className={`status-pill ${currentState.tone}`}>{currentState.icon} {currentState.label}</span> : <StatusPill estado={pet.estado} />}
             </div>
             <div className="mt-3 grid gap-2 text-sm min-[430px]:grid-cols-3">
@@ -421,7 +413,7 @@ export default function PetDetailPage() {
 
       <section className="mt-5 grid gap-5 lg:grid-cols-[1fr_.8fr]">
         <div className="space-y-4">
-          {!isClosed && matches.length > 0 && <div className="form-card"><h2 className="mb-3 font-bold">Posibles coincidencias cercanas</h2><div className="space-y-3">{matches.map((match) => <Link key={match.id} href={`/pet/${match.id}`} className="flex gap-3 rounded-xl border border-black/10 p-2 hover:bg-[#F8F7F4]"><img src={match.foto_principal} alt={match.nombre} className="h-16 w-16 rounded-lg object-contain bg-[#F8F7F4]" /><div><div className="font-semibold">{match.nombre}</div><div className="text-sm text-[#7A7871]">{match.raza} · {match.distrito}</div></div></Link>)}</div></div>}
+          {owned && report?.status_raw === "active" && report.tipo_reporte === "perdido" && <SightingReviewSection reportId={report.id} petName={pet.nombre} species={report.pet?.especie ?? pet.tipo} latitude={report.latitude} longitude={report.longitude} />}
 
           {!isClosed && <div className="space-y-3">
             <h2 className="text-xl font-bold">Avistamientos ({sightings.length})</h2>

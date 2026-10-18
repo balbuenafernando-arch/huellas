@@ -1,4 +1,4 @@
-export type PetStatus = "perdido" | "encontrado" | "reunido";
+export type PetStatus = "perdido" | "encontrado" | "reunido" | "sin_clasificar";
 
 export type Pet = {
   id: string;

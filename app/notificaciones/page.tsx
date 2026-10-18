@@ -79,7 +79,7 @@ export default function NotificationsPage() {
                   </div>
                   <p className="mt-1 text-sm leading-6 text-[#4D4A43]">{notification.description}</p>
                   <p className="mt-1 text-xs text-[#7A7871]">{formatDateTime(notification.createdAt)}</p>
-                  {notification.caseId && <Button size="sm" className="mt-3" asChild><Link href={`/pet/${notification.caseId}`}>Abrir caso</Link></Button>}
+                  {notification.caseId && <Button size="sm" className="mt-3" asChild><Link href={`/pet/${notification.caseId}${notification.type === "nuevo_avistamiento_para_revisar" ? "#avistamientos-para-revisar" : ""}`}>{notification.type === "nuevo_avistamiento_para_revisar" ? "Revisar avistamientos" : "Abrir caso"}</Link></Button>}
                 </div>
               </div>
             </article>

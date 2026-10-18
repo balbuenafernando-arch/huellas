@@ -5,7 +5,7 @@ import { formatDate } from "@/lib/utils";
 import { petSearchState, publicCaseCode } from "@/lib/case-display";
 
 export function StatusPill({ estado }: { estado: Pet["estado"] }) {
-  const label = estado === "perdido" ? "Búsqueda activa" : estado === "encontrado" ? "Resguardado" : "Reunido";
+  const label = estado === "perdido" ? "Búsqueda activa" : estado === "encontrado" ? "Mascota vista" : estado === "reunido" ? "Reunido" : "Tipo sin clasificar";
   return <span className={`status-pill status-${estado}`}>{label}</span>;
 }
 

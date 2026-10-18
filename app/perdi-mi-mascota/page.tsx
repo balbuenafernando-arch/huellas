@@ -222,6 +222,7 @@ export default function EmergencyReportPage() {
         throw new Error(operationError(caught, "crear reporte en Supabase", "Error de base de datos al crear el reporte"));
       }
       setMatchCriteria({
+        sourceType: "lost",
         especie: pet.especie,
         raza: pet.raza,
         color: pet.color,

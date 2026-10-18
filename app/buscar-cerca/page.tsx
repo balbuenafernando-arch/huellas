@@ -43,7 +43,7 @@ function normalize(value: string) {
 }
 
 function isActiveCase(caseRecord: CaseRecord) {
-  return caseRecord.status !== "reunido" && caseRecord.status !== "archivado" && caseRecord.pet.estado !== "reunido";
+  return caseRecord.report?.tipo_reporte === "perdido" && caseRecord.report.status_raw === "active";
 }
 
 function stateMatches(caseRecord: CaseRecord, filter: StateFilter) {

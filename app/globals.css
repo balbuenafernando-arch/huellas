@@ -98,6 +98,7 @@ button, a, input, select, textarea { touch-action: manipulation; }
 .pet-photo { aspect-ratio: 16/9; width: 100%; object-fit: contain; background: var(--paper); }
 .status-pill { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 800; letter-spacing: .01em; text-transform: none; overflow-wrap: anywhere; backdrop-filter: blur(8px); }
 .status-perdido { background: rgba(250,236,231,.9); color: #712B13; }
+.status-unknown, .status-sin_clasificar { background: #F1EFE8; color: #4D4A43; }
 .status-encontrado { background: rgba(225,245,238,.92); color: #085041; }
 .status-reunido { background: rgba(230,241,251,.94); color: #0C447C; }
 .map-panel { min-height: 320px; overflow: hidden; border-radius: 22px; border: 1px solid rgba(28,28,26,.08); box-shadow: 0 16px 40px rgba(28,28,26,.08); touch-action: pan-x pan-y; }

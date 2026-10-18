@@ -33,7 +33,7 @@ export default function HomePage() {
 
   const activeCase = myActiveCases[0];
   const nearbyCases = useMemo(() => cases
-    .filter((caseRecord) => caseRecord.pet.estado === "perdido" && caseRecord.status !== "reunido" && caseRecord.status !== "archivado")
+    .filter((caseRecord) => caseRecord.report?.tipo_reporte === "perdido" && caseRecord.report.status_raw === "active")
     .filter((caseRecord) => {
       const needle = `${caseRecord.pet.nombre} ${caseRecord.pet.tipo} ${caseRecord.pet.raza} ${caseRecord.district}`.toLowerCase();
       return needle.includes(query.toLowerCase());

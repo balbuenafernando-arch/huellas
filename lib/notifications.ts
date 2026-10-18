@@ -47,6 +47,7 @@ function humanizeNotificationMessage(message: string) {
 }
 
 function titleFor(type: string, caseId: string | null, message: string) {
+  if (type === "nuevo_avistamiento_para_revisar") return "Nuevo avistamiento para revisar";
   const caseLabel = caseId ? ` del caso ${notificationCaseCode(caseId)}` : "";
   if (message && message !== "Tienes una novedad en HUELLA.") return humanizeNotificationMessage(message).replace(/[.]$/, "");
   if (type.includes("autorizada")) return `Tu solicitud fue autorizada${caseLabel}`;
@@ -65,7 +66,7 @@ function normalizeNotification(item: Record<string, unknown>): AppNotification {
   return {
     id: String(item.id ?? crypto.randomUUID()),
     title: titleFor(type, caseId, description),
-    description: caseId ? `Consulta los detalles del caso ${notificationCaseCode(caseId)}.` : "Consulta los detalles de esta novedad.",
+    description: type === "nuevo_avistamiento_para_revisar" ? description : caseId ? `Consulta los detalles del caso ${notificationCaseCode(caseId)}.` : "Consulta los detalles de esta novedad.",
     caseId,
     type,
     read: Boolean(item.read_at ?? item.leido),

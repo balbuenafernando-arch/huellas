@@ -7,7 +7,7 @@ import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-
 import type { Pet, Sighting } from "@/lib/demo-data";
 import { clusterPets } from "@/lib/search-intelligence";
 
-const colors = { perdido: "#D85A30", encontrado: "#1D9E75", reunido: "#7A7871" } as const;
+const colors = { perdido: "#D85A30", encontrado: "#1D9E75", reunido: "#7A7871", sin_clasificar: "#4D4A43" } as const;
 
 function iconFor(pet: Pet, count = 1) {
   return L.divIcon({

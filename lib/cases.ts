@@ -73,13 +73,13 @@ function uniquePhotos(pet: Pet, report?: Report | null) {
   return Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? []), report?.foto_url].filter(Boolean) as string[])).slice(0, 3);
 }
 
-export function buildCaseTimeline(caseRecord: Pick<CaseRecord, "id" | "pet" | "createdAt" | "reunitedAt" | "sightings">): CaseTimelineItem[] {
+export function buildCaseTimeline(caseRecord: Pick<CaseRecord, "id" | "pet" | "createdAt" | "reunitedAt" | "sightings"> & Partial<Pick<CaseRecord, "report">>): CaseTimelineItem[] {
   const items: CaseTimelineItem[] = [
     {
       id: `${caseRecord.id}-created`,
       date: caseRecord.createdAt,
       label: "Caso creado",
-      description: `Se publicó la búsqueda de ${caseRecord.pet.nombre}.`,
+      description: caseRecord.report?.tipo_reporte === "encontrado" ? "Se registró una mascota vista." : caseRecord.report?.tipo_reporte === "perdido" ? `Se publicó la búsqueda de ${caseRecord.pet.nombre}.` : "Se registró el caso.",
       person: "Propietario",
       kind: "caso_creado",
     },
@@ -166,7 +166,7 @@ export async function listCases(includeClosed = false): Promise<CaseRecord[]> {
 
 export async function listMyCases(): Promise<CaseRecord[]> {
   const reports = await listMyReports();
-  return Promise.all(reports.map(reportToCase));
+  return Promise.all(reports.filter((report) => report.tipo_reporte === "perdido").map(reportToCase));
 }
 
 export async function getCase(id: string): Promise<CaseRecord | undefined> {

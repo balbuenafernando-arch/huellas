@@ -4,6 +4,7 @@ import { listCases, type CaseMatch, type CaseRecord } from "@/lib/cases";
 import { distanceKm } from "@/lib/utils";
 
 export type MatchCriteria = {
+  sourceType: "lost" | "found";
   especie?: string;
   raza?: string;
   color?: string;
@@ -110,8 +111,9 @@ export function scoreCaseMatch(caseRecord: CaseRecord, criteria: MatchCriteria):
 
 export async function findLostPetMatches(criteria: MatchCriteria) {
   const cases = await listCases(false);
+  const targetType = criteria.sourceType === "lost" ? "encontrado" : "perdido";
   return cases
-    .filter((caseRecord) => caseRecord.pet.estado === "perdido" && caseRecord.status !== "reunido" && caseRecord.status !== "archivado")
+    .filter((caseRecord) => caseRecord.report?.tipo_reporte === targetType && caseRecord.report.status_raw === "active")
     .map((caseRecord) => scoreCaseMatch(caseRecord, criteria))
     .filter((item) => item.percentage >= 25)
     .sort((a, b) => b.percentage - a.percentage || (a.distance ?? 999) - (b.distance ?? 999))
