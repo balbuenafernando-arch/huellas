@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { MessageCircle, ShieldCheck } from "lucide-react";
+import { Phone, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createContactRequest, contactReasonLabels, listContactRequests, updateContactRequestStatus, type ContactReason, type ContactRequest } from "@/lib/contact-requests";
 import { getCurrentUser } from "@/lib/sprint14-store";
-import { normalizePeruWhatsapp, peruWhatsappUrl } from "@/lib/whatsapp";
+import { normalizePeruWhatsapp } from "@/lib/whatsapp";
 
 const reasons: ContactReason[] = ["vista", "resguardada", "siguiendo", "fotografias", "informacion"];
 
@@ -13,7 +13,6 @@ export function SafeContact({
   reportId,
   petId,
   ownerId,
-  petName,
   whatsapp,
   owned,
   signedIn,
@@ -24,7 +23,6 @@ export function SafeContact({
   reportId: string;
   petId: string | null;
   ownerId: string | null;
-  petName: string;
   whatsapp: string;
   owned: boolean;
   signedIn: boolean;
@@ -75,7 +73,7 @@ export function SafeContact({
 
   async function setRequestStatus(id: string, status: "autorizada" | "rechazada") {
     await updateContactRequestStatus(id, status);
-    setStatusMessage(status === "autorizada" ? "Tu WhatsApp fue compartido únicamente con esta persona." : "Solicitud rechazada. No se compartió tu contacto.");
+    setStatusMessage(status === "autorizada" ? "Tu teléfono fue compartido únicamente con esta persona." : "Solicitud rechazada. No se compartió tu contacto.");
     await load();
     await onChanged?.();
   }
@@ -113,16 +111,17 @@ export function SafeContact({
 
   if (authorizedRequest && phone) {
     return (
-      <Button asChild>
-        <a href={peruWhatsappUrl(phone, `Hola. Creo tener información sobre ${petName} en HUELLA.`)} target="_blank" rel="noreferrer">
-          <MessageCircle size={18} />Abrir conversación por WhatsApp
-        </a>
-      </Button>
+      <div className="rounded-2xl border border-[#9FE1CB] bg-[#E1F5EE] p-4 text-[#085041]">
+        <p className="text-sm font-semibold">Contacto autorizado: +{phone}</p>
+        <Button className="mt-3" asChild>
+          <a href={`tel:+${phone}`}><Phone size={18} />Contactar ahora</a>
+        </Button>
+      </div>
     );
   }
 
   if (authorizedRequest) {
-    return <div className="rounded-2xl border border-[#9FE1CB] bg-[#E1F5EE] p-4 text-sm font-semibold text-[#085041]">El propietario autorizó tu solicitud. Su contacto todavía no está disponible en este caso.</div>;
+    return <div className="rounded-2xl border border-[#9FE1CB] bg-[#E1F5EE] p-4 text-sm font-semibold text-[#085041]">{authorizationLabel} autorizó tu solicitud. Su contacto todavía no está disponible en este caso.</div>;
   }
 
   if (rejectedRequest) {

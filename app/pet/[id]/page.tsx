@@ -336,7 +336,6 @@ export default function PetDetailPage() {
                 reportId={report?.id ?? pet.id}
                 petId={report?.pet_id ?? pet.id}
                 ownerId={report?.user_id ?? pet.owner_token ?? null}
-                petName={pet.nombre}
                 whatsapp={pet.whatsapp}
                 owned={owned}
                 signedIn={signedIn}

@@ -17,6 +17,25 @@ import { FriendlyError, DetailSkeleton } from "@/components/feedback";
 import { friendlyError, requiredText, validateImageFiles } from "@/lib/form-validation";
 import { cleanCaseCareNotes, legacyCaseReward } from "@/lib/case-display";
 
+function localDateValue(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value.slice(0, 10);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function localTimeValue(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "00:00";
+  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+}
+
+function localDateTimeToIso(date: string, time: string) {
+  return new Date(`${date}T${time || "00:00"}:00`).toISOString();
+}
+
 export default function EditPetPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -57,8 +76,8 @@ export default function EditPetPage() {
     const longitude = coords?.longitude ?? pet.longitud;
     const place = areaName || address || pet.distrito;
     const recompensaTexto = String(form.get("recompensa") || "").trim();
-    const fecha = String(form.get("fecha") || pet.fecha_reporte.slice(0, 10));
-    const hora = String(form.get("hora") || new Date(pet.fecha_reporte).toTimeString().slice(0, 5));
+    const fecha = String(form.get("fecha") || localDateValue(pet.fecha_reporte));
+    const hora = String(form.get("hora") || localTimeValue(pet.fecha_reporte));
     const recompensaMonto = Number(recompensaTexto.replace(/[^0-9.,]/g, "").replace(",", "."));
     const files = photoFiles.slice(0, 3);
     let fotoPrincipal = pet.foto_principal;
@@ -89,7 +108,7 @@ export default function EditPetPage() {
           estado: report.estado,
           distrito: place,
           descripcion: String(form.get("descripcion")),
-          fecha_reporte: `${fecha}T${hora || "00:00"}`,
+          fecha_reporte: localDateTimeToIso(fecha, hora),
           reward_text: recompensaTexto || null,
           whatsapp: String(form.get("whatsapp")),
           foto_url: fotoPrincipal,
@@ -197,7 +216,7 @@ export default function EditPetPage() {
             </div>
           </div>
           {coords && <div className="map-panel min-h-[300px] overflow-hidden rounded-2xl"><LocationPicker value={coords} onChange={(value) => { void movePin(value.latitude, value.longitude); }} /></div>}
-          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha *</label><input required className="field" name="fecha" type="date" defaultValue={pet.fecha_reporte.slice(0, 10)} /></div><div><label className="label">Hora *</label><input required className="field" name="hora" type="time" defaultValue={new Date(pet.fecha_reporte).toTimeString().slice(0, 5)} /></div></div>
+          <div className="grid gap-3 md:grid-cols-2"><div><label className="label">Fecha *</label><input required className="field" name="fecha" type="date" defaultValue={localDateValue(pet.fecha_reporte)} /></div><div><label className="label">Hora *</label><input required className="field" name="hora" type="time" defaultValue={localTimeValue(pet.fecha_reporte)} /></div></div>
           <div><label className="label">WhatsApp (opcional)</label><input maxLength={40} className="field" name="whatsapp" defaultValue={pet.whatsapp} /></div>
           <div><label className="label">Recompensa opcional</label><input className="field" name="recompensa" maxLength={160} defaultValue={report?.reward_text ?? pet.recompensa_texto ?? pet.recompensa_monto ?? legacyCaseReward(report?.descripcion ?? pet.descripcion)} placeholder="Ej. S/ 500" /></div>
           <div className="flex flex-wrap gap-2"><Button type="submit" disabled={saving}><Save size={18} />{saving ? "Guardando..." : "Guardar cambios"}</Button><Button type="button" variant="outline" onClick={remove}><Trash2 size={18} />Eliminar caso</Button></div>
