@@ -171,6 +171,7 @@ export default function PetDetailPage() {
   const photos = useMemo(() => pet ? Array.from(new Set([pet.foto_principal, ...(pet.fotos ?? [])])).slice(0, 3) : [], [pet]);
   const currentState = caseRecord ? searchState(caseRecord) : null;
   const isClosed = pet?.estado === "reunido" || report?.estado === "reunido" || caseRecord?.status === "reunido";
+  const isFoundReport = report?.tipo_reporte === "encontrado";
   useEffect(() => {
     if (!owned || isClosed || new URLSearchParams(window.location.search).get("cerrar") !== "1") return;
     setShowCloseConfirm(true);
@@ -327,7 +328,7 @@ export default function PetDetailPage() {
             {isClosed && <div className="mt-3 rounded-2xl bg-[#E1F5EE] p-5 text-[#085041]"><div className="text-3xl">❤</div><h2 className="mt-2 text-xl font-bold">Mascota reunida</h2><p className="mt-1 font-semibold">Caso cerrado. {pet.nombre} volvió a casa.</p><p className="mt-1 text-sm">Gracias por confiar en HUELLA{closedDate ? ` · ${formatDate(closedDate)}` : ""}.</p></div>}
             <div className="mt-4 grid gap-2 min-[390px]:flex min-[390px]:flex-wrap">
               {!isClosed && !owned && <Button asChild><Link href={`/reportar-avistamiento?caseId=${report?.id ?? pet.id}`}>{pet.estado === "encontrado" ? "Es mi mascota" : "Vi esa mascota"}</Link></Button>}
-              <ShareButton pet={pet} label={isClosed ? "Compartir historia" : "Compartir búsqueda"} />
+              <ShareButton pet={pet} label={isClosed ? "Compartir historia" : isFoundReport ? "Compartir avistamiento" : "Compartir búsqueda"} />
               {!isClosed && <PosterButton pet={pet} />}
             </div>
             {!isClosed && <div id="solicitudes-contacto" className="mt-4 scroll-mt-24">
@@ -339,16 +340,18 @@ export default function PetDetailPage() {
                 whatsapp={pet.whatsapp}
                 owned={owned}
                 signedIn={signedIn}
+                targetLabel={isFoundReport ? "a quien reportó el avistamiento" : undefined}
+                authorizationLabel={isFoundReport ? "La persona que publicó el avistamiento" : undefined}
                 onChanged={load}
               />
             </div>}
             <div className="mt-3"><ContentReportButton targetType="pet" targetId={pet.id} /></div>
             {owned && <div className="mt-3 grid gap-2 border-t border-black/10 pt-3 min-[390px]:flex min-[390px]:flex-wrap">
-              <Button variant="outline" asChild><Link href={isClosed ? `/historias-de-exito/${report?.id ?? pet.id}/editar` : `/pet/${pet.id}/editar`}><Edit size={17} />{isClosed ? "Editar historia" : "Editar caso"}</Link></Button>
+              <Button variant="outline" asChild><Link href={isClosed ? `/historias-de-exito/${report?.id ?? pet.id}/editar` : `/pet/${pet.id}/editar`}><Edit size={17} />{isClosed ? "Editar historia" : isFoundReport ? "Editar reporte" : "Editar caso"}</Link></Button>
               {report?.pet_id && <Button variant="outline" asChild><Link href={`/mascota/${report.pet_id}/historial`}>Ver historial completo del caso</Link></Button>}
-              {!isClosed && <Button variant="outline" onClick={() => setShowCloseConfirm(true)}><CheckCircle size={17} />❤️ Mi mascota volvió a casa</Button>}
-              {report?.estado === "reunido" && <Button variant="outline" onClick={reopenReport}>Reabrir búsqueda</Button>}
-              <Button variant="outline" onClick={removeReport}><Trash2 size={17} />Eliminar caso</Button>
+              {!isClosed && <Button variant="outline" onClick={() => setShowCloseConfirm(true)}><CheckCircle size={17} />{isFoundReport ? "Cerrar reporte" : "❤️ Mi mascota volvió a casa"}</Button>}
+              {report?.estado === "reunido" && <Button variant="outline" onClick={reopenReport}>{isFoundReport ? "Reabrir reporte" : "Reabrir búsqueda"}</Button>}
+              <Button variant="outline" onClick={removeReport}><Trash2 size={17} />{isFoundReport ? "Eliminar reporte" : "Eliminar caso"}</Button>
             </div>}
           </div>
 
@@ -357,13 +360,13 @@ export default function PetDetailPage() {
             const form = new FormData(event.currentTarget);
             closeReport(String(form.get("historia") || ""));
           }}>
-            <div className="text-4xl" aria-hidden="true">🎉</div>
-            <h2 className="font-serif text-2xl">¡Nos alegra saber que tu mascota volvió contigo!</h2>
-            <p className="text-sm leading-6 text-[#6B6860]">Comparte este momento para dar esperanza a otras familias.</p>
-            <div><span className="mb-1 block text-xs font-bold text-[#1D9E75]">PASO 2</span><label className="label">Fotografías del reencuentro (opcional, máximo 3)</label><PhotoUploader disabled={closing} onChange={(files) => setReunionPhotos(files)} onError={setPageError} /></div>
-            <div><span className="mb-1 block text-xs font-bold text-[#1D9E75]">PASO 3</span><label className="label">Cuéntanos brevemente cómo ocurrió el reencuentro (opcional)</label><textarea className="textarea min-h-20" name="historia" maxLength={200} placeholder="Ejemplo: Un vecino reconoció el afiche y nos llamó." /></div>
+            <div className="text-4xl" aria-hidden="true">{isFoundReport ? "✓" : "🎉"}</div>
+            <h2 className="font-serif text-2xl">{isFoundReport ? "Cerrar reporte de mascota vista" : "¡Nos alegra saber que tu mascota volvió contigo!"}</h2>
+            <p className="text-sm leading-6 text-[#6B6860]">{isFoundReport ? "Cierra este reporte cuando la mascota ya no requiera seguimiento." : "Comparte este momento para dar esperanza a otras familias."}</p>
+            <div><span className="mb-1 block text-xs font-bold text-[#1D9E75]">PASO 2</span><label className="label">{isFoundReport ? "Fotografías de cierre (opcional, máximo 3)" : "Fotografías del reencuentro (opcional, máximo 3)"}</label><PhotoUploader disabled={closing} onChange={(files) => setReunionPhotos(files)} onError={setPageError} /></div>
+            <div><span className="mb-1 block text-xs font-bold text-[#1D9E75]">PASO 3</span><label className="label">{isFoundReport ? "Cuéntanos brevemente cómo se resolvió (opcional)" : "Cuéntanos brevemente cómo ocurrió el reencuentro (opcional)"}</label><textarea className="textarea min-h-20" name="historia" maxLength={200} placeholder={isFoundReport ? "Ejemplo: La familia fue localizada y recogió a la mascota." : "Ejemplo: Un vecino reconoció el afiche y nos llamó."} /></div>
             <div className="grid gap-2 min-[390px]:flex">
-              <Button type="submit" disabled={closing}>{closing ? "Guardando reencuentro..." : "Guardar y cerrar búsqueda"}</Button>
+              <Button type="submit" disabled={closing}>{closing ? "Guardando..." : isFoundReport ? "Guardar y cerrar reporte" : "Guardar y cerrar búsqueda"}</Button>
               <Button type="button" variant="outline" disabled={closing} onClick={() => setShowCloseConfirm(false)}>Ahora no</Button>
             </div>
           </form>}
@@ -438,10 +441,10 @@ export default function PetDetailPage() {
             <h2 className="font-serif text-2xl">Información del caso</h2>
             {caseDescription && <div><h3 className="font-bold">Descripción</h3><p className="mt-1 text-sm leading-6 text-[#6B6860]">{caseDescription}</p></div>}
             <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Última ubicación</strong>{pet.direccion || pet.distrito}</div>
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Fecha de pérdida</strong>{formatDate(pet.fecha_reporte)}</div>
-              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">Hora de pérdida</strong>{new Date(pet.fecha_reporte).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</div>
-              <div className={`rounded-xl p-3 ${rewardText ? "bg-[#FAEEDA] text-[#6B4A10]" : "bg-[#F8F7F4]"}`}><strong className="block">Recompensa</strong>{rewardText || "No se ofreció recompensa"}</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">{isFoundReport ? "Ubicación del avistamiento" : "Última ubicación"}</strong>{pet.direccion || pet.distrito}</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">{isFoundReport ? "Fecha del avistamiento" : "Fecha de pérdida"}</strong>{formatDate(pet.fecha_reporte)}</div>
+              <div className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">{isFoundReport ? "Hora del avistamiento" : "Hora de pérdida"}</strong>{new Date(pet.fecha_reporte).toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })}</div>
+              {!isFoundReport && <div className={`rounded-xl p-3 ${rewardText ? "bg-[#FAEEDA] text-[#6B4A10]" : "bg-[#F8F7F4]"}`}><strong className="block">Recompensa</strong>{rewardText || "No se ofreció recompensa"}</div>}
             </div>
             {petDetails.length > 0 && <div className="grid gap-2 text-sm min-[430px]:grid-cols-2">{petDetails.map(([label, value]) => <div key={label} className="rounded-xl bg-[#F8F7F4] p-3"><strong className="block text-[#085041]">{label}</strong>{value}</div>)}</div>}
             {recognitionDetails && <><h2 className="font-bold">Cómo reconocerla</h2><p className="text-sm text-[#6B6860]">{recognitionDetails}</p></>}

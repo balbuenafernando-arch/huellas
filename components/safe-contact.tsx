@@ -17,6 +17,8 @@ export function SafeContact({
   whatsapp,
   owned,
   signedIn,
+  targetLabel = "al dueño",
+  authorizationLabel = "El dueño",
   onChanged,
 }: {
   reportId: string;
@@ -26,6 +28,8 @@ export function SafeContact({
   whatsapp: string;
   owned: boolean;
   signedIn: boolean;
+  targetLabel?: string;
+  authorizationLabel?: string;
   onChanged?: () => void | Promise<void>;
 }) {
   const [requests, setRequests] = useState<ContactRequest[]>([]);
@@ -59,7 +63,7 @@ export function SafeContact({
     try {
       await createContactRequest({ report_id: reportId, pet_id: petId, owner_id: ownerId, reason, message: message.trim().slice(0, 200) || null });
       setMessage("");
-      setStatusMessage("Solicitud enviada. El dueño decidirá si comparte su contacto.");
+      setStatusMessage(`Solicitud enviada. ${authorizationLabel} decidirá si comparte su contacto.`);
       await load();
       await onChanged?.();
     } catch {
@@ -122,12 +126,12 @@ export function SafeContact({
   }
 
   if (rejectedRequest) {
-    return <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-4 text-sm font-semibold text-[#6B6860]">El dueño no autorizó compartir su contacto.</div>;
+    return <div className="rounded-2xl border border-black/10 bg-[#F8F7F4] p-4 text-sm font-semibold text-[#6B6860]">{authorizationLabel} no autorizó compartir su contacto.</div>;
   }
 
   return (
     <form onSubmit={submit} className="rounded-2xl border border-black/10 bg-white p-4">
-      <div className="mb-3 flex items-center gap-2 font-bold"><ShieldCheck size={18} className="text-[#1D9E75]" />Quiero contactar al dueño</div>
+      <div className="mb-3 flex items-center gap-2 font-bold"><ShieldCheck size={18} className="text-[#1D9E75]" />Quiero contactar {targetLabel}</div>
       {ownRequest ? <p className="text-sm font-semibold text-[#6B6860]">Tu solicitud está pendiente.</p> : <>
         <label className="label">Motivo</label>
         <select className="select" value={reason} onChange={(event) => setReason(event.target.value as ContactReason)}>

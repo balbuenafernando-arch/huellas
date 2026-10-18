@@ -107,7 +107,10 @@ export function SightingReviewSection({ reportId, petName, species, latitude, lo
                 <Button type="button" size="sm" variant="outline" className="max-w-full whitespace-normal break-words text-center" disabled={busyId === sighting.id} onClick={() => decide(sighting.id, "descartado")}>No es {petName}</Button>
                 {decision && <Button type="button" size="sm" variant="outline" disabled={busyId === sighting.id} onClick={() => decide(sighting.id, null)}>Volver a por revisar</Button>}
               </div>
-              {decision === "podria_ser" && <p className="text-sm text-[#6B6860]">El caso sigue abierto. El contacto requiere la autorización habitual. <Link href="#solicitudes-contacto" className="font-semibold underline">Ver solicitudes de contacto</Link></p>}
+              {decision === "podria_ser" && <div className="space-y-2 text-sm text-[#6B6860]">
+                <p>El caso sigue abierto. El contacto requiere la autorización habitual.</p>
+                {sighting.report_id ? <Button type="button" size="sm" variant="outline" asChild><Link href={`/pet/${sighting.report_id}#solicitudes-contacto`}>Solicitar contacto al autor</Link></Button> : <p>No hay un medio de contacto disponible para este reporte.</p>}
+              </div>}
             </div>}
           </div>
         </article>;
